@@ -41,9 +41,25 @@ class UserController extends Controller
         ]);
 
         if ($validator->fails()) {
+            $errors = $validator->errors();
+            $message = 'Validation failed';
+            $messageEs = 'Error de validación';
+            
+            if ($errors->has('email')) {
+                $message = 'This email is already registered';
+                $messageEs = 'Este correo ya está registrado';
+            }
+            
+            if ($errors->has('name')) {
+                $message = 'Name is required';
+                $messageEs = 'El nombre es requerido';
+            }
+            
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors(),
+                'message' => $message,
+                'message_es' => $messageEs,
+                'errors' => $errors,
             ], 422);
         }
 
