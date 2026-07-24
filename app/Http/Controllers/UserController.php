@@ -15,9 +15,21 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $users = User::all();
+        
+        // Remove duplicates based on email
+        $uniqueUsers = [];
+        $seenEmails = [];
+        
+        foreach ($users as $user) {
+            if (!in_array($user->email, $seenEmails)) {
+                $seenEmails[] = $user->email;
+                $uniqueUsers[] = $user;
+            }
+        }
+        
         return response()->json([
             'success' => true,
-            'users' => $users,
+            'users' => $uniqueUsers,
         ]);
     }
 

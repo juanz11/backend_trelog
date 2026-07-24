@@ -5,6 +5,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserInvitationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ZoneController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,6 +41,36 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [UserController::class, 'show']);
         Route::put('/{id}', [UserController::class, 'update']);
         Route::delete('/{id}', [UserController::class, 'destroy']);
+    });
+
+    // Role Management Routes
+    Route::prefix('roles')->group(function () {
+        Route::get('/', [RoleController::class, 'index']);
+        Route::get('/{id}', [RoleController::class, 'show']);
+        Route::post('/', [RoleController::class, 'store']);
+        Route::put('/{id}', [RoleController::class, 'update']);
+        Route::delete('/{id}', [RoleController::class, 'destroy']);
+        Route::post('/{roleId}/permissions', [RoleController::class, 'addPermission']);
+        Route::delete('/{roleId}/permissions/{permissionId}', [RoleController::class, 'removePermission']);
+    });
+
+    // Permission Management Routes
+    Route::prefix('permissions')->group(function () {
+        Route::get('/', [PermissionController::class, 'index']);
+        Route::get('/{id}', [PermissionController::class, 'show']);
+        Route::get('/module/{module}', [PermissionController::class, 'getByModule']);
+        Route::post('/', [PermissionController::class, 'store']);
+        Route::put('/{id}', [PermissionController::class, 'update']);
+        Route::delete('/{id}', [PermissionController::class, 'destroy']);
+    });
+
+    // Zone Management Routes
+    Route::prefix('zones')->group(function () {
+        Route::get('/', [ZoneController::class, 'index']);
+        Route::get('/{id}', [ZoneController::class, 'show']);
+        Route::post('/', [ZoneController::class, 'store']);
+        Route::put('/{id}', [ZoneController::class, 'update']);
+        Route::delete('/{id}', [ZoneController::class, 'destroy']);
     });
 });
 
