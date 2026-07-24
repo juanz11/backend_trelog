@@ -20,6 +20,9 @@ use App\Http\Controllers\UserController;
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/verify-reset-token', [AuthController::class, 'verifyResetToken']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 // User registration (public)
 Route::post('/users', [UserController::class, 'store']);
