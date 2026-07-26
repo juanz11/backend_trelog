@@ -14,7 +14,7 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $users = User::all();
+        $users = User::with('roles')->get();
         
         // Remove duplicates based on email
         $uniqueUsers = [];
@@ -41,7 +41,8 @@ class UserController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
-            'role' => 'required|in:customer,driver,dispatcher,manager',
+            'roles' => 'required|array',
+            'roles.*' => 'exists:roles,id',
             'status' => 'required|in:pending,active,suspended',
             'password' => 'sometimes|string|min:8',
             'phone' => 'nullable|string',
@@ -67,6 +68,11 @@ class UserController extends Controller
                 $messageEs = 'El nombre es requerido';
             }
             
+            if ($errors->has('roles')) {
+                $message = 'Valid roles are required';
+                $messageEs = 'Se requieren roles válidos';
+            }
+            
             return response()->json([
                 'success' => false,
                 'message' => $message,
@@ -81,7 +87,7 @@ class UserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($password),
-            'role' => $request->role,
+            'role' => $request->roles[0] ?? null, // Keep single role for backward compatibility
             'status' => $request->status,
             'phone' => $request->phone,
             'business_name' => $request->business_name,
@@ -91,9 +97,12 @@ class UserController extends Controller
             'payment_method' => $request->payment_method,
         ]);
 
+        // Attach multiple roles
+        $user->roles()->attach($request->roles);
+
         return response()->json([
             'success' => true,
-            'user' => $user,
+            'user' => $user->load('roles'),
             'message' => 'User created successfully',
         ], 201);
     }
@@ -103,7 +112,7 @@ class UserController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $user = User::find($id);
+        $user = User::with('roles')->find($id);
         
         if (!$user) {
             return response()->json([
@@ -144,7 +153,8 @@ class UserController extends Controller
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|string|email|max:255|unique:users,email,' . $id,
             'password' => 'sometimes|string|min:8',
-            'role' => 'sometimes|in:customer,driver,dispatcher,manager,admin',
+            'roles' => 'sometimes|array',
+            'roles.*' => 'exists:roles,id',
             'status' => 'sometimes|in:active,pending,suspended',
         ]);
 
@@ -156,7 +166,7 @@ class UserController extends Controller
         }
 
         // Only admins can change roles
-        if ($request->has('role') && !$request->user()->isAdmin()) {
+        if ($request->has('roles') && !$request->user()->isAdmin()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only admins can change roles',
@@ -172,8 +182,10 @@ class UserController extends Controller
         if ($request->has('password')) {
             $user->password = Hash::make($request->password);
         }
-        if ($request->has('role') && $request->user()->isAdmin()) {
-            $user->role = $request->role;
+        if ($request->has('roles') && $request->user()->isAdmin()) {
+            $user->roles()->sync($request->roles);
+            // Keep single role for backward compatibility
+            $user->role = $request->roles[0] ?? null;
         }
         if ($request->has('status') && $request->user()->isAdmin()) {
             $user->status = $request->status;
@@ -183,7 +195,7 @@ class UserController extends Controller
 
         return response()->json([
             'success' => true,
-            'user' => $user,
+            'user' => $user->load('roles'),
         ]);
     }
 
