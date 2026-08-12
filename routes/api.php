@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\QuoteController;
 use App\Http\Controllers\Api\Driver\DashboardController;
 use App\Http\Controllers\Api\Driver\DriverAuthController;
 use App\Http\Controllers\Api\Driver\IncidentController;
@@ -14,9 +15,17 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgot']);
 Route::post('/reset-password', [AuthController::class, 'reset']);
 
+Route::post('/quotes', [QuoteController::class, 'store']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    Route::get('/quotes', [QuoteController::class, 'index']);
+    Route::get('/quotes/pending-count', [QuoteController::class, 'pendingCount']);
+    Route::get('/quotes/{quote}', [QuoteController::class, 'show']);
+    Route::post('/quotes/{quote}/viewed', [QuoteController::class, 'markViewed']);
+    Route::patch('/quotes/{quote}/status', [QuoteController::class, 'updateStatus']);
 });
 
 // -----------------------------------------------------------------------

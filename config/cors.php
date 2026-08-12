@@ -18,7 +18,10 @@ return [
 
     'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:3000')],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '/^http:\/\/localhost:\d+$/',
+        '/^https?:\/\/.*\.tr3slog\.com$/',
+    ],
 
     'allowed_headers' => ['*'],
 
