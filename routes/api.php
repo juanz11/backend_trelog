@@ -8,6 +8,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ZoneController;
+use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\ShipmentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -71,6 +73,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [ZoneController::class, 'store']);
         Route::put('/{id}', [ZoneController::class, 'update']);
         Route::delete('/{id}', [ZoneController::class, 'destroy']);
+    });
+
+    // Quote Management Routes
+    Route::prefix('quotes')->group(function () {
+        Route::get('/', [QuoteController::class, 'index']);
+        Route::post('/', [QuoteController::class, 'store']);
+        Route::get('/pending-count', [QuoteController::class, 'pendingCount']);
+    });
+
+    // Shipment Management Routes
+    Route::prefix('shipments')->group(function () {
+        Route::get('/', [ShipmentController::class, 'index']);
+        Route::post('/', [ShipmentController::class, 'store']);
+        Route::get('/{id}', [ShipmentController::class, 'show']);
+        Route::put('/{id}', [ShipmentController::class, 'update']);
+        Route::delete('/{id}', [ShipmentController::class, 'destroy']);
     });
 });
 
