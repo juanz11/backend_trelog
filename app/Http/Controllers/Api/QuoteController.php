@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\QuoteCreatedMail;
 use App\Models\Quote;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class QuoteController extends Controller
 {
@@ -34,7 +37,14 @@ class QuoteController extends Controller
             'client_email' => $validated['client_email'],
             'details' => $validated['details'] ?? null,
             'status' => 'pending',
+            'tracking_code' => $this->generateTrackingCode(),
         ]);
+
+        try {
+            Mail::to($quote->client_email)->send(new QuoteCreatedMail($quote));
+        } catch (\Throwable $e) {
+            // Si el SMTP no está configurado, no fallamos la respuesta.
+        }
 
         return response()->json($quote, 201);
     }
@@ -100,5 +110,34 @@ class QuoteController extends Controller
         }
 
         return response()->json($quote);
+    }
+
+    public function track($trackingCode): JsonResponse
+    {
+        $quote = Quote::where('tracking_code', $trackingCode)->first();
+
+        if (! $quote) {
+            return response()->json(['message' => 'Cotización no encontrada.'], 404);
+        }
+
+        return response()->json($quote);
+    }
+
+    private function generateTrackingCode(): string
+    {
+        do {
+            $date = now()->format('ymd');
+
+            $letters = '';
+            for ($i = 0; $i < 4; $i++) {
+                $letters .= chr(random_int(65, 90));
+            }
+
+            $numbers = str_pad(random_int(0, 99999), 5, '0', STR_PAD_LEFT);
+
+            $code = "TR3-{$date}-{$letters}-{$numbers}";
+        } while (Quote::where('tracking_code', $code)->exists());
+
+        return $code;
     }
 }

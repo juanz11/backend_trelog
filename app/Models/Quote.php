@@ -17,9 +17,12 @@ use Illuminate\Database\Eloquent\Model;
     'details',
     'status',
     'viewed_at',
+    'tracking_code',
 ])]
 class Quote extends Model
 {
+    protected $appends = ['estimated_delivery'];
+
     protected function casts(): array
     {
         return [
@@ -27,5 +30,17 @@ class Quote extends Model
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
+    }
+
+    public function getEstimatedDeliveryAttribute(): string
+    {
+        $days = match ($this->service_type) {
+            'same-day' => 0,
+            'express' => 1,
+            'standard' => 2,
+            default => 1,
+        };
+
+        return now()->addDays($days)->setTime(16, 30, 0)->toIso8601String();
     }
 }

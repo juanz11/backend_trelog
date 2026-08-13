@@ -120,6 +120,7 @@ Route::prefix('app')->group(function () {
     Route::post('/reset-password', [ApiAuthController::class, 'reset']);
 
     Route::post('/quotes', [ApiQuoteController::class, 'store']);
+    Route::get('/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/user', [ApiAuthController::class, 'user']);
