@@ -10,6 +10,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\ShipmentController;
+use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
 use App\Http\Controllers\Api\Driver\DashboardController;
@@ -44,6 +45,7 @@ Route::post('/users', [UserController::class, 'store']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/alerts', [AlertController::class, 'index']);
     
     // User Management Routes
     Route::prefix('users')->group(function () {
