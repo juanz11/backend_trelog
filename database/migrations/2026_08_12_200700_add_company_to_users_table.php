@@ -6,26 +6,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        if (Schema::hasColumn('users', 'role')) {
-            return;
-        }
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->default('customer')->after('email');
+            if (!Schema::hasColumn('users', 'company')) {
+                $table->string('company')->nullable()->after('name');
+            }
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('role');
+            $table->dropColumn('company');
         });
     }
 };

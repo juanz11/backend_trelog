@@ -16,12 +16,14 @@ use Illuminate\Database\Eloquent\Model;
     'client_email',
     'details',
     'status',
+    'viewed_at',
 ])]
 class Quote extends Model
 {
     protected function casts(): array
     {
         return [
+            'viewed_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];

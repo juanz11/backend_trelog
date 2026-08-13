@@ -10,6 +10,14 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\ShipmentController;
+use App\Http\Controllers\Api\AuthController as ApiAuthController;
+use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
+use App\Http\Controllers\Api\Driver\DashboardController;
+use App\Http\Controllers\Api\Driver\DriverAuthController;
+use App\Http\Controllers\Api\Driver\IncidentController;
+use App\Http\Controllers\Api\Driver\PayrollController;
+use App\Http\Controllers\Api\Driver\RouteController;
+use App\Http\Controllers\Api\Driver\StopController;
 
 /*
 |--------------------------------------------------------------------------
@@ -100,4 +108,53 @@ Route::prefix('invitations')->group(function () {
     Route::post('/accept', [UserInvitationController::class, 'acceptInvitation']);
     Route::get('/pending', [UserInvitationController::class, 'getPendingInvitations']);
     Route::post('/resend', [UserInvitationController::class, 'resendInvitation']);
+});
+
+// -----------------------------------------------------------------------
+// Flutter App Routes (Api namespace - customer facing)
+// -----------------------------------------------------------------------
+Route::prefix('app')->group(function () {
+    Route::post('/register', [ApiAuthController::class, 'register']);
+    Route::post('/login', [ApiAuthController::class, 'login']);
+    Route::post('/forgot-password', [ApiAuthController::class, 'forgot']);
+    Route::post('/reset-password', [ApiAuthController::class, 'reset']);
+
+    Route::post('/quotes', [ApiQuoteController::class, 'store']);
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/user', [ApiAuthController::class, 'user']);
+        Route::post('/logout', [ApiAuthController::class, 'logout']);
+
+        Route::get('/quotes', [ApiQuoteController::class, 'index']);
+        Route::get('/quotes/pending-count', [ApiQuoteController::class, 'pendingCount']);
+        Route::get('/quotes/{quote}', [ApiQuoteController::class, 'show']);
+        Route::post('/quotes/{quote}/viewed', [ApiQuoteController::class, 'markViewed']);
+        Route::patch('/quotes/{quote}/status', [ApiQuoteController::class, 'updateStatus']);
+    });
+});
+
+// -----------------------------------------------------------------------
+// Driver app (tr3slog_driver_app)
+// -----------------------------------------------------------------------
+Route::prefix('driver')->group(function () {
+    Route::post('/register', [DriverAuthController::class, 'register']);
+    Route::post('/login', [DriverAuthController::class, 'login']);
+
+    Route::middleware(['auth:sanctum', 'driver'])->group(function () {
+        Route::get('/me', [DriverAuthController::class, 'me']);
+        Route::post('/logout', [DriverAuthController::class, 'logout']);
+
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+
+        Route::get('/routes', [RouteController::class, 'index']);
+        Route::get('/routes/{route}', [RouteController::class, 'show']);
+
+        Route::post('/stops/{stop}/confirm', [StopController::class, 'confirm']);
+        Route::post('/stops/{stop}/fail', [StopController::class, 'fail']);
+
+        Route::get('/incidents', [IncidentController::class, 'index']);
+        Route::post('/incidents', [IncidentController::class, 'store']);
+
+        Route::get('/payroll', [PayrollController::class, 'index']);
+    });
 });

@@ -11,6 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('user_invitations')) {
+            return;
+        }
         Schema::create('user_invitations', function (Blueprint $table) {
             $table->id();
             $table->string('email')->unique();

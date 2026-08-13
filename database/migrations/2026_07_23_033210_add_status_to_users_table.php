@@ -11,6 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('users', 'status')) {
+            return;
+        }
         Schema::table('users', function (Blueprint $table) {
             $table->enum('status', ['pending', 'active', 'suspended'])->default('pending')->after('role');
         });

@@ -12,12 +12,24 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('phone')->nullable()->after('status');
-            $table->string('business_name')->nullable()->after('phone');
-            $table->string('street_address')->nullable()->after('business_name');
-            $table->string('city')->nullable()->after('street_address');
-            $table->string('zone')->nullable()->after('city');
-            $table->string('payment_method')->nullable()->after('zone');
+            if (!Schema::hasColumn('users', 'phone')) {
+                $table->string('phone')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'business_name')) {
+                $table->string('business_name')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'street_address')) {
+                $table->string('street_address')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'city')) {
+                $table->string('city')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'zone')) {
+                $table->string('zone')->nullable();
+            }
+            if (!Schema::hasColumn('users', 'payment_method')) {
+                $table->string('payment_method')->nullable();
+            }
         });
     }
 

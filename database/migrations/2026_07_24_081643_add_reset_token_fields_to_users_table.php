@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('users', 'reset_token')) {
+            return;
+        }
         Schema::table('users', function (Blueprint $table) {
-            $table->string('reset_token')->nullable()->after('payment_method');
-            $table->timestamp('reset_token_expires')->nullable()->after('reset_token');
+            $table->string('reset_token')->nullable();
+            $table->timestamp('reset_token_expires')->nullable();
         });
     }
 
