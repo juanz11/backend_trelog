@@ -11,6 +11,7 @@ use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\AlertController;
+use App\Http\Controllers\AddressController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
 use App\Http\Controllers\Api\Driver\DashboardController;
@@ -46,7 +47,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/alerts', [AlertController::class, 'index']);
-    
+
+    // Address Management Routes
+    Route::prefix('addresses')->group(function () {
+        Route::get('/', [AddressController::class, 'index']);
+        Route::post('/', [AddressController::class, 'store']);
+        Route::get('/{address}', [AddressController::class, 'show']);
+        Route::put('/{address}', [AddressController::class, 'update']);
+        Route::delete('/{address}', [AddressController::class, 'destroy']);
+    });
+
     // User Management Routes
     Route::prefix('users')->group(function () {
         Route::get('/', [UserController::class, 'index']);

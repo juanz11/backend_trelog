@@ -92,4 +92,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(DriverAlert::class, 'driver_id');
     }
+
+    /**
+     * User addresses.
+     */
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(Address::class);
+    }
 }
