@@ -51,11 +51,7 @@ class QuoteController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user();
-
-        if ($user->role !== 'admin') {
-            return response()->json(['message' => 'No autorizado.'], 403);
-        }
+        $this->authorize('viewAny', Quote::class);
 
         $quotes = Quote::orderByDesc('created_at')->paginate(50);
 
@@ -64,11 +60,7 @@ class QuoteController extends Controller
 
     public function pendingCount(Request $request): JsonResponse
     {
-        $user = $request->user();
-
-        if ($user->role !== 'admin') {
-            return response()->json(['count' => 0], 403);
-        }
+        $this->authorize('viewAny', Quote::class);
 
         $count = Quote::where('status', 'pending')->count();
 
@@ -77,18 +69,14 @@ class QuoteController extends Controller
 
     public function show(Request $request, Quote $quote): JsonResponse
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'No autorizado.'], 403);
-        }
+        $this->authorize('view', $quote);
 
         return response()->json($quote);
     }
 
     public function updateStatus(Request $request, Quote $quote): JsonResponse
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'No autorizado.'], 403);
-        }
+        $this->authorize('update', $quote);
 
         $data = $request->validate([
             'status' => ['required', 'in:pending,processing,approved,rejected'],
@@ -101,9 +89,7 @@ class QuoteController extends Controller
 
     public function markViewed(Request $request, Quote $quote): JsonResponse
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'No autorizado.'], 403);
-        }
+        $this->authorize('view', $quote);
 
         if (! $quote->viewed_at) {
             $quote->update(['viewed_at' => now()]);

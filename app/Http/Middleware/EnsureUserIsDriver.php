@@ -10,7 +10,7 @@ class EnsureUserIsDriver
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->user()?->role !== 'driver') {
+        if (! $request->user()?->hasRole('driver')) {
             return response()->json([
                 'message' => 'Esta sección es exclusiva para conductores.',
             ], 403);

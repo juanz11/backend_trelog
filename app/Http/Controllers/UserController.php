@@ -14,6 +14,8 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', User::class);
+
         $users = User::with('roles')->get();
         
         // Remove duplicates based on email
@@ -38,6 +40,7 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('create', User::class);
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
@@ -87,7 +90,6 @@ class UserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($password),
-            'role' => $request->roles[0] ?? null, // Keep single role for backward compatibility
             'status' => $request->status,
             'phone' => $request->phone,
             'business_name' => $request->business_name,
@@ -113,13 +115,15 @@ class UserController extends Controller
     public function show(Request $request, $id)
     {
         $user = User::with('roles')->find($id);
-        
+
         if (!$user) {
             return response()->json([
                 'success' => false,
                 'message' => 'User not found',
             ], 404);
         }
+
+        $this->authorize('view', $user);
 
         return response()->json([
             'success' => true,
@@ -133,7 +137,7 @@ class UserController extends Controller
     public function update(Request $request, $id)
     {
         $user = User::find($id);
-        
+
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -141,13 +145,7 @@ class UserController extends Controller
             ], 404);
         }
 
-        // Check if user is admin or updating own profile
-        if (!$request->user()->isAdmin() && $request->user()->id != $user->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Access denied',
-            ], 403);
-        }
+        $this->authorize('update', $user);
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
@@ -184,8 +182,6 @@ class UserController extends Controller
         }
         if ($request->has('roles') && $request->user()->isAdmin()) {
             $user->roles()->sync($request->roles);
-            // Keep single role for backward compatibility
-            $user->role = $request->roles[0] ?? null;
         }
         if ($request->has('status') && $request->user()->isAdmin()) {
             $user->status = $request->status;
@@ -205,13 +201,15 @@ class UserController extends Controller
     public function destroy(Request $request, $id)
     {
         $user = User::find($id);
-        
+
         if (!$user) {
             return response()->json([
                 'success' => false,
                 'message' => 'User not found',
             ], 404);
         }
+
+        $this->authorize('delete', $user);
 
         // Prevent admin from deleting themselves
         if ($request->user()->id == $user->id) {

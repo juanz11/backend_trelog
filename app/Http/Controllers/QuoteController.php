@@ -31,11 +31,15 @@ class QuoteController extends Controller
 
     public function index(): JsonResponse
     {
+        $this->authorize('viewAny', Quote::class);
+
         return response()->json(Quote::orderByDesc('created_at')->get());
     }
 
     public function pendingCount(): JsonResponse
     {
+        $this->authorize('viewAny', Quote::class);
+
         return response()->json([
             'count' => Quote::where('status', 'pending')->count(),
         ]);

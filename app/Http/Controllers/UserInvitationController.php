@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\UserInvitationMail;
 use App\Models\UserInvitation;
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
@@ -252,9 +253,13 @@ class UserInvitationController extends Controller
             'name' => $invitation->name,
             'email' => $invitation->email,
             'password' => Hash::make($request->password),
-            'role' => 'customer',
             'status' => 'active',
         ]);
+
+        $customerRole = Role::where('name', 'customer')->first();
+        if ($customerRole) {
+            $user->roles()->attach($customerRole);
+        }
 
         // Mark invitation as accepted
         $invitation->status = 'accepted';

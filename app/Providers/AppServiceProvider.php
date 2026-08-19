@@ -2,6 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\Quote;
+use App\Models\Shipment;
+use App\Models\User;
+use App\Policies\QuotePolicy;
+use App\Policies\ShipmentPolicy;
+use App\Policies\UserPolicy;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +26,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Gate::policy(Quote::class, QuotePolicy::class);
+        Gate::policy(Shipment::class, ShipmentPolicy::class);
+        Gate::policy(User::class, UserPolicy::class);
     }
 }

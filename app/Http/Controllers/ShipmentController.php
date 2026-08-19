@@ -10,11 +10,15 @@ class ShipmentController extends Controller
 {
     public function index(): JsonResponse
     {
+        $this->authorize('viewAny', Shipment::class);
+
         return response()->json(Shipment::orderByDesc('created_at')->get());
     }
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', Shipment::class);
+
         $data = $request->validate([
             'tracking_number' => 'nullable|string|max:255',
             'origin' => 'nullable|string|max:255',
@@ -40,12 +44,18 @@ class ShipmentController extends Controller
 
     public function show(string $id): JsonResponse
     {
-        return response()->json(Shipment::findOrFail($id));
+        $shipment = Shipment::findOrFail($id);
+
+        $this->authorize('view', $shipment);
+
+        return response()->json($shipment);
     }
 
     public function update(Request $request, string $id): JsonResponse
     {
         $shipment = Shipment::findOrFail($id);
+
+        $this->authorize('update', $shipment);
 
         $data = $request->validate([
             'tracking_number' => 'nullable|string|max:255',
@@ -69,7 +79,11 @@ class ShipmentController extends Controller
 
     public function destroy(string $id): JsonResponse
     {
-        Shipment::findOrFail($id)->delete();
+        $shipment = Shipment::findOrFail($id);
+
+        $this->authorize('delete', $shipment);
+
+        $shipment->delete();
 
         return response()->json(['message' => 'Envío eliminado.']);
     }

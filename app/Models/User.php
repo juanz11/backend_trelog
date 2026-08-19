@@ -13,7 +13,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'company', 'phone', 'email', 'password', 'role', 'status', 'business_name', 'street_address', 'city', 'zone', 'payment_method', 'reset_token', 'reset_token_expires'])]
+#[Fillable(['name', 'company', 'phone', 'email', 'password', 'status', 'business_name', 'street_address', 'city', 'zone', 'payment_method', 'reset_token', 'reset_token_expires'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -63,6 +63,18 @@ class User extends Authenticatable
     public function isAdmin()
     {
         return $this->hasRole('admin');
+    }
+
+    /**
+     * Check if user has a specific permission through its roles.
+     */
+    public function hasPermission(string $permissionName): bool
+    {
+        return $this->roles()
+            ->whereHas('permissions', function ($query) use ($permissionName) {
+                $query->where('name', $permissionName);
+            })
+            ->exists();
     }
 
     /**

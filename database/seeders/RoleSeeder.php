@@ -20,24 +20,24 @@ class RoleSeeder extends Seeder
                 'description' => 'Cliente regular que puede crear y rastrear envíos',
             ],
             [
-                'name' => 'driver',
-                'display_name' => 'Conductor',
-                'description' => 'Conductor que puede gestionar envíos asignados',
-            ],
-            [
-                'name' => 'dispatcher',
-                'display_name' => 'Despachador',
-                'description' => 'Despachador que puede gestionar envíos y conductores',
-            ],
-            [
-                'name' => 'manager',
-                'display_name' => 'Gerente',
-                'description' => 'Gerente con permisos administrativos limitados',
+                'name' => 'company',
+                'display_name' => 'Empresa',
+                'description' => 'Empresa con múltiples envíos y usuarios asociados',
             ],
             [
                 'name' => 'admin',
                 'display_name' => 'Administrador',
                 'description' => 'Administrador del sistema con todos los permisos',
+            ],
+            [
+                'name' => 'operations',
+                'display_name' => 'Operaciones',
+                'description' => 'Equipo de operaciones que gestiona envíos y conductores',
+            ],
+            [
+                'name' => 'driver',
+                'display_name' => 'Conductor',
+                'description' => 'Conductor que puede gestionar envíos asignados',
             ],
         ];
 

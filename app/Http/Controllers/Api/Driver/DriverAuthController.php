@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Driver;
 use App\Http\Controllers\Controller;
 use App\Models\DriverProfile;
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -28,8 +29,12 @@ class DriverAuthController extends Controller
             'phone' => $validated['phone'] ?? null,
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role' => 'driver',
         ]);
+
+        $driverRole = Role::where('name', 'driver')->first();
+        if ($driverRole) {
+            $user->roles()->attach($driverRole);
+        }
 
         $user->driverProfile()->save(new DriverProfile([
             'initials' => $this->initialsFromName($validated['name']),
@@ -60,7 +65,7 @@ class DriverAuthController extends Controller
             ]);
         }
 
-        if ($user->role !== 'driver') {
+        if (! $user->hasRole('driver')) {
             throw ValidationException::withMessages([
                 'email' => ['Esta cuenta no tiene acceso a la app de conductores.'],
             ]);

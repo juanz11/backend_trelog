@@ -7,6 +7,7 @@ use App\Models\DriverAlert;
 use App\Models\DriverProfile;
 use App\Models\Incident;
 use App\Models\PayrollPeriod;
+use App\Models\Role;
 use App\Models\RouteAuditLog;
 use App\Models\RouteStop;
 use App\Models\User;
@@ -23,9 +24,14 @@ class DriverSeeder extends Seeder
                 'name' => 'E. Rivera',
                 'phone' => '787-555-0110',
                 'password' => Hash::make('password'),
-                'role' => 'driver',
             ]
         );
+
+        $driverRole = Role::where('name', 'driver')->first();
+
+        if ($driverRole && ! $driver->roles()->where('roles.id', $driverRole->id)->exists()) {
+            $driver->roles()->attach($driverRole);
+        }
 
         DriverProfile::updateOrCreate(
             ['user_id' => $driver->id],

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Role;
 use App\Mail\PasswordResetMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,7 +22,7 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8',
-            'role' => 'nullable|in:customer,driver,dispatcher,manager,admin',
+            'role' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -35,8 +36,14 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => $request->role ?? 'customer',
         ]);
+
+        $roleName = $request->role ?? 'customer';
+        $role = Role::where('name', $roleName)->first();
+
+        if ($role) {
+            $user->roles()->attach($role);
+        }
 
         $token = $user->createToken('auth-token')->plainTextToken;
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\ResetPasswordMail;
 use App\Mail\WelcomeMail;
 use App\Models\User;
+use App\Models\Role;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,8 +35,12 @@ class AuthController extends Controller
             'phone' => $validated['phone'] ?? null,
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role' => 'customer',
         ]);
+
+        $customerRole = Role::where('name', 'customer')->first();
+        if ($customerRole) {
+            $user->roles()->attach($customerRole);
+        }
 
         $token = $user->createToken('api-token')->plainTextToken;
 
