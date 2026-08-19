@@ -12,6 +12,7 @@ use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AddressController;
+use App\Http\Controllers\SupportController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
 use App\Http\Controllers\Api\Driver\DashboardController;
@@ -55,6 +56,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{address}', [AddressController::class, 'show']);
         Route::put('/{address}', [AddressController::class, 'update']);
         Route::delete('/{address}', [AddressController::class, 'destroy']);
+    });
+
+    // Support Tickets Routes
+    Route::prefix('support')->group(function () {
+        Route::post('/', [SupportController::class, 'store']);
+        Route::get('/', [SupportController::class, 'index']);
+        Route::get('/{ticket}', [SupportController::class, 'show']);
+        Route::put('/{ticket}', [SupportController::class, 'update']);
     });
 
     // User Management Routes
