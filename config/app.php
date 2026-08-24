@@ -59,8 +59,8 @@ return [
     | Frontend URL
     |--------------------------------------------------------------------------
     |
-    | This URL is used to generate links included in emails sent to users.
-    | Configure it independently in each deployment environment.
+    | This URL is used by the application when generating links to the
+    | frontend application, such as invitation or password reset links.
     |
     */
 
