@@ -159,7 +159,7 @@ class AuthController extends Controller
         $user->save();
 
         // Generate reset link
-        $resetLink = env('FRONTEND_URL', 'http://localhost:5173') . '/reset-password/' . $resetToken;
+        $resetLink = env('FRONTEND_URL', 'http://localhost:3000') . '/reset-password/' . $resetToken;
         
         try {
             // Send email with reset link

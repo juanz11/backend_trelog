@@ -51,7 +51,7 @@ class UserInvitationController extends Controller
             $token = Str::random(32);
             
             // Create invitation URL
-            $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
             $invitationUrl = $frontendUrl . '/register?token=' . $token;
 
             // Save invitation to database
@@ -124,7 +124,7 @@ class UserInvitationController extends Controller
 
         foreach ($request->invitations as $invitation) {
             $token = Str::random(32);
-            $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
             $invitationUrl = $frontendUrl . '/register?token=' . $token;
 
             try {
@@ -333,7 +333,7 @@ class UserInvitationController extends Controller
         $invitation->save();
 
         // Create invitation URL
-        $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
         $invitationUrl = $frontendUrl . '/register?token=' . $token;
 
         // Send email
