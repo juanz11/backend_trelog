@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserInvitationController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
@@ -42,6 +43,9 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 // User registration (public)
 Route::post('/users', [UserController::class, 'store']);
+
+// Public contact form
+Route::post('/contact', [ContactController::class, 'store']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {

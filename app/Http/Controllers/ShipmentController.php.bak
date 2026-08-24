@@ -8,24 +8,11 @@ use Illuminate\Http\Request;
 
 class ShipmentController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
         $this->authorize('viewAny', Shipment::class);
 
-        $user = $request->user();
-        $query = Shipment::query();
-
-        if ($user->hasPermission('shipments.view')) {
-            // admin/operaciones: no filtra
-        } elseif ($user->hasPermission('shipments.view_own')) {
-            $query->where('user_id', $user->id);
-        } elseif ($user->hasPermission('shipments.view_assigned')) {
-            $query->where('driver_id', $user->driverProfile?->id);
-        } else {
-            $query->whereNull('id');
-        }
-
-        return response()->json($query->orderByDesc('created_at')->get());
+        return response()->json(Shipment::orderByDesc('created_at')->get());
     }
 
     public function store(Request $request): JsonResponse
