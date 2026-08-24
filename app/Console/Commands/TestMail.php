@@ -30,7 +30,7 @@ class TestMail extends Command
             
             // Test with invitation mailable
             $this->info('Testing with UserInvitationMail...');
-            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+            $frontendUrl = config('app.frontend_url');
             $invitationUrl = $frontendUrl . '/register?token=test123';
             
             Mail::to($email)->send(new UserInvitationMail(
