@@ -151,6 +151,8 @@ class UserController extends Controller
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|string|email|max:255|unique:users,email,' . $id,
             'password' => 'sometimes|string|min:8',
+            'company' => 'sometimes|nullable|string|max:255',
+            'phone' => 'sometimes|nullable|string|max:255',
             'roles' => 'sometimes|array',
             'roles.*' => 'exists:roles,id',
             'status' => 'sometimes|in:active,pending,suspended',
@@ -176,6 +178,12 @@ class UserController extends Controller
         }
         if ($request->has('email')) {
             $user->email = $request->email;
+        }
+        if ($request->has('company')) {
+            $user->company = $request->company;
+        }
+        if ($request->has('phone')) {
+            $user->phone = $request->phone;
         }
         if ($request->has('password')) {
             $user->password = Hash::make($request->password);
