@@ -9,7 +9,9 @@ class ShipmentPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('shipments.view') || $user->hasPermission('shipments.view_own');
+        return $user->hasPermission('shipments.view')
+            || $user->hasPermission('shipments.view_own')
+            || $user->hasPermission('shipments.view_assigned');
     }
 
     public function view(User $user, Shipment $shipment): bool
@@ -18,7 +20,11 @@ class ShipmentPolicy
             return true;
         }
 
-        return $user->hasPermission('shipments.view_own') && $shipment->user_id === $user->id;
+        if ($user->hasPermission('shipments.view_own')) {
+            return $shipment->user_id === $user->id;
+        }
+
+        return false;
     }
 
     public function create(User $user): bool
