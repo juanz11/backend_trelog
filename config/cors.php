@@ -21,6 +21,8 @@ return [
     'allowed_origins_patterns' => [
         '/^http:\/\/localhost:\d+$/',
         '/^https?:\/\/.*\.tr3slog\.com$/',
+        '/^https?:\/\/(.*\.)?termocontroljb\.com$/',
+        '/^https?:\/\/(.*\.)?tr3slog\.julls\.net$/',
     ],
 
     'allowed_headers' => ['*'],
