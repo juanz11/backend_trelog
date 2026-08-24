@@ -30,6 +30,10 @@ class PermissionSeeder extends Seeder
             ['name' => 'permissions.edit', 'display_name' => 'Editar Permisos', 'description' => 'Puede editar permisos', 'module' => 'roles'],
             ['name' => 'permissions.delete', 'display_name' => 'Eliminar Permisos', 'description' => 'Puede eliminar permisos', 'module' => 'roles'],
             
+            // Quotes
+            ['name' => 'quotes.view', 'display_name' => 'Ver Cotizaciones', 'description' => 'Puede ver cotizaciones', 'module' => 'quotes'],
+            ['name' => 'quotes.create', 'display_name' => 'Crear Cotizaciones', 'description' => 'Puede crear cotizaciones', 'module' => 'quotes'],
+
             // Shipments
             ['name' => 'shipments.create', 'display_name' => 'Crear Envíos', 'description' => 'Puede crear nuevos envíos', 'module' => 'shipments'],
             ['name' => 'shipments.view', 'display_name' => 'Ver Envíos', 'description' => 'Puede ver envíos', 'module' => 'shipments'],
