@@ -20,7 +20,7 @@ class ShipmentController extends Controller
         } elseif ($user->hasPermission('shipments.view_own')) {
             $query->where('user_id', $user->id);
         } elseif ($user->hasPermission('shipments.view_assigned')) {
-            $query->where('driver_id', $user->driverProfile?->id);
+            $query->whereNull('id');
         } else {
             $query->whereNull('id');
         }
