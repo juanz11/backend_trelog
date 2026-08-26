@@ -34,7 +34,7 @@
               <p style="font-size:15px;line-height:1.6;color:#6C82A6;margin:0 0 20px;">Guárdalo. Puedes rastrear el estado de tu cotización en cualquier momento desde nuestro sitio.</p>
               <p style="font-size:15px;line-height:1.6;color:#6C82A6;margin:0 0 28px;">Origen: <strong>{{ $quote->origin }}</strong><br>Destino: <strong>{{ $quote->destination }}</strong></p>
 
-              <a href="{{ config('app.frontend_url') }}/track" style="display:inline-block;padding:14px 28px;background:#087CF0;border-radius:11px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;">Rastrear cotización</a>
+              <a href="{{ config('app.frontend_url') }}/track?code={{ $quote->tracking_code }}" style="display:inline-block;padding:14px 28px;background:#087CF0;border-radius:11px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;">Rastrear cotización</a>
             </td>
           </tr>
           <tr>

@@ -159,7 +159,7 @@ class AuthController extends Controller
         $user->save();
 
         // Generate reset link
-        $resetLink = config('app.frontend_url') . '/reset-password/' . $resetToken;
+        $resetLink = config('app.frontend_url') . '/reset?token=' . urlencode($resetToken) . '&email=' . urlencode($user->email);
         
         try {
             // Send email with reset link
