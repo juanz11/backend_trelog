@@ -9,17 +9,17 @@ class ShipmentPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('shipments.view') || $user->hasPermission('shipments.view_own') || $user->hasPermission('shipments.view_assigned');
+        return true;
     }
 
     public function view(User $user, Shipment $shipment): bool
     {
-        return $user->hasPermission('shipments.view') || $user->hasPermission('shipments.view_own') || $user->hasPermission('shipments.view_assigned');
+        return $user->hasAnyRole(['admin', 'operations']) || $shipment->user_id === $user->id;
     }
 
     public function create(User $user): bool
     {
-        return $user->hasPermission('shipments.create');
+        return true;
     }
 
     public function update(User $user, Shipment $shipment): bool

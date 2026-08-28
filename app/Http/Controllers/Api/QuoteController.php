@@ -54,9 +54,15 @@ class QuoteController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $this->authorize('viewAny', Quote::class);
+        $user = $request->user();
 
-        $quotes = Quote::orderByDesc('created_at')->paginate(50);
+        if ($user->hasAnyRole(['admin', 'operations'])) {
+            $quotes = Quote::orderByDesc('created_at')->paginate(50);
+        } else {
+            $quotes = Quote::where('client_email', $user->email)
+                ->orderByDesc('created_at')
+                ->paginate(50);
+        }
 
         return response()->json($quotes);
     }

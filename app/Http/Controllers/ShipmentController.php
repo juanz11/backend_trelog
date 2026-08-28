@@ -15,14 +15,10 @@ class ShipmentController extends Controller
         $user = $request->user();
         $query = Shipment::query();
 
-        if ($user->hasPermission('shipments.view')) {
-            // admin/operaciones: no filtra
-        } elseif ($user->hasPermission('shipments.view_own')) {
-            $query->where('user_id', $user->id);
-        } elseif ($user->hasPermission('shipments.view_assigned')) {
-            $query->where('driver_id', $user->driverProfile?->id);
+        if ($user->hasAnyRole(['admin', 'operations'])) {
+            // admin/operations: see all shipments
         } else {
-            $query->whereNull('id');
+            $query->where('user_id', $user->id);
         }
 
         $shipments = $query->orderByDesc('created_at')->get();
