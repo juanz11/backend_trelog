@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Mail\QuoteCreatedMail;
+use App\Helpers\TrackingGenerator;
 use App\Models\Quote;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 
 class QuoteController extends Controller
 {
@@ -37,7 +37,10 @@ class QuoteController extends Controller
             'client_email' => $validated['client_email'],
             'details' => $validated['details'] ?? null,
             'status' => 'pending',
-            'tracking_code' => $this->generateTrackingCode(),
+            'tracking_code' => TrackingGenerator::generateFromOrigin(
+                $validated['origin'],
+                $validated['service_type'] ?? ''
+            ),
         ]);
 
         try {
@@ -107,23 +110,5 @@ class QuoteController extends Controller
         }
 
         return response()->json($quote);
-    }
-
-    private function generateTrackingCode(): string
-    {
-        do {
-            $date = now()->format('ymd');
-
-            $letters = '';
-            for ($i = 0; $i < 4; $i++) {
-                $letters .= chr(random_int(65, 90));
-            }
-
-            $numbers = str_pad(random_int(0, 99999), 5, '0', STR_PAD_LEFT);
-
-            $code = "TR3-{$date}-{$letters}-{$numbers}";
-        } while (Quote::where('tracking_code', $code)->exists());
-
-        return $code;
     }
 }

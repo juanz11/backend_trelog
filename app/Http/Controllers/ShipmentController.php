@@ -25,7 +25,16 @@ class ShipmentController extends Controller
             $query->whereNull('id');
         }
 
-        return response()->json($query->orderByDesc('created_at')->get());
+        $shipments = $query->orderByDesc('created_at')->get();
+        
+        // Add parsed tracking data to each shipment
+        $shipments->transform(function ($shipment) {
+            $shipment->parsed_tracking = $shipment->getParsedTracking();
+            $shipment->tracking_url = $shipment->getTrackingUrl();
+            return $shipment;
+        });
+
+        return response()->json($shipments);
     }
 
     public function store(Request $request): JsonResponse
@@ -60,6 +69,9 @@ class ShipmentController extends Controller
         $shipment = Shipment::findOrFail($id);
 
         $this->authorize('view', $shipment);
+
+        $shipment->parsed_tracking = $shipment->getParsedTracking();
+        $shipment->tracking_url = $shipment->getTrackingUrl();
 
         return response()->json($shipment);
     }

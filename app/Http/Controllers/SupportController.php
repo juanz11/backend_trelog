@@ -22,7 +22,7 @@ class SupportController extends Controller
             'subject' => $data['subject'],
             'message' => $data['message'],
             'status' => 'open',
-            'support_email' => 'uraharazamora@gmail.com',
+            'support_email' => 'tr3slogprueba@gmail.com',
         ]);
 
         try {

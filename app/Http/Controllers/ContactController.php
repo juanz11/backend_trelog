@@ -21,7 +21,7 @@ class ContactController extends Controller
         $data['reference'] = 'SUP-' . date('Ymd') . '-' . strtoupper(substr(uniqid('', true), -4));
 
         try {
-            Mail::to('uraharazamora@gmail.com')
+            Mail::to('tr3slogprueba@gmail.com')
                 ->send(new ContactSupportMail($data));
         } catch (\Throwable $e) {
             return response()->json([
