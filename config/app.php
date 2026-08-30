@@ -64,7 +64,7 @@ return [
     |
     */
 
-    'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://localhost') . ':3000'),
+    'frontend_url' => rtrim(env('FRONTEND_URL', 'http://localhost:3000'), '/'),
 
     /*
     |--------------------------------------------------------------------------
