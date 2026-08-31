@@ -37,8 +37,9 @@ class QuoteController extends Controller
             'client_email' => $validated['client_email'],
             'details' => $validated['details'] ?? null,
             'status' => 'pending',
-            'tracking_code' => TrackingGenerator::generateFromOrigin(
+            'tracking_code' => TrackingGenerator::generateFromRoute(
                 $validated['origin'],
+                $validated['destination'],
                 $validated['service_type'] ?? ''
             ),
         ]);

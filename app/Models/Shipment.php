@@ -53,8 +53,9 @@ class Shipment extends Model
      */
     protected static function generateTrackingNumber(self $shipment): string
     {
-        return TrackingGenerator::generateFromOrigin(
+        return TrackingGenerator::generateFromRoute(
             $shipment->origin ?? '',
+            $shipment->destination ?? '',
             $shipment->service_type ?? ''
         );
     }

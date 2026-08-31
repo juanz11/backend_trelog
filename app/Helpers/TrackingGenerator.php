@@ -18,7 +18,7 @@ class TrackingGenerator
     const TYPE_WAREHOUSE = 'W';    // Warehouse Transfer
     const TYPE_RETURN = 'R';       // Return Shipment
 
-    // Location Codes (Origin Hub)
+    // Location Codes (Destination Hub)
     const LOCATIONS = [
         'PRSJ' => 'Puerto Rico - San Juan',
         'DOSD' => 'Dominican Republic - Santo Domingo',
@@ -86,6 +86,22 @@ class TrackingGenerator
    }
 
     /**
+     * Generate a tracking number from route and service strings (used by quotes & shipments)
+     *
+     * @param string $origin  City / country text (for reference)
+     * @param string $destination  City / country text (used for the location code)
+     * @param string $serviceType  Service description
+     * @param Carbon|null $date
+     * @return string
+     */
+    public static function generateFromRoute(string $origin, string $destination = '', string $serviceType = '', ?Carbon $date = null): string
+    {
+        $locationCode = self::getLocationCode($destination ?: $origin);
+        $packageType = self::getPackageType($serviceType);
+        return self::generate($locationCode, $packageType, null, $date);
+    }
+
+    /**
      * Generate a tracking number from origin and service strings (used by quotes & shipments)
      *
      * @param string $origin  City / country text
@@ -95,20 +111,18 @@ class TrackingGenerator
      */
     public static function generateFromOrigin(string $origin, string $serviceType = '', ?Carbon $date = null): string
     {
-        $locationCode = self::getLocationCode($origin);
-        $packageType = self::getPackageType($serviceType);
-        return self::generate($locationCode, $packageType, null, $date);
+        return self::generateFromRoute($origin, $origin, $serviceType, $date);
     }
 
     /**
-     * Get location code from free-form origin string
+     * Get location code from free-form location string
      *
-     * @param string $origin
+     * @param string $location
      * @return string
      */
-    public static function getLocationCode(string $origin): string
+    public static function getLocationCode(string $location): string
     {
-        $originLower = strtolower($origin);
+        $originLower = strtolower($location);
 
         // Search cities first (more specific), then countries
         $cityMap = [
