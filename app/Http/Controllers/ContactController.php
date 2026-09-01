@@ -24,8 +24,9 @@ class ContactController extends Controller
             Mail::to('tr3slogprueba@gmail.com')
                 ->send(new ContactSupportMail($data));
         } catch (\Throwable $e) {
+            report($e);
             return response()->json([
-                'message' => 'No se pudo enviar el mensaje. Intenta más tarde.',
+                'message' => config('app.debug') ? $e->getMessage() : 'No se pudo enviar el mensaje. Intenta más tarde.',
             ], 500);
         }
 

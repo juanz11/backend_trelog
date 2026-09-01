@@ -1,18 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Caso de soporte #{{ $ticket->id }}</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caso de soporte #{{ $ticket->id }}</title>
+  <style>
+    body { margin: 0; padding: 24px; background: #f4f7fb; font-family: Arial, sans-serif; color: #001B45; }
+    .wrap { max-width: 600px; margin: 0 auto; }
+    .box { background: #fff; border: 1px solid #DCE6F5; border-radius: 16px; padding: 32px; }
+    h2 { margin: 0 0 24px; color: #087CF0; font-size: 22px; }
+    .row { margin-bottom: 18px; }
+    .label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #6C82A6; font-weight: 700; margin-bottom: 6px; }
+    .value { font-size: 15px; line-height: 1.6; }
+    .message { background: #EEF4FC; border-radius: 12px; padding: 16px; white-space: pre-line; }
+    .ref { display: inline-block; background: #EEF4FC; border: 1px solid #087CF0; color: #087CF0; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 14px; letter-spacing: .05em; }
+    .footer { margin-top: 24px; font-size: 12px; color: #6C82A6; text-align: center; }
+  </style>
 </head>
 <body>
-    <h2>Hemos recibido tu caso de soporte</h2>
-
-    <p><strong>Asunto:</strong> {{ $ticket->subject }}</p>
-    <p><strong>Mensaje:</strong></p>
-    <p>{{ $ticket->message }}</p>
-
-    <p>Un coordinador de soporte lo revisará y responderá dentro del próximo día hábil.</p>
-
-    <p>Gracias,<br>Equipo TR3SLOG</p>
+  <div class="wrap">
+    <div class="box">
+      <h2>Hemos recibido tu caso de soporte</h2>
+      <div class="row">
+        <div class="label">Número de caso</div>
+        <div class="ref">#{{ $ticket->id }}</div>
+      </div>
+      <div class="row">
+        <div class="label">Asunto</div>
+        <div class="value">{{ $ticket->subject }}</div>
+      </div>
+      <div class="row">
+        <div class="label">Mensaje</div>
+        <div class="message">{{ $ticket->message }}</div>
+      </div>
+      <div class="row">
+        <div class="label">Correo del usuario</div>
+        <div class="value">{{ $ticket->user->email }}</div>
+      </div>
+    </div>
+    <div class="footer">
+      Un coordinador de soporte lo revisará y responderá dentro del próximo día hábil.<br>
+      Gracias, Equipo TR3SLOG.
+    </div>
+  </div>
 </body>
 </html>

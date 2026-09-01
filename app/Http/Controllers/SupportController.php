@@ -27,10 +27,12 @@ class SupportController extends Controller
 
         try {
             Mail::to($ticket->support_email)
-                ->cc($request->user()->email)
                 ->send(new SupportTicketMail($ticket));
         } catch (\Throwable $e) {
-            // Si el SMTP no está configurado, no fallamos la respuesta.
+            report($e);
+            if (config('app.debug')) {
+                return response()->json(['message' => $e->getMessage()], 500);
+            }
         }
 
         return response()->json([
