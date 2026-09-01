@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'name',
     'address',
     'city',
+    'country',
     'zip_code',
     'contact_name',
     'phone',
