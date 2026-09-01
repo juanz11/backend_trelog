@@ -21,7 +21,7 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/',
             'role' => 'nullable|string|max:255',
         ]);
 
@@ -232,7 +232,7 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'token' => 'required|string',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/',
         ]);
 
         if ($validator->fails()) {

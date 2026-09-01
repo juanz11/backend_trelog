@@ -47,7 +47,7 @@ class UserController extends Controller
             'roles' => 'required|array',
             'roles.*' => 'exists:roles,id',
             'status' => 'required|in:pending,active,suspended',
-            'password' => 'sometimes|string|min:8',
+            'password' => 'sometimes|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/',
             'phone' => 'nullable|string',
             'business_name' => 'nullable|string',
             'street_address' => 'nullable|string',
@@ -150,7 +150,7 @@ class UserController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|string|email|max:255|unique:users,email,' . $id,
-            'password' => 'sometimes|string|min:8',
+            'password' => 'sometimes|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/',
             'company' => 'sometimes|nullable|string|max:255',
             'phone' => 'sometimes|nullable|string|max:255',
             'roles' => 'sometimes|array',

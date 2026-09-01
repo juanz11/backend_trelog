@@ -19,7 +19,7 @@ class DriverAuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:40'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/', 'confirmed'],
             'vehicle' => ['nullable', 'string', 'max:255'],
             'hub' => ['nullable', 'string', 'max:255'],
         ]);

@@ -222,7 +222,7 @@ class UserInvitationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'token' => 'required|string',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/',
         ]);
 
         if ($validator->fails()) {

@@ -26,7 +26,7 @@ class AuthController extends Controller
             'company' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:40'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/', 'confirmed'],
         ]);
 
         $user = User::create([
@@ -124,7 +124,7 @@ class AuthController extends Controller
         $data = $request->validate([
             'email' => ['required', 'email'],
             'token' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/', 'confirmed'],
         ]);
 
         $record = DB::table('password_reset_tokens')
