@@ -14,6 +14,8 @@ use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\SupportController;
+use App\Http\Controllers\DriverController;
+use App\Http\Controllers\IncidentAdminController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
 use App\Http\Controllers\Api\Driver\DashboardController;
@@ -52,6 +54,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/alerts', [AlertController::class, 'index']);
+    Route::get('/drivers', [DriverController::class, 'index']);
+    Route::get('/incidents', [IncidentAdminController::class, 'index']);
 
     // Address Management Routes
     Route::prefix('addresses')->group(function () {

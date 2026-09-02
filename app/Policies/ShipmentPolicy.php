@@ -24,12 +24,12 @@ class ShipmentPolicy
 
     public function update(User $user, Shipment $shipment): bool
     {
-        return $user->hasPermission('shipments.edit');
+        return $user->hasAnyRole(['admin', 'operations']) || $user->hasPermission('shipments.edit');
     }
 
     public function delete(User $user, Shipment $shipment): bool
     {
-        return $user->hasPermission('shipments.delete');
+        return $user->hasAnyRole(['admin', 'operations']) || $user->hasPermission('shipments.delete');
     }
 
     public function restore(User $user, Shipment $shipment): bool

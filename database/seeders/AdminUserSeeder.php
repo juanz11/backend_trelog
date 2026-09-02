@@ -25,9 +25,14 @@ class AdminUserSeeder extends Seeder
         );
 
         $adminRole = Role::where('name', 'admin')->first();
+        $operationsRole = Role::where('name', 'operations')->first();
 
         if ($adminRole && ! $admin->roles()->where('roles.id', $adminRole->id)->exists()) {
             $admin->roles()->attach($adminRole);
+        }
+
+        if ($operationsRole && ! $admin->roles()->where('roles.id', $operationsRole->id)->exists()) {
+            $admin->roles()->attach($operationsRole);
         }
     }
 }

@@ -68,7 +68,7 @@ class Shipment extends Model
      */
     public function getParsedTracking(): ?array
     {
-        return TrackingGenerator::parse($this->tracking_number);
+        return $this->tracking_number ? TrackingGenerator::parse($this->tracking_number) : null;
     }
 
     /**
@@ -79,6 +79,9 @@ class Shipment extends Model
      */
     public function getTrackingUrl(?string $baseUrl = null): string
     {
+        if (!$this->tracking_number) {
+            return '';
+        }
         return TrackingGenerator::getTrackingUrl(
             $this->tracking_number,
             $baseUrl ?? config('app.tracking_url', 'https://track.tr3slog.com')

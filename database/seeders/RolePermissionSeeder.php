@@ -16,12 +16,11 @@ class RolePermissionSeeder extends Seeder
     {
         $customerRole = Role::where('name', 'customer')->first();
         $driverRole = Role::where('name', 'driver')->first();
-        $dispatcherRole = Role::where('name', 'dispatcher')->first();
-        $managerRole = Role::where('name', 'manager')->first();
+        $operationsRole = Role::where('name', 'operations')->first();
         $adminRole = Role::where('name', 'admin')->first();
 
-        if (!$customerRole || !$driverRole || !$dispatcherRole || !$managerRole || !$adminRole) {
-            $this->command->warn('Roles not found. Please run RoleSeeder first.');
+        if (!$customerRole || !$driverRole || !$adminRole) {
+            $this->command->warn('Required roles not found. Please run RoleSeeder first.');
             return;
         }
 
@@ -33,6 +32,17 @@ class RolePermissionSeeder extends Seeder
             ],
             'driver' => [
                 'shipments.view_assigned',
+            ],
+            'operations' => [
+                'shipments.create',
+                'shipments.view',
+                'shipments.edit',
+                'shipments.delete',
+                'quotes.view',
+                'dispatch.manage',
+                'drivers.manage',
+                'reports.view_ops',
+                'audit.view_limited',
             ],
             'dispatcher' => [
                 'shipments.create',
