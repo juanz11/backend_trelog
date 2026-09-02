@@ -10,15 +10,47 @@ use Illuminate\Support\Facades\Validator;
 class AddressController extends Controller
 {
     private const ZIP_PATTERNS = [
-        'PR' => '/^\d{5}(-\d{4})?$/',
-        'US' => '/^\d{5}(-\d{4})?$/',
+        'AF' => '/^\d{4}$/',
+        'AL' => '/^\d{4}$/',
+        'AR' => '/^\d{4}$/',
+        'AU' => '/^\d{4}$/',
+        'BE' => '/^\d{4}$/',
+        'BO' => '/^\d{4}$/',
+        'BR' => '/^\d{5}-?\d{3}$/',
+        'CA' => '/^[A-Z]\d[A-Z]\s?\d[A-Z]\d$/i',
+        'CH' => '/^\d{4}$/',
+        'CL' => '/^\d{7}$/',
+        'CO' => '/^\d{6}$/',
+        'CR' => '/^\d{5}$/',
+        'CU' => '/^\d{5}$/',
+        'DE' => '/^\d{5}$/',
         'DO' => '/^\d{5}$/',
-        'JM' => '/^[A-Z0-9\s-]{3,10}$/i',
-        'KR' => '/^\d{5}$/',
+        'EC' => '/^\d{6}$/',
+        'EG' => '/^\d{5}$/',
+        'ES' => '/^\d{5}$/',
+        'FR' => '/^\d{5}$/',
+        'GB' => '/^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i',
+        'GT' => '/^\d{5}$/',
+        'HN' => '/^\d{5}$/',
+        'IT' => '/^\d{5}$/',
+        'JM' => '/^(?=.*[A-Z])[A-Z0-9\s-]{3,10}$/i',
         'JP' => '/^\d{3}[- ]?\d{4}$/',
+        'KR' => '/^\d{5}$/',
+        'MX' => '/^\d{5}$/',
+        'NI' => '/^\d{5}$/',
+        'NL' => '/^\d{4}\s?[A-Z]{2}$/i',
+        'PA' => '/^\d{4}$/',
+        'PE' => '/^\d{5}$/',
+        'PR' => '/^\d{5}(-\d{4})?$/',
+        'PT' => '/^\d{4}-?\d{3}$/',
+        'PY' => '/^\d{4}$/',
         'CN' => '/^\d{6}$/',
-        'VE' => '/^\d{4,5}$/',
+        'RU' => '/^\d{6}$/',
+        'SV' => '/^\d{4}$/',
+        'US' => '/^\d{5}(-\d{4})?$/',
         'UY' => '/^\d{5}$/',
+        'VE' => '/^\d{4,5}$/',
+        'ZA' => '/^\d{4}$/',
     ];
 
     private const PHONE_PATTERNS = [
@@ -64,7 +96,7 @@ class AddressController extends Controller
 
         $country = $request->input('country');
         if ($country) {
-            $zipPattern = self::ZIP_PATTERNS[$country] ?? '/^[A-Z0-9\s-]{3,15}$/i';
+            $zipPattern = self::ZIP_PATTERNS[$country] ?? '/^$/';
             $rules['zip_code'][] = 'regex:' . $zipPattern;
             if ($request->filled('phone')) {
                 $phonePattern = self::PHONE_PATTERNS[$country] ?? '/^[+\d\s\-()]{7,20}$/';
@@ -120,7 +152,7 @@ class AddressController extends Controller
 
         $country = $request->input('country');
         if ($country) {
-            $zipPattern = self::ZIP_PATTERNS[$country] ?? '/^[A-Z0-9\s-]{3,15}$/i';
+            $zipPattern = self::ZIP_PATTERNS[$country] ?? '/^$/';
             $rules['zip_code'][] = 'regex:' . $zipPattern;
             if ($request->filled('phone')) {
                 $phonePattern = self::PHONE_PATTERNS[$country] ?? '/^[+\d\s\-()]{7,20}$/';
