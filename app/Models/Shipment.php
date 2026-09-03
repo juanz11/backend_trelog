@@ -16,7 +16,6 @@ use Illuminate\Database\Eloquent\Model;
     'recipient_phone',
     'service_type',
     'weight',
-    'weight_unit',
     'dimensions',
     'pieces',
     'status',

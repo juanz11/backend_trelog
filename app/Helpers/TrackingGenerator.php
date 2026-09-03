@@ -247,8 +247,11 @@ class TrackingGenerator
      * @param string $trackingNumber
      * @return bool
      */
-    public static function validate(string $trackingNumber): bool
+    public static function validate(?string $trackingNumber): bool
     {
+        if (empty($trackingNumber)) {
+            return false;
+        }
         $pattern = '/^' . self::CARRIER_CODE . '-\d{6}-[A-Z]{4}-[A-Z]\d{6}$/';
         return preg_match($pattern, $trackingNumber) === 1;
     }
@@ -259,9 +262,9 @@ class TrackingGenerator
      * @param string $trackingNumber
      * @return array|null
      */
-    public static function parse(string $trackingNumber): ?array
+    public static function parse(?string $trackingNumber): ?array
     {
-        if (!self::validate($trackingNumber)) {
+        if (empty($trackingNumber) || !self::validate($trackingNumber)) {
             return null;
         }
 
@@ -303,8 +306,11 @@ class TrackingGenerator
      * @param string $baseUrl
      * @return string
      */
-    public static function getTrackingUrl(string $trackingNumber, string $baseUrl = 'https://track.tr3slog.com'): string
+    public static function getTrackingUrl(?string $trackingNumber, string $baseUrl = 'https://track.tr3slog.com'): string
     {
+        if (empty($trackingNumber)) {
+            return '';
+        }
         return "$baseUrl/$trackingNumber";
     }
 
