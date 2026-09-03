@@ -87,9 +87,9 @@ class AddressController extends Controller
             'address' => 'required|string',
             'city' => 'nullable|string|max:255',
             'country' => 'required|string|max:2',
-            'zip_code' => 'required|string|max:20',
+            'zip_code' => ['required', 'string', 'max:20'],
             'contact_name' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:50',
+            'phone' => ['nullable', 'string', 'max:50'],
             'delivery_instructions' => 'nullable|string',
             'is_default' => 'nullable|boolean',
         ];
@@ -143,9 +143,9 @@ class AddressController extends Controller
             'address' => 'sometimes|string',
             'city' => 'nullable|string|max:255',
             'country' => 'sometimes|string|max:2',
-            'zip_code' => 'sometimes|string|max:20',
+            'zip_code' => ['sometimes', 'string', 'max:20'],
             'contact_name' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:50',
+            'phone' => ['nullable', 'string', 'max:50'],
             'delivery_instructions' => 'nullable|string',
             'is_default' => 'nullable|boolean',
         ];
