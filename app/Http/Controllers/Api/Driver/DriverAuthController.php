@@ -36,11 +36,15 @@ class DriverAuthController extends Controller
             $user->roles()->attach($driverRole);
         }
 
-        $user->driverProfile()->save(new DriverProfile([
+        $profile = new DriverProfile([
             'initials' => $this->initialsFromName($validated['name']),
             'vehicle' => $validated['vehicle'] ?? null,
             'hub' => $validated['hub'] ?? null,
-        ]));
+        ]);
+        $user->driverProfile()->save($profile);
+
+        $profile->driver_id = 'DR-' . str_pad((string) $profile->id, 6, '0', STR_PAD_LEFT);
+        $profile->save();
 
         $token = $user->createToken('driver-app')->plainTextToken;
 
@@ -52,14 +56,31 @@ class DriverAuthController extends Controller
 
     public function login(Request $request): JsonResponse
     {
-        $request->validate([
-            'email' => ['required', 'email'],
+        $validated = $request->validate([
+            'driver_id' => ['nullable', 'string'],
+            'email' => ['nullable', 'email'],
             'password' => ['required'],
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $identifier = $validated['driver_id'] ?? $validated['email'] ?? null;
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        if (! $identifier) {
+            throw ValidationException::withMessages([
+                'email' => ['Las credenciales no son correctas.'],
+            ]);
+        }
+
+        $email = filter_var($identifier, FILTER_VALIDATE_EMAIL) ? $identifier : null;
+        $driverId = $email ? null : $identifier;
+
+        if ($email) {
+            $user = User::where('email', $email)->first();
+        } else {
+            $profile = DriverProfile::where('driver_id', $driverId)->first();
+            $user = $profile?->user;
+        }
+
+        if (! $user || ! Hash::check($validated['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Las credenciales no son correctas.'],
             ]);

@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/alerts', [AlertController::class, 'index']);
     Route::get('/drivers', [DriverController::class, 'index']);
+    Route::post('/drivers', [DriverController::class, 'store']);
     Route::get('/incidents', [IncidentAdminController::class, 'index']);
 
     // Address Management Routes
@@ -77,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // User Management Routes
     Route::prefix('users')->group(function () {
         Route::get('/', [UserController::class, 'index']);
+        Route::get('/clients', [UserController::class, 'clients']);
         Route::get('/{id}', [UserController::class, 'show']);
         Route::put('/{id}', [UserController::class, 'update']);
         Route::delete('/{id}', [UserController::class, 'destroy']);

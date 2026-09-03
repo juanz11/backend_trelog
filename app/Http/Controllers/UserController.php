@@ -234,4 +234,32 @@ class UserController extends Controller
             'message' => 'User deleted successfully',
         ]);
     }
+
+    public function clients(Request $request)
+    {
+        if (! $request->user()->hasAnyRole(['admin', 'operations']) && ! $request->user()->hasPermission('drivers.manage')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $driverRole = Role::where('name', 'driver')->first();
+        $customerRole = Role::where('name', 'customer')->first();
+
+        $query = User::query();
+
+        if ($customerRole) {
+            $query->whereHas('roles', function ($q) use ($customerRole) {
+                $q->where('roles.id', $customerRole->id);
+            });
+        }
+
+        if ($driverRole) {
+            $query->whereDoesntHave('roles', function ($q) use ($driverRole) {
+                $q->where('roles.id', $driverRole->id);
+            });
+        }
+
+        $clients = $query->get(['id', 'name', 'email', 'phone']);
+
+        return response()->json($clients);
+    }
 }
