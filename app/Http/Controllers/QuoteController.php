@@ -36,12 +36,33 @@ class QuoteController extends Controller
         return response()->json(Quote::orderByDesc('created_at')->get());
     }
 
-    public function pendingCount(): JsonResponse
+    public function pendingCount(Request $request): JsonResponse
     {
-        $this->authorize('viewAny', Quote::class);
+        $user = $request->user();
+
+        if ($user && $user->hasAnyRole(['admin', 'operations'])) {
+            $count = Quote::where('status', 'pending')->count();
+        } else {
+            $count = Quote::where('client_email', $user->email)
+                ->where('status', 'pending')
+                ->count();
+        }
 
         return response()->json([
-            'count' => Quote::where('status', 'pending')->count(),
+            'count' => $count,
         ]);
+    }
+
+    public function updateStatus(Request $request, Quote $quote): JsonResponse
+    {
+        $this->authorize('update', $quote);
+
+        $data = $request->validate([
+            'status' => ['required', 'in:pending,processing,approved,rejected'],
+        ]);
+
+        $quote->update(['status' => $data['status']]);
+
+        return response()->json($quote);
     }
 }

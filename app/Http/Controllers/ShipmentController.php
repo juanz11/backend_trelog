@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Incident;
 use App\Models\Shipment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,11 +23,16 @@ class ShipmentController extends Controller
         }
 
         $shipments = $query->orderByDesc('created_at')->get();
-        
-        // Add parsed tracking data to each shipment
+
+        // Add parsed tracking data to each shipment and reflect open incidents
         $shipments->transform(function ($shipment) {
             $shipment->parsed_tracking = $shipment->getParsedTracking();
             $shipment->tracking_url = $shipment->getTrackingUrl();
+
+            if ($this->hasOpenIncident($shipment)) {
+                $shipment->status = 'incident';
+            }
+
             return $shipment;
         });
 
@@ -70,6 +76,10 @@ class ShipmentController extends Controller
         $shipment->parsed_tracking = $shipment->getParsedTracking();
         $shipment->tracking_url = $shipment->getTrackingUrl();
 
+        if ($this->hasOpenIncident($shipment)) {
+            $shipment->status = 'incident';
+        }
+
         return response()->json($shipment);
     }
 
@@ -109,5 +119,13 @@ class ShipmentController extends Controller
         $shipment->delete();
 
         return response()->json(['message' => 'Envío eliminado.']);
+    }
+
+    private function hasOpenIncident(Shipment $shipment): bool
+    {
+        return Incident::where(function ($query) use ($shipment) {
+            $query->where('ship', $shipment->tracking_number)
+                ->orWhere('ship', (string) $shipment->id);
+        })->whereIn('status', ['open', 'investigating'])->exists();
     }
 }

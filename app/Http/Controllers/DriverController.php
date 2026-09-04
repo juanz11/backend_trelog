@@ -28,9 +28,12 @@ class DriverController extends Controller
             return [
                 'id' => $profile?->driver_id ? (string) $profile->driver_id : (string) $driver->id,
                 'n' => $profile?->initials ?? $driver->name,
+                'name' => $driver->name,
+                'email' => $driver->email,
+                'phone' => $driver->phone ?? '—',
                 'v' => $profile?->vehicle ?? '—',
                 'hub' => $profile?->hub ?? '—',
-                'shift' => '—',
+                'shift' => $profile?->shift ?? '—',
                 'doc' => 'ok',
                 'st' => $available ? 'available' : 'offduty',
             ];
@@ -49,6 +52,7 @@ class DriverController extends Controller
             'phone' => ['nullable', 'string', 'max:40'],
             'vehicle' => ['nullable', 'string', 'max:255'],
             'hub' => ['nullable', 'string', 'max:255'],
+            'shift' => ['nullable', 'string', 'max:255'],
         ];
 
         if ($request->filled('user_id')) {
@@ -108,6 +112,7 @@ class DriverController extends Controller
                 'initials' => $this->initialsFromName($user->name),
                 'vehicle' => $validated['vehicle'] ?? null,
                 'hub' => $validated['hub'] ?? null,
+                'shift' => $validated['shift'] ?? null,
                 'available' => true,
             ]);
             $user->driverProfile()->save($profile);
@@ -117,6 +122,9 @@ class DriverController extends Controller
             }
             if (! empty($validated['hub'])) {
                 $profile->hub = $validated['hub'];
+            }
+            if (array_key_exists('shift', $validated)) {
+                $profile->shift = $validated['shift'] ?? null;
             }
         }
 
@@ -128,9 +136,12 @@ class DriverController extends Controller
         return response()->json([
             'id' => $profile->driver_id,
             'n' => $profile->initials ?? $user->name,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone ?? '—',
             'v' => $profile->vehicle ?? '—',
             'hub' => $profile->hub ?? '—',
-            'shift' => '—',
+            'shift' => $profile->shift ?? '—',
             'doc' => 'ok',
             'st' => 'available',
         ], 201);

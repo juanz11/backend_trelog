@@ -13,3 +13,7 @@ Route::get('/login', function () {
         'api_register' => '/api/register',
     ]);
 })->name('login');
+
+Route::get('/dashboard', function () {
+    return view('welcome');
+})->middleware('auth')->name('dashboard');

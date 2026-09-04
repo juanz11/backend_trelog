@@ -57,6 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/drivers', [DriverController::class, 'index']);
     Route::post('/drivers', [DriverController::class, 'store']);
     Route::get('/incidents', [IncidentAdminController::class, 'index']);
+    Route::post('/incidents', [IncidentAdminController::class, 'store']);
+    Route::patch('/incidents/{incident}/status', [IncidentAdminController::class, 'updateStatus']);
 
     // Address Management Routes
     Route::prefix('addresses')->group(function () {
@@ -119,6 +121,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [QuoteController::class, 'index']);
         Route::post('/', [QuoteController::class, 'store']);
         Route::get('/pending-count', [QuoteController::class, 'pendingCount']);
+        Route::patch('/{quote}/status', [QuoteController::class, 'updateStatus']);
     });
 
     // Shipment Management Routes
