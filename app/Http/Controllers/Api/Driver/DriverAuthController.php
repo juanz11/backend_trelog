@@ -49,7 +49,9 @@ class DriverAuthController extends Controller
         $token = $user->createToken('driver-app')->plainTextToken;
 
         return response()->json([
-            'user' => $user->fresh('driverProfile'),
+            'success' => true,
+            'message' => 'Conductor registrado correctamente.',
+            'user' => $user->fresh(['driverProfile', 'roles']),
             'token' => $token,
         ], 201);
     }
@@ -95,7 +97,9 @@ class DriverAuthController extends Controller
         $token = $user->createToken('driver-app')->plainTextToken;
 
         return response()->json([
-            'user' => $user->load('driverProfile'),
+            'success' => true,
+            'message' => 'Inicio de sesión exitoso.',
+            'user' => $user->load(['driverProfile', 'roles']),
             'token' => $token,
         ]);
     }
@@ -109,7 +113,10 @@ class DriverAuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json($request->user()->load('driverProfile'));
+        return response()->json([
+            'success' => true,
+            'user' => $request->user()->load(['driverProfile', 'roles']),
+        ]);
     }
 
     private function initialsFromName(string $name): string
