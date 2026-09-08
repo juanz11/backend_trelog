@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
     'weight',
     'dimensions',
     'pieces',
+    'packages',
     'status',
     'notes',
 ])]
@@ -26,6 +27,7 @@ class Shipment extends Model
     protected function casts(): array
     {
         return [
+            'packages' => 'array',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
