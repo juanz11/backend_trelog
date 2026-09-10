@@ -1,0 +1,169 @@
+# Tareas: TR3SLOG consume el SSO de MyGlobalHub
+
+**Cambio**: `integracion-sso` · **Fuentes**: `1-proposal.md`, `2-specs.md`, `3-design.md`
+
+Cada lote mapea 1:1 con un PR de `1-proposal.md §8`. El orden es por dependencia real: los
+tests van antes del refactor que cubren (Nivel 0/1/2 de `3-design.md §F.1`), y ningún lote
+retira una ruta vieja antes de que exista un cliente para la nueva (`3-design.md §E.3`).
+
+## Pronóstico de carga de revisión
+
+| Campo | Valor |
+|---|---|
+| Líneas estimadas | ~3500-4500 en total, repartidas en 9 PRs |
+| Riesgo de presupuesto de 400 líneas | Alto (varios lotes superan 400 por sí solos: 1, 3, 8, 9) |
+| PRs encadenados recomendados | Sí |
+| Corte sugerido | 9 PRs, uno por lote, en el orden de este documento |
+| Estrategia de entrega | ask-on-risk (no se recibió otra explícita) |
+| Estrategia de cadena | stacked-to-main — cada PR 1-8 se mergea solo y es reversible por `git revert` (`1-proposal.md`, Plan de rollback); el 9 es el único punto de no retorno |
+
+```text
+Decision needed before apply: Yes
+Chained PRs recommended: Yes
+Chain strategy: stacked-to-main
+400-line budget risk: High
+```
+
+### Unidades de trabajo sugeridas
+
+| Unidad | Objetivo | PR | Notas |
+|---|---|---|---|
+| 1 | Factories + caracterización del dominio | PR 1 | Base: `feat/sso-integration`. No toca auth. Sin bloqueo |
+| 2 | Alta en el SSO + gateway local | PR 2 | Base: PR 1. **Bloqueado por D1** |
+| 3 | Middleware + config, sin conectar | PR 3 | Base: PR 2. **Bloqueado por D1** (comparte el gate de PR 2) |
+| 4 | Cierre de agujeros con `sso.role` | PR 4 | Base: PR 3. **Bloqueado por D1** |
+| 5 | Rutas de conductor en paralelo | PR 5 | Base: PR 4. Sin bloqueo — nada se retira |
+| 6 | Build de la app de conductores | PR 6 | Base: PR 5. **Bloqueado por D6 + migración de cuentas** |
+| 7 | Web: PKCE + `AppShell` + perfil partido | PR 7 | Base: PR 4 (no depende de 5/6) |
+| 8 | Resto del dominio al gateway + RBAC por rol | PR 8 | Base: PR 5 |
+| 9 | Retiro de auth, Sanctum y tablas RBAC | PR 9 | Base: PR 8. **Bloqueado por D3, D6 y migración de cuentas. Punto de no retorno** |
+
+---
+
+## Lote 1 — Factories y caracterización del dominio (PR 1)
+
+No depende de nada. No toca una línea de auth: todo corre contra el sistema actual (`Sanctum`).
+
+- [ ] 1.1 Crear las 8 factories de dominio que faltan en `database/factories/`: `AddressFactory`, `ShipmentFactory`, `SupportTicketFactory`, `RouteFactory`, `IncidentFactory`, `PayrollPeriodFactory`, `DriverAlertFactory`, `DriverProfileFactory` (hoy sólo existe `UserFactory`, ver `3-design.md §F`).
+- [ ] 1.2 Test de caracterización de rutas de conductor (`routes/api.php:182-193`): `GET /driver/dashboard`, `/routes`, `/routes/{route}`, `POST /stops/{stop}/confirm`, `/stops/{stop}/fail`, `GET /incidents`, `POST /incidents`, `GET /payroll` — dueño 200, otro conductor 403 (`StopController.php:57`, `RouteController.php:24`). Va primero de todo el lote: es el único cliente que no se puede redesplegar (H3).
+- [ ] 1.3 Test de caracterización de pertenencia en el resto del dominio: `ShipmentPolicy::view` (`ShipmentPolicy.php:17`), `AddressController.php:194`, `SupportController.php:21` — dueño ve, otro no.
+- [ ] 1.4 Test de caracterización N1/D7: congelar el `403` actual de un `admin` en `PATCH /quotes/{quote}/status`, `PATCH /app/quotes/{quote}/status`, `GET /support`, `GET /support/{ticket}`, `PUT /support/{ticket}`, con el motivo en el nombre del test y comentario apuntando a D7 (`3-design.md §F.2`, `quotes.edit`/`support.*` no existen en `PermissionSeeder`).
+- [ ] 1.5 Test de caracterización: `GET /quotes` con `customer` → 403 hoy (`QuotePolicy::viewAny` sólo permite `operations`/`admin`, `3-design.md N1`).
+
+---
+
+## Lote 2 — Alta en el SSO + gateway local (PR 2) **[BLOQUEADO: D1 — slug `treslog` sin confirmar]**
+
+Config e infraestructura pura. Nada del backend de TR3SLOG cambia.
+
+- [ ] 2.1 Confirmar D1 con producto + equipo SSO antes de crear nada: el slug es inmutable (`SlugIsImmutableException`).
+- [ ] 2.2 Alta de la aplicación `treslog` en el SSO siguiendo `alta_de_aplicacion.md`: perfil, cliente OAuth público PKCE, vínculo `application_clients` con `kind='frontend'` (checklist contra R6 de la propuesta antes de escribir código).
+- [ ] 2.3 Cargar el catálogo de roles con prefijo `treslog:`: `cliente` (`default_role`), `conductor`, `operaciones`, `admin` — **nunca** `Super Admin` (`3-design.md §D.1`). Queda abierto cómo distinguir alta de `conductor` vs `cliente` (D4 acotada, fuera del alcance de este lote).
+- [ ] 2.4 Copiar `MSH/gateway/` a `treslog/backend_trelog/gateway/` con los 4 cambios: `location /api/treslog/`, `set $sso_app "treslog"`, `${TRESLOG_BACKEND}`, `container_name treslog-gateway` + puerto `8003` (`3-design.md §G`).
+- [ ] 2.5 Revisar (no copiar a ciegas) `map $http_origin $cors_origin`: dejar sólo los orígenes de TR3SLOG (web Next + Flutter en dev).
+- [ ] 2.6 Escribir `SETUP_LOCAL.md` de TR3SLOG adaptado de MSH, documentando cómo levantar los dos gateways (MSH y TR3SLOG) en la misma máquina sin choque de puertos.
+
+---
+
+## Lote 3 — Middleware e identidad espejo, sin conectar (PR 3) **[BLOQUEADO: D1 — el prefijo `treslog:` de `config/sso.php` depende del slug]**
+
+Código inerte: nada se monta sobre una ruta todavía.
+
+- [ ] 3.1 Migración: agregar `users.sso_user_id` string(64) nullable único y `users.sso_clerk_id` string(64) nullable único (`3-design.md §A`).
+- [ ] 3.2 Copiar `RequestContext.php` de MSH; único cambio: prefijo del id generado `treslog-` en vez de `msh-` (`RequestContext.php:146`).
+- [ ] 3.3 Copiar `AuthenticateFromGateway.php` con 2 divergencias: slug de error `unauthenticated` (no `unauthorized`) con `request_id` en el cuerpo; sello del gateway comprobado PRIMERO y sin escape por `env()` vacío — es constante del contrato, no config de ambiente (`3-design.md §C.2`).
+- [ ] 3.4 Copiar `config/sso.php` íntegro, incluidos los comentarios de `§C.1`, agregando `'roles' => [...]` con prefijo `treslog:` para `admin`/`operaciones`/`conductor`/`cliente`.
+- [ ] 3.5 Crear `ResolveDomainUser` (alias `gateway.user`): `User::where('sso_user_id', $identity['id'])->first()`; si no hay fila → `403 forbidden` explícito, **sin** `firstOrCreate` por email; si la hay, refresca `sso_clerk_id`/`email`/`name` y `auth()->setUser($user)` (`3-design.md §A.2`).
+- [ ] 3.6 Registrar alias `gateway.auth`, `gateway.user`, `sso.role` sin montarlos sobre ninguna ruta.
+- [ ] 3.7 Copiar `RequireSsoRole.php` de MSH sin cambios.
+- [ ] 3.8 Test: tabla de verdad completa de `AuthenticateFromGateway` — sin `X-Auth-Gateway` → 401; valor forjado → 401; sello sin `X-User-Id` → 401 (no 500); sin `X-User-Name` → 200; sin `X-User-Roles` → roles vacíos, sin excepción.
+- [ ] 3.9 Test: `RequestContext` — `X-Request-Id` entrante se propaga al cuerpo del error; ausente → id generado, nunca vacío.
+- [ ] 3.10 Test: `ResolveDomainUser` — mismo `sso_user_id` en dos peticiones resuelve la misma fila; email coincidente sin `sso_user_id` → 403, nunca vínculo automático (invariante anti-secuestro de cuenta).
+
+---
+
+## Lote 4 — Cerrar los agujeros de §1 (+N3) con `sso.role` (PR 4) **[BLOQUEADO: D1]**
+
+Sólo toca `roles/*`, `permissions/*`, `zones/*`, `invitations/*` y el alta pública. El resto del dominio sigue con `auth:sanctum` intacto: nadie pierde login.
+
+- [ ] 4.1 Montar `sso.role:treslog:admin` sobre `roles/*`, `permissions/*`, `zones/*` (`routes/api.php:90-108`).
+- [ ] 4.2 Montar `gateway.auth` como mínimo sobre `invitations/*` (`routes/api.php:137-145`), retirando el comentario "without auth for now".
+- [ ] 4.3 Quitar el campo `role` del `validate` de `AuthController::register` (`routes/api.php:40`, `AuthController.php:25,41-46`) para cerrar la auto-escalación, mientras el controlador siga vivo hasta el Lote 9.
+- [ ] 4.4 Retirar `POST /users` público (`routes/api.php:47`, `UserController::store`) o moverlo detrás de `auth:sanctum` + `treslog:admin` — cierre de N3.
+- [ ] 4.5 Test: `POST /register` con `{"role":"admin"}` ya no produce un admin.
+- [ ] 4.6 Test: `roles/*`, `permissions/*`, `zones/*` con `treslog:cliente` (o sin `X-User-Roles`) → 403.
+- [ ] 4.7 Test: `GET /invitations/pending` sin cabeceras de gateway → 401, no 200 con email y nombre.
+- [ ] 4.8 Test estructural: cada valor de `config('sso.roles')` empieza con `treslog:`; ningún archivo de `app/` contiene el literal `Super Admin` (R3/R4).
+- [ ] 4.9 Test: `X-User-Roles: Super Admin` sobre una ruta que exige `treslog:admin` → 403.
+- [ ] 4.10 Test: `X-User-Roles: tienda:vendedor` sobre la misma ruta → 403 (rol de otro inquilino).
+- [ ] 4.11 Test estructural: suite que enumera las rutas de `routes/api.php` y falla si una ruta de dominio no tiene `gateway.auth` (spec `Cobertura total de rutas de dominio`).
+
+---
+
+## Lote 5 — Rutas de conductor en paralelo por el gateway (PR 5)
+
+Nada se retira: `/api/driver/*` con `auth:sanctum` sigue vivo. Sin bloqueo — el riesgo de identidades sin migrar (R10) recién importa cuando haya tráfico real, en el Lote 6.
+
+- [ ] 5.1 Extraer las rutas de dominio del conductor (`routes/api.php:182-193`) a `routes/domain-driver.php` compartido, sin cambiar su contenido.
+- [ ] 5.2 Montar en `routes/api.php`: el bloque viejo `Route::middleware('auth:sanctum')` queda intacto + bloque nuevo `Route::prefix('treslog')->middleware(['gateway.auth','gateway.user'])->group(fn () => require domain-driver.php)` (`3-design.md §E.2`).
+- [ ] 5.3 Verificar que `StopController.php:57` y `RouteController.php:24` siguen comparando contra `$request->user()->id`, ahora poblado por `auth()->setUser()` de `ResolveDomainUser`.
+- [ ] 5.4 Correr contra el gateway local (Lote 2) los tests del Lote 1.2 apuntando a `/api/treslog/driver/*` y verificar los mismos 200/403.
+- [ ] 5.5 Test de cobertura: el grupo `/api/treslog/driver/*` aparece en el listado de rutas con `gateway.auth`.
+
+---
+
+## Lote 6 — Build nueva de la app de conductores (PR 6) **[BLOQUEADO: D6 — instalaciones reales sin confirmar, y migración de cuentas a Clerk fuera de alcance]**
+
+Requiere el Lote 5 desplegado. Distribuir sin saber cuántas instalaciones hay, o sin identidades creadas en Clerk, dejaría conductores viendo un 403 sin aviso.
+
+- [ ] 6.1 Confirmar D6: instalaciones reales existentes y contra qué URL apuntan (`https://api.tr3log.com/api` no resuelve hoy).
+- [ ] 6.2 Arreglar `api_service.dart:4-7`: apuntar a la URL del gateway vía `--dart-define`, documentar el valor de release.
+- [ ] 6.3 Reemplazar login por email+password por el flujo PKCE contra el SSO; retirar las pantallas que llaman `POST /driver/register` y `/login`.
+- [ ] 6.4 Arreglar la degradación silenciosa: `_bootstrap()` (`app.dart:84-90`) debe validar el token, no sólo comprobar que exista; `DriverRepository` debe cerrar sesión y avisar ante `statusCode != 200`, no `return;` en silencio.
+- [ ] 6.5 Build y distribución de la nueva versión.
+
+---
+
+## Lote 7 — Web: login PKCE, `AppShell`, perfil partido (PR 7)
+
+Bajo riesgo: la web se redespliega en minutos, no hay binarios instalados. Requiere el Lote 2 (cliente OAuth registrado).
+
+- [ ] 7.1 Implementar login por `/oauth/authorize` + PKCE en `tr3slog-website`, retirando las llamadas a `POST /register`, `/login`, `/forgot-password`, `/verify-reset-token`, `/reset-password` (`routes/api.php:40-44`).
+- [ ] 7.2 `GET /user` y `POST /logout` pasan a llamar directo a `GET /api/v1/user` y `POST /api/logout` del SSO, no al backend de TR3SLOG.
+- [ ] 7.3 Arreglar `AppShell.jsx:33`: dejar de leer `user?.roles?.some(r => [...].includes(r.name))` (rotura garantizada, `GET /api/v1/user` no devuelve `roles`) y leer strings prefijados (`treslog:admin`) desde donde el SSO los exponga.
+- [ ] 7.4 Partir `PUT /users/{id}` (`:85`): las 7 claves del perfil van a `PUT /api/v1/profile` (SSO); `company` y el resto siguen al backend de TR3SLOG.
+- [ ] 7.5 Checklist manual: un login end-to-end completa el flujo PKCE contra el gateway local.
+
+---
+
+## Lote 8 — Resto del dominio al gateway + RBAC por rol (PR 8)
+
+El bloque `auth:sanctum` sigue montado en paralelo hasta el Lote 9: nadie pierde acceso.
+
+- [ ] 8.1 Extraer el resto de rutas de dominio (`quotes`, `shipments`, `drivers`, `incidents`, `addresses`, `support`, `payroll`, `dispatch`) a `routes/domain.php` compartido y montarlas en el bloque `Route::prefix('treslog')` junto a las del Lote 5.
+- [ ] 8.2 Eliminar `User::hasPermission()` (`User.php:71-78`) — no devuelve `false` ni `true`, se borra (`3-design.md §D.3`).
+- [ ] 8.3 Traducir las 20 llamadas a `hasPermission()` (N2) según la matriz de `§D.3`: `users.*` → `treslog:admin`; `drivers.manage`/`dispatch.manage`/`shipments.{edit,delete}`/`quotes.view` → `treslog:operaciones` o `treslog:admin`.
+- [ ] 8.4 `quotes.{create,edit,delete}` y `support.{view,edit}` (N1): traducir a la guarda más restrictiva `treslog:admin` con comentario `@todo D7` — no conceder acceso nuevo (`3-design.md §D.5`).
+- [ ] 8.5 `hasRole()`/`hasAnyRole()`/`isAdmin()` dejan de leer `role_user` y leen la identidad SSO hidratada por `ResolveDomainUser` en la instancia; si el modelo no fue hidratado (job en cola, `tinker`, query directa), los tres métodos **lanzan**, no devuelven `false` (`3-design.md §D.4`).
+- [ ] 8.6 Verificar que los call sites existentes (`DriverController.php:16,47`; `IncidentAdminController.php:15,26,50`; `UserController.php:169,191,194,240`) siguen recibiendo el usuario autenticado del request.
+- [ ] 8.7 Test: las 4 Policies (`Shipment`, `SupportTicket`, `Quote`, `User`) siguen resolviendo pertenencia igual que antes de tocar roles.
+- [ ] 8.8 Test: llamar `hasAnyRole()` sobre un `User` no hidratado (traído por `User::find()`) lanza excepción.
+- [ ] 8.9 Test de cobertura de guardas de rol: cada acción sensible de escritura/borrado/administración en los controladores de dominio tiene una verificación de rol explícita (spec `Cobertura total de guardas de rol`).
+- [ ] 8.10 Correr contra el gateway toda la suite de caracterización de los Lotes 1 y 5, verificando que los 403 de N1/D7 siguen dando 403 (no se "arreglan" solos).
+
+---
+
+## Lote 9 — Retiro de auth local, Sanctum y tablas RBAC (PR 9) **[BLOQUEADO: D3, D6 confirmado con datos, y migración de cuentas a Clerk completa — punto de no retorno]**
+
+No reversible con `git revert`. Exige respaldo y ventana anunciada.
+
+- [ ] 9.1 Confirmar D3 (¿`/app/*` está en producción?) antes de decidir su destino en este lote.
+- [ ] 9.2 Confirmar con datos (D6) que no quedan instalaciones contra las rutas viejas de la app de conductores, o que completaron la migración a la build del Lote 6.
+- [ ] 9.3 Respaldo verificado de `users`, `roles`, `permissions`, `role_permission`, `role_user` y `personal_access_tokens` antes de ejecutar cualquier migración de borrado.
+- [ ] 9.4 Retirar `AuthController`, `ApiAuthController`, `DriverAuthController` y sus rutas (`routes/api.php:40-44,54-55,151-154,160-161,175-176,179-180`).
+- [ ] 9.5 Retirar el bloque `Route::middleware('auth:sanctum')->group()` completo de rutas de dominio.
+- [ ] 9.6 Migración: borrar `roles`, `permissions`, `role_permission`, `role_user`, `password_reset_tokens`, `personal_access_tokens`.
+- [ ] 9.7 Migración: retirar de `users` las columnas `password`, `remember_token`, `reset_token`, `reset_token_expires`.
+- [ ] 9.8 Retirar `laravel/sanctum` del proyecto (`composer.json`, `config/sanctum.php`, provider).
+- [ ] 9.9 Test: un grep de `Hash::check`, `createToken` y `auth:sanctum` en `app/` y `routes/` no devuelve nada (criterio de éxito de la propuesta).
+- [ ] 9.10 Ventana de mantenimiento anunciada antes de ejecutar — no hay vuelta atrás sin restaurar el respaldo del 9.3.
