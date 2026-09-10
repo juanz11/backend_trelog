@@ -50,6 +50,11 @@ map $http_origin $cors_origin {
 
 server {
     listen 80;
+    # IPv6 tambien: el healthcheck de compose.yaml hace `wget http://localhost/_health`
+    # DENTRO del contenedor, y en Alpine `localhost` resuelve primero a ::1. Sin esto
+    # el gateway responde desde afuera y Docker lo marca `unhealthy` para siempre.
+    # Mismo arreglo que en MSH/gateway (8d91170): las copias no deben divergir.
+    listen [::]:80;
     server_name _;
 
     # El id que hilvana esta petición por los tres logs: el del gateway, el del

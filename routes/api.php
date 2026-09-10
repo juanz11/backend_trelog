@@ -15,12 +15,7 @@ use App\Http\Controllers\DriverController;
 use App\Http\Controllers\IncidentAdminController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
-use App\Http\Controllers\Api\Driver\DashboardController;
 use App\Http\Controllers\Api\Driver\DriverAuthController;
-use App\Http\Controllers\Api\Driver\IncidentController;
-use App\Http\Controllers\Api\Driver\PayrollController;
-use App\Http\Controllers\Api\Driver\RouteController;
-use App\Http\Controllers\Api\Driver\StopController;
 
 /*
 |--------------------------------------------------------------------------
@@ -224,27 +219,71 @@ Route::prefix('app')->group(function () {
 });
 
 // -----------------------------------------------------------------------
-// Driver app (tr3slog_driver_app)
+// Driver app (tr3slog_driver_app) — montaje 1 de 2: el camino VIVO
 // -----------------------------------------------------------------------
+//  Ni el prefijo ni la cadena de middleware cambiaron: `/api/driver/*` con
+//  `auth:sanctum` + `driver`, igual que ayer. Lo unico que se movio es DONDE
+//  estan escritas las rutas (routes/domain-driver.php), porque ahora las
+//  comparte con el montaje del SSO de mas abajo.
+//
+//  ESTE BLOQUE NO SE RETIRA EN ESTE LOTE, y el motivo no es prudencia generica:
+//  la URL del backend esta congelada en el binario de la app de conductores
+//  (H3, api_service.dart con String.fromEnvironment) y hay instalaciones en la
+//  calle que no se pueden redesplegar hoy. Retirarlo antes del Lote 6 deja sin
+//  backend a gente que esta manejando. Muere en el Lote 9, no antes.
 Route::prefix('driver')->group(function () {
     Route::post('/register', [DriverAuthController::class, 'register']);
     Route::post('/login', [DriverAuthController::class, 'login']);
 
     Route::middleware(['auth:sanctum', 'driver'])->group(function () {
-        Route::get('/me', [DriverAuthController::class, 'me']);
+        // `logout` se define ACA y no en domain-driver.php a proposito: borra el
+        // access token de Sanctum, y por el camino del SSO no hay ninguno —
+        // seria `null->delete()`, o sea un 500. El porque largo esta en la
+        // cabecera de routes/domain-driver.php.
         Route::post('/logout', [DriverAuthController::class, 'logout']);
 
-        Route::get('/dashboard', [DashboardController::class, 'index']);
-
-        Route::get('/routes', [RouteController::class, 'index']);
-        Route::get('/routes/{route}', [RouteController::class, 'show']);
-
-        Route::post('/stops/{stop}/confirm', [StopController::class, 'confirm']);
-        Route::post('/stops/{stop}/fail', [StopController::class, 'fail']);
-
-        Route::get('/incidents', [IncidentController::class, 'index']);
-        Route::post('/incidents', [IncidentController::class, 'store']);
-
-        Route::get('/payroll', [PayrollController::class, 'index']);
+        require __DIR__.'/domain-driver.php';
     });
 });
+
+// -----------------------------------------------------------------------
+// Driver app — montaje 2 de 2: el camino del SSO
+// -----------------------------------------------------------------------
+//  H2: el gateway hace `proxy_pass` SIN componente de path, asi que NGINX
+//  entrega la URI completa y el backend recibe `/api/treslog/driver/...`. Una
+//  ruta registrada como `/api/driver/...` con `gateway.auth` seria inalcanzable
+//  por el gateway: 401 para siempre.
+//
+//  ================== POR QUE LA GUARDA DE ROL NO SE PUEDE OMITIR ============
+//  4-tasks.md §5.2 monta este bloque con `['gateway.auth', 'gateway.user']` y
+//  NADA MAS. Eso PIERDE la guarda de conductor que el bloque viejo si tiene, y
+//  no es un detalle de estilo: `gateway.user` solo comprueba que exista una fila
+//  en `users` con ese `sso_user_id`. Cualquier identidad del SSO con espejo
+//  local —un cliente, una cuenta de operaciones, la persona de contabilidad—
+//  alcanzaria `/api/treslog/driver/payroll` y `/routes`, o sea la liquidacion y
+//  el reparto de TODOS los conductores. El plan escribe el bloque nuevo mas
+//  abierto que el viejo, que es exactamente lo que una migracion no debe hacer.
+//
+//  ================== POR QUE NO SE REUSA EL MIDDLEWARE `driver` =============
+//  Seria lo obvio, y da 403 A TODOS LOS CONDUCTORES REALES. `EnsureUserIsDriver`
+//  hace `$request->user()->hasRole('driver')`, y `hasRole` lee la tabla LOCAL
+//  `role_user` (app/Models/User.php:47). Quien entra por el SSO tiene su rol en
+//  el SSO, no en `role_user`: su fila espejo se crea con `sso_user_id` y nada
+//  mas. La guarda no rechazaria a un impostor, rechazaria al conductor.
+//
+//  Por eso `sso.role`, que lee los roles que el gateway inyecta en X-User-Roles
+//  —la misma fuente que decidio que esta persona puede entrar—. El nombre del
+//  rol NO se escribe suelto: sale de config('sso.roles'), porque un rol sin el
+//  prefijo `treslog:` el SSO no lo emite nunca y la falla seria muda.
+//
+//  ================== POR QUE ESTE ORDEN Y NO OTRO ===========================
+//  `sso.role` va ANTES de `gateway.user`: quien no es conductor se va con un
+//  403 sin que TR3SLOG toque la base ni refresque el espejo de identidad. Y el
+//  403 que recibe dice "te falta el rol", no "no estas dado de alta en TR3SLOG",
+//  que es informacion sobre el padron que no le debemos a alguien que no tiene
+//  nada que hacer aca.
+Route::prefix('treslog/driver')
+    ->middleware(['gateway.auth', 'sso.role:'.config('sso.roles.driver'), 'gateway.user'])
+    ->group(function () {
+        require __DIR__.'/domain-driver.php';
+    });

@@ -129,13 +129,20 @@ Sólo toca `roles/*`, `permissions/*`, `zones/*`, `invitations/*` y el alta púb
 
 ## Lote 5 — Rutas de conductor en paralelo por el gateway (PR 5)
 
+> **Hecho (2026-09-10), 10 tests, verificado contra el gateway REAL en 8003.** Con una corrección
+> al plan, MEDIDA: el bloque nuevo NO lleva `['gateway.auth','gateway.user']` a secas —eso dejaba
+> entrar a `treslog:customer` a `/payroll` (hallazgo 9)— ni el middleware `driver` viejo, que da 403
+> a un conductor real del SSO porque `hasRole()` lee `role_user` local (hallazgo 2). Lleva
+> `gateway.auth` → `sso.role:treslog:driver` → `gateway.user`, en ese orden. `logout` no se monta
+> por el camino del SSO: cerrar sesión de Sanctum no significa nada para una sesión que vive allá.
+
 Nada se retira: `/api/driver/*` con `auth:sanctum` sigue vivo. Sin bloqueo — el riesgo de identidades sin migrar (R10) recién importa cuando haya tráfico real, en el Lote 6.
 
-- [ ] 5.1 Extraer las rutas de dominio del conductor (`routes/api.php:182-193`) a `routes/domain-driver.php` compartido, sin cambiar su contenido.
-- [ ] 5.2 Montar en `routes/api.php`: el bloque viejo `Route::middleware('auth:sanctum')` queda intacto + bloque nuevo `Route::prefix('treslog')->middleware(['gateway.auth','gateway.user'])->group(fn () => require domain-driver.php)` (`3-design.md §E.2`).
-- [ ] 5.3 Verificar que `StopController.php:57` y `RouteController.php:24` siguen comparando contra `$request->user()->id`, ahora poblado por `auth()->setUser()` de `ResolveDomainUser`.
-- [ ] 5.4 Correr contra el gateway local (Lote 2) los tests del Lote 1.2 apuntando a `/api/treslog/driver/*` y verificar los mismos 200/403.
-- [ ] 5.5 Test de cobertura: el grupo `/api/treslog/driver/*` aparece en el listado de rutas con `gateway.auth`.
+- [x] 5.1 Extraer las rutas de dominio del conductor (`routes/api.php:182-193`) a `routes/domain-driver.php` compartido, sin cambiar su contenido.
+- [x] 5.2 Montar en `routes/api.php`: el bloque viejo `Route::middleware('auth:sanctum')` queda intacto + bloque nuevo `Route::prefix('treslog')->middleware(['gateway.auth','gateway.user'])->group(fn () => require domain-driver.php)` (`3-design.md §E.2`).
+- [x] 5.3 Verificar que `StopController.php:57` y `RouteController.php:24` siguen comparando contra `$request->user()->id`, ahora poblado por `auth()->setUser()` de `ResolveDomainUser`.
+- [x] 5.4 Correr contra el gateway local (Lote 2) los tests del Lote 1.2 apuntando a `/api/treslog/driver/*` y verificar los mismos 200/403.
+- [x] 5.5 Test de cobertura: el grupo `/api/treslog/driver/*` aparece en el listado de rutas con `gateway.auth`.
 
 ---
 
