@@ -171,14 +171,32 @@ class AuthController extends Controller
                 'message_es' => 'Enlace de recuperación enviado a tu correo',
             ]);
         } catch (\Exception $e) {
-            // Log error but still return success (for development)
-            \Log::error('Failed to send password reset email: ' . $e->getMessage());
-            
+            \Log::error('Failed to send password reset email: '.$e->getMessage(), [
+                'user_id' => $user->id,
+            ]);
+
+            // El enlace NO vuelve en la respuesta, aunque el correo haya fallado.
+            //
+            // Volvia, con el comentario "for development/testing". Eso convertia
+            // este endpoint —publico— en una entrega de tokens de reseteo a quien
+            // lo pidiera: `resetPassword` solo exige el token, no el email, asi que
+            // con ese enlace se cambia la contrasena de CUALQUIER cuenta, admin
+            // incluido, sin credenciales.
+            //
+            // Y no hacia falta romper nada para llegar: alcanza con que el SMTP
+            // falle, que es un evento operativo normal (una app password de Gmail
+            // vencida, un limite de envio, un corte de red). O sea que el camino
+            // de excepcion —el que menos se prueba— era el camino del ataque.
+            //
+            // Se responde lo MISMO que en el camino feliz, a proposito: una
+            // respuesta distinta cuando falla el correo le dice a quien pregunta
+            // que el correo no salio, y eso ya es informacion que no le debemos.
+            $this->revocarTokenDeReseteo($user);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Password reset link sent to your email',
                 'message_es' => 'Enlace de recuperación enviado a tu correo',
-                'reset_link' => $resetLink, // Include link for development/testing
             ]);
         }
     }
@@ -228,6 +246,20 @@ class AuthController extends Controller
     /**
      * Reset password
      */
+    /**
+     * Invalida un token de reseteo que quedo huerfano.
+     *
+     * Si el correo no salio, ese token no lo tiene nadie. Dejarlo vivo una hora es
+     * una credencial valida flotando en la base sin dueno: cualquier cosa que despues
+     * filtre la fila —un backup, un volcado, una consulta de soporte— entrega la cuenta.
+     */
+    private function revocarTokenDeReseteo(User $user): void
+    {
+        $user->reset_token = null;
+        $user->reset_token_expires = null;
+        $user->save();
+    }
+
     public function resetPassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
