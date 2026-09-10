@@ -1,0 +1,295 @@
+# Gateway local de TR3SLOG.
+#
+# Lo que hace: nada llega al backend de TR3SLOG sin que el SSO haya dicho quién
+# es la persona. NGINX consulta al SSO en cada petición con `auth_request`, y
+# las cabeceras `X-User-*` que el backend lee las escribe ESTE archivo, nunca
+# el cliente.
+#
+# Lo que NO hace: no es el gateway de producción. Es el que corrés en tu máquina
+# para desarrollar. Ver ../SETUP_LOCAL.md.
+#
+# Adaptado 1:1 de MSH/gateway/ (misma copia que documenta 3-design.md §G): los
+# cuatro modos de falla de más abajo, los timeouts y el orden preflight →
+# auth_request son el resultado de tardes ajenas depurando síntomas que
+# apuntaban al lugar equivocado. Se copian literales — sólo cambia lo que
+# identifica a esta aplicación.
+#
+# ---------------------------------------------------------------------------
+#  Es un TEMPLATE, no un .conf
+# ---------------------------------------------------------------------------
+#  La imagen oficial de nginx corre `envsubst` sobre todo lo que esté en
+#  /etc/nginx/templates/*.template al arrancar, y escribe el resultado en
+#  /etc/nginx/conf.d/. Por eso `${SSO_UPSTREAM}` y `${TRESLOG_BACKEND}` funcionan
+#  acá y no funcionarían en un .conf: NGINX no lee variables de entorno.
+#
+#  Y por eso son un upstream COMPLETO con esquema, y no un host suelto: el SSO
+#  local es `http://` y el del VPS es `https://`. Con `upstream { server ...; }`
+#  el esquema queda fijo en el proxy_pass y no se puede cambiar por entorno.
+#  Como envsubst sustituye antes de que NGINX parsee, el proxy_pass queda
+#  literal y no hace falta declarar un `resolver`.
+
+# Orígenes de TR3SLOG, no los de MSH — esto NO se copia a ciegas del original
+# (3-design.md §G:540-541).
+#
+#   - :3000 es `tr3slog-website` (Next, `npm run dev`): el puerto está fijado
+#     en vite.config.js:7 y coincide con el default de `next dev`.
+#   - :3001 es la app Flutter de conductores (`tr3slog_driver_app`) corrida en
+#     modo web para probar el login PKCE (`flutter run -d chrome
+#     --web-port=3001`). Se elige distinto de :3000 a propósito: los dos
+#     clientes tienen que poder correr a la vez en la misma máquina durante el
+#     desarrollo, igual que los dos gateways (ver ../SETUP_LOCAL.md). En un
+#     emulador o dispositivo físico (el caso normal de esta app) no hace falta
+#     esta entrada: CORS sólo lo aplica un navegador, y ahí no hay `Origin`.
+map $http_origin $cors_origin {
+    default                        "";
+    "http://localhost:3000"        $http_origin;
+    "http://127.0.0.1:3000"        $http_origin;
+    "http://localhost:3001"        $http_origin;
+    "http://127.0.0.1:3001"        $http_origin;
+}
+
+server {
+    listen 80;
+    server_name _;
+
+    # El id que hilvana esta petición por los tres logs: el del gateway, el del
+    # SSO y el del backend. Sin esto, diagnosticar un 401 es leer tres tiras de
+    # texto y adivinar qué línea de una va con qué línea de la otra.
+    add_header X-Request-Id $request_id always;
+
+    # -------------------------------------------------------------------------
+    #  Salud, sin pasar por el SSO
+    # -------------------------------------------------------------------------
+    location = /_health {
+        default_type application/json;
+        return 200 '{"status":"up","component":"gateway","sso":"${SSO_UPSTREAM}","request_id":"$request_id"}';
+    }
+
+    # -------------------------------------------------------------------------
+    #  La subpetición que valida el token
+    # -------------------------------------------------------------------------
+    location = /_sso_validate {
+        internal;
+
+        # /api/v1/ y NO /api/validate-token.
+        #
+        # La ruta legada no filtra los roles por aplicación: devuelve todos los
+        # que tiene la persona. Con dos aplicaciones conectadas, el backend de
+        # TR3SLOG recibiría los roles que esa persona tiene en la otra.
+        proxy_pass              ${SSO_UPSTREAM}/api/v1/validate-token;
+
+        proxy_pass_request_body off;
+        proxy_set_header        Content-Length "";
+
+        # El Host del SSO, no el nuestro. Contra el VPS es obligatorio: sin esto
+        # llega `Host: localhost` a un servidor que enruta por nombre y responde
+        # el virtual host equivocado — o un 404 que parece del SSO y no lo es.
+        proxy_set_header        Host              ${SSO_HOST_HEADER};
+
+        # SNI. Sin esto, un TLS contra un host con varios certificados negocia el
+        # equivocado y el handshake falla con un error que no menciona SNI.
+        proxy_ssl_server_name   on;
+
+        proxy_set_header        Authorization     $http_authorization;
+        proxy_set_header        Accept            "application/json";
+
+        # Sin esto el SSO responde 400: es la cabecera con la que sabe POR CUÁL
+        # aplicación se le pregunta, y por lo tanto contra cuál filtrar los
+        # roles. No tiene valor por defecto a propósito — un default acá sería
+        # elegir un inquilino al azar.
+        proxy_set_header        X-Sso-Application $sso_app;
+
+        # La subpetición valida un Bearer, no una sesión de navegador. Si la
+        # cookie del SSO llegara, alguien con sesión activa en el SSO podría
+        # validar contra una identidad distinta a la del token que presentó.
+        proxy_set_header        Cookie            "";
+
+        proxy_set_header        X-Request-Id      $request_id;
+        proxy_set_header        X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header        X-Forwarded-Proto $scheme;
+
+        # Con los defaults de NGINX (60s) esta subpetición bloquea un worker un
+        # minuto entero por petición si el SSO se pone lento. Como TODO
+        # /api/treslog/ pasa por acá, un SSO degradado agota los workers y el
+        # gateway deja de responder incluso lo que no necesita al SSO.
+        #
+        # Contra el VPS hay latencia de red real. Si ves 503 esporádicos con el
+        # SSO sano, subí SSO_READ_TIMEOUT en el .env antes de sospechar del SSO.
+        proxy_connect_timeout   ${SSO_CONNECT_TIMEOUT};
+        proxy_read_timeout      ${SSO_READ_TIMEOUT};
+        proxy_send_timeout      ${SSO_READ_TIMEOUT};
+    }
+
+    # -------------------------------------------------------------------------
+    #  Las rutas de TR3SLOG
+    # -------------------------------------------------------------------------
+    location /api/treslog/ {
+        # A qué aplicación pertenece este bloque. Se setea ACÁ y no en el server
+        # porque `proxy_set_header` no se hereda entre location hermanos: la
+        # subpetición de arriba lee esta variable.
+        set $sso_app "treslog";
+
+        # El preflight se responde ANTES del auth_request: el navegador no manda
+        # Authorization en un OPTIONS, así que validarlo daría 401 siempre.
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin      $cors_origin always;
+            add_header Access-Control-Allow-Methods     "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers     "Authorization, Content-Type, Accept, X-Requested-With" always;
+            add_header Access-Control-Max-Age           86400 always;
+            add_header Access-Control-Expose-Headers    "X-User-Id, X-User-Roles, X-Request-Id" always;
+            add_header X-Request-Id                     $request_id always;
+            # Vary se repite acá: en NGINX un add_header dentro de un `if`
+            # REEMPLAZA los heredados del location, no se suma. Y ésta es la
+            # única respuesta con Max-Age 86400, o sea la única que el navegador
+            # cachea un día entero. Sin Vary, el preflight de un origen se le
+            # sirve a otro.
+            add_header Vary Origin                      always;
+            add_header Content-Length                   0;
+            return 204;
+        }
+
+        auth_request /_sso_validate;
+
+        # La identidad que devolvió el SSO en la subpetición.
+        auth_request_set $sso_user_id    $upstream_http_x_user_id;
+        auth_request_set $sso_user_clerk $upstream_http_x_user_clerk_id;
+        auth_request_set $sso_user_email $upstream_http_x_user_email;
+        auth_request_set $sso_user_name  $upstream_http_x_user_name;
+        auth_request_set $sso_user_roles $upstream_http_x_user_roles;
+
+        # El slug de error, cuando la subpetición rechaza con 400. Es el único
+        # canal por el que llega: auth_request no puede leer el cuerpo de la
+        # subpetición, sólo sus cabeceras.
+        auth_request_set $sso_error      $upstream_http_x_sso_error;
+
+        # El codigo con el que respondio el SSO. Un 404 significa que la ruta de
+        # validacion no existe alla —o sea que ese SSO no tiene /api/v1 desplegado—
+        # y eso no es una caida: es un despliegue pendiente. Sin distinguirlo, el
+        # unico sintoma es "el SSO no responde", que manda a mirar el lugar
+        # equivocado.
+        auth_request_set $sso_status     $upstream_status;
+
+        # Se sobreescriben SIEMPRE. Si sólo se agregaran, un cliente que mande
+        # `X-User-Id: 1` a mano se haría pasar por otra persona.
+        proxy_set_header X-User-Id       $sso_user_id;
+        proxy_set_header X-User-Clerk-Id $sso_user_clerk;
+        proxy_set_header X-User-Email    $sso_user_email;
+        proxy_set_header X-User-Name     $sso_user_name;
+        proxy_set_header X-User-Roles    $sso_user_roles;
+        proxy_set_header X-Auth-Gateway  "myglobalhub-gateway";
+        proxy_set_header X-Request-Id    $request_id;
+
+        # El backend no necesita ni debe ver el token.
+        proxy_set_header Authorization   "";
+        proxy_set_header Cookie          "";
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Si el backend también manda cabeceras CORS, el navegador ve dos y
+        # rechaza la respuesta. Manda el gateway.
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Access-Control-Allow-Credentials;
+        proxy_hide_header Access-Control-Allow-Methods;
+        proxy_hide_header Access-Control-Allow-Headers;
+
+        add_header Access-Control-Allow-Origin      $cors_origin always;
+        add_header Access-Control-Expose-Headers    "X-User-Id, X-User-Roles, X-Request-Id" always;
+        add_header Vary                             Origin always;
+        add_header X-Request-Id                     $request_id always;
+
+        proxy_pass ${TRESLOG_BACKEND};
+    }
+
+    # -------------------------------------------------------------------------
+    #  Los tres caminos de error, en JSON y con CORS
+    # -------------------------------------------------------------------------
+    #  Sin estos bloques el cliente recibe la página HTML por defecto de NGINX
+    #  donde espera JSON, y ADEMÁS sin cabecera CORS: el navegador la descarta y
+    #  la app ve un error de red opaco, indistinguible de "no hay internet".
+    #
+    #  El request_id va en la cabecera Y en el cuerpo: éstas son exactamente las
+    #  respuestas que alguien va a reportar, y el cuerpo se puede copiar aunque
+    #  la cabecera se pierda en una captura de pantalla.
+    error_page 401 = @unauthorized;
+    location @unauthorized {
+        default_type application/json;
+        add_header Access-Control-Allow-Origin   $cors_origin always;
+        add_header Access-Control-Expose-Headers "X-Request-Id" always;
+        add_header X-Request-Id                  $request_id always;
+        add_header Vary Origin always;
+        # `unauthenticated` y no `unauthorized`: es el mismo slug que emite el
+        # SSO. El contrato dice que el catálogo es cerrado; con dos vocabularios,
+        # un cliente que siga el documento no reconoce su propio 401.
+        return 401 '{"error":"unauthenticated","message":"Token invalido, expirado o ausente. Autenticate en el SSO.","request_id":"$request_id"}';
+    }
+
+    error_page 403 = @forbidden;
+    location @forbidden {
+        default_type application/json;
+        add_header Access-Control-Allow-Origin   $cors_origin always;
+        add_header Access-Control-Expose-Headers "X-Request-Id" always;
+        add_header X-Request-Id                  $request_id always;
+        add_header Vary Origin always;
+        return 403 '{"error":"forbidden","message":"Usuario inactivo o sin permisos.","request_id":"$request_id"}';
+    }
+
+    error_page 500 502 503 504 = @sso_unavailable;
+    location @sso_unavailable {
+        default_type application/json;
+
+        # Un 400 de la subpetición NO es el SSO caído: es este gateway mal
+        # configurado. `auth_request` colapsa en 500 todo lo que no sea
+        # 2xx/401/403, así que sin esta rama un location sin `set $sso_app` se
+        # le presenta al cliente como una caída transitoria, con Retry-After, y
+        # el cliente reintenta para siempre contra algo que ningún reintento
+        # arregla.
+        #
+        # 500 y sin Retry-After: la ausencia de esa cabecera ES la señal de que
+        # no hay nada que reintentar.
+        if ($sso_error) {
+            add_header Access-Control-Allow-Origin   $cors_origin always;
+            add_header Access-Control-Expose-Headers "X-Request-Id" always;
+            add_header X-Request-Id                  $request_id always;
+            add_header Vary Origin                   always;
+            return 500 '{"error":"$sso_error","message":"El gateway no pudo declarar a que aplicacion pertenece esta peticion. Es configuracion del gateway, no del SSO ni de tu sesion: reintentar no lo arregla.","request_id":"$request_id"}';
+        }
+
+        # Un 404 tampoco es una caida: la ruta de validacion no existe en ese SSO.
+        # Pasa cuando se apunta a un SSO que todavia no tiene /api/v1 desplegado.
+        # Sin esta rama el mensaje dice "el SSO no responde" y el SSO esta perfecto:
+        # se pierde media tarde mirando logs del lado equivocado.
+        if ($sso_status = 404) {
+            add_header Access-Control-Allow-Origin   $cors_origin always;
+            add_header Access-Control-Expose-Headers "X-Request-Id" always;
+            add_header X-Request-Id                  $request_id always;
+            add_header Vary Origin                   always;
+            return 500 '{"error":"sso_unavailable","message":"El SSO respondio 404 a /api/v1/validate-token: esa ruta no existe en el SSO al que apunta este gateway. No es una caida, es un despliegue pendiente. Revisa SSO_UPSTREAM en gateway/.env.","request_id":"$request_id"}';
+        }
+
+        # Si hay identidad, el SSO CONTESTO y contesto bien: pasamos el
+        # auth_request. Entonces el que fallo es tu backend, no el SSO.
+        #
+        # Es la causa mas comun de todas en local —el backend no esta levantado— y
+        # sin esta rama el mensaje dice "el SSO no responde", que es exactamente el
+        # lugar donde no hay que mirar. `error_page 502` cae en este mismo
+        # manejador, y por eso hay que separarlo aca.
+        if ($sso_user_id) {
+            add_header Access-Control-Allow-Origin   $cors_origin always;
+            add_header Access-Control-Expose-Headers "X-Request-Id" always;
+            add_header X-Request-Id                  $request_id always;
+            add_header Vary Origin                   always;
+            add_header Retry-After 5                 always;
+            return 502 '{"error":"backend_unavailable","message":"El SSO valido tu sesion, pero el backend de TR3SLOG no respondio. Revisa que este levantado y que TRESLOG_BACKEND en gateway/.env apunte a el.","request_id":"$request_id"}';
+        }
+
+        add_header Access-Control-Allow-Origin   $cors_origin always;
+        add_header Access-Control-Expose-Headers "X-Request-Id" always;
+        add_header X-Request-Id                  $request_id always;
+        add_header Vary Origin always;
+        add_header Retry-After 5 always;
+        return 503 '{"error":"sso_unavailable","message":"El SSO no responde: no se pudo validar la sesion. Reintenta en unos segundos.","request_id":"$request_id"}';
+    }
+}

@@ -22,7 +22,6 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/',
-            'role' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -38,8 +37,29 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        $roleName = $request->role ?? 'customer';
-        $role = Role::where('name', $roleName)->first();
+        // -- Agujero 1 de `1-proposal.md §1`: auto-escalacion a admin ----------
+        // Antes esto era `$roleName = $request->role ?? 'customer'`, con
+        // `'role' => 'nullable|string|max:255'` arriba. O sea: un `POST /register`
+        // publico con `{"role":"admin"}` creaba un administrador sin login previo.
+        // Comprobado en este repo con una peticion real antes de tocarlo: 201, y
+        // `$user->isAdmin()` daba `true`.
+        //
+        // OJO CON LA TAREA 4.3 TAL COMO ESTA ESCRITA. Pide "quitar el campo role
+        // del validate", y eso SOLO no arregla nada: el validador de Laravel no
+        // filtra el input, y `$request->role` sigue devolviendo "admin" aunque no
+        // haya regla para el. Lo que cierra el agujero es dejar de LEERLO. Se
+        // hacen las dos cosas —se saca la regla porque anunciaba un campo que ya
+        // no existe— pero la que importa es esta linea.
+        //
+        // Se ignora en silencio en vez de responder 422: el unico cliente que
+        // manda `role` hoy es el formulario publico de alta, que manda
+        // "customer"; devolverle un error de validacion romperia un alta que
+        // funciona, y por un campo que a partir de aca no significa nada. Este
+        // controlador entero muere en el Lote 9.
+        //
+        // `default_role` de la aplicacion en el SSO tambien es `treslog:customer`
+        // (config/sso.php), asi que los dos caminos coinciden.
+        $role = Role::where('name', 'customer')->first();
 
         if ($role) {
             $user->roles()->attach($role);

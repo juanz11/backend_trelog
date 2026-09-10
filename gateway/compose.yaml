@@ -1,0 +1,64 @@
+# Gateway local de TR3SLOG.
+#
+#   cd gateway
+#   cp env.example .env       # y ajustá SSO_UPSTREAM según el perfil que uses
+#   docker compose up -d
+#
+# Levanta en http://localhost:8003. Comprobalo con:
+#   curl -s localhost:8003/_health
+#
+# Puerto 8003 y no 8002: el 8002 lo usa el gateway de MSH, y los dos tienen que
+# poder correr a la vez en la misma máquina (3-design.md §G).
+#
+# No hay Dockerfile a propósito: la imagen oficial de nginx ya hace todo lo que
+# necesitamos. Un Dockerfile acá sería una capa más para mantener, un build más
+# en cada `up`, y una versión de nginx que se desactualiza sola. Lo único propio
+# es el template, y eso se monta.
+
+services:
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: treslog-gateway
+    restart: unless-stopped
+
+    ports:
+      - "${GATEWAY_PORT:-8003}:80"
+
+    volumes:
+      # /templates y no /conf.d: la imagen oficial corre `envsubst` sobre todo lo
+      # que esté acá al arrancar y escribe el resultado en /etc/nginx/conf.d/.
+      # Es lo que permite que un mismo archivo sirva para el SSO local (http) y
+      # para el del VPS (https).
+      - ./templates:/etc/nginx/templates:ro
+
+    environment:
+      # A qué SSO le pregunta si el token vale. Es lo ÚNICO que cambia entre
+      # "todo local" y "SSO del VPS". Lleva el esquema.
+      SSO_UPSTREAM: "${SSO_UPSTREAM:-http://host.docker.internal}"
+
+      # El Host que viaja en la subpetición. Contra el VPS tiene que ser el
+      # nombre real del SSO: si llega `localhost` a un servidor que enruta por
+      # nombre, responde el virtual host equivocado o un 404 que parece del SSO.
+      SSO_HOST_HEADER: "${SSO_HOST_HEADER:-localhost}"
+
+      # Tu backend de Laravel. Desde dentro del contenedor, `localhost` es el
+      # contenedor mismo — por eso host.docker.internal.
+      TRESLOG_BACKEND: "${TRESLOG_BACKEND:-http://host.docker.internal:8000}"
+
+      # Contra el VPS hay latencia real. Si ves 503 esporádicos con el SSO sano,
+      # subí el de lectura antes de sospechar del SSO.
+      SSO_CONNECT_TIMEOUT: "${SSO_CONNECT_TIMEOUT:-2s}"
+      SSO_READ_TIMEOUT: "${SSO_READ_TIMEOUT:-5s}"
+
+    extra_hosts:
+      # En Docker Desktop (Mac y Windows) `host.docker.internal` ya existe. En
+      # Linux no, y sin esta línea el gateway no encuentra tu backend y todo
+      # responde 502 sin explicar por qué.
+      - "host.docker.internal:host-gateway"
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/_health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

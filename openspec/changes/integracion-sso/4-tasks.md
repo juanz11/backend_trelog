@@ -65,47 +65,65 @@ No depende de nada. No toca una línea de auth: todo corre contra el sistema act
 
 Config e infraestructura pura. Nada del backend de TR3SLOG cambia.
 
-- [ ] 2.1 Confirmar D1 con producto + equipo SSO antes de crear nada: el slug es inmutable (`SlugIsImmutableException`).
-- [ ] 2.2 Alta de la aplicación `treslog` en el SSO siguiendo `alta_de_aplicacion.md`: perfil, cliente OAuth público PKCE, vínculo `application_clients` con `kind='frontend'` (checklist contra R6 de la propuesta antes de escribir código).
-- [ ] 2.3 Cargar el catálogo de roles con prefijo `treslog:`: `cliente` (`default_role`), `conductor`, `operaciones`, `admin` — **nunca** `Super Admin` (`3-design.md §D.1`). Queda abierto cómo distinguir alta de `conductor` vs `cliente` (D4 acotada, fuera del alcance de este lote).
-- [ ] 2.4 Copiar `MSH/gateway/` a `treslog/backend_trelog/gateway/` con los 4 cambios: `location /api/treslog/`, `set $sso_app "treslog"`, `${TRESLOG_BACKEND}`, `container_name treslog-gateway` + puerto `8003` (`3-design.md §G`).
-- [ ] 2.5 Revisar (no copiar a ciegas) `map $http_origin $cors_origin`: dejar sólo los orígenes de TR3SLOG (web Next + Flutter en dev).
-- [ ] 2.6 Escribir `SETUP_LOCAL.md` de TR3SLOG adaptado de MSH, documentando cómo levantar los dos gateways (MSH y TR3SLOG) en la misma máquina sin choque de puertos.
+- [x] 2.1 Confirmar D1 con producto + equipo SSO antes de crear nada: el slug es inmutable (`SlugIsImmutableException`).
+- [x] 2.2 Alta de la aplicación `treslog` en el SSO siguiendo `alta_de_aplicacion.md`: perfil, cliente OAuth público PKCE, vínculo `application_clients` con `kind='frontend'` (checklist contra R6 de la propuesta antes de escribir código).
+- [x] 2.3 Cargar el catálogo de roles con prefijo `treslog:`: `cliente` (`default_role`), `conductor`, `operaciones`, `admin` — **nunca** `Super Admin` (`3-design.md §D.1`). Queda abierto cómo distinguir alta de `conductor` vs `cliente` (D4 acotada, fuera del alcance de este lote).
+- [x] 2.4 Copiar `MSH/gateway/` a `treslog/backend_trelog/gateway/` con los 4 cambios: `location /api/treslog/`, `set $sso_app "treslog"`, `${TRESLOG_BACKEND}`, `container_name treslog-gateway` + puerto `8003` (`3-design.md §G`).
+- [x] 2.5 Revisar (no copiar a ciegas) `map $http_origin $cors_origin`: dejar sólo los orígenes de TR3SLOG (web Next + Flutter en dev).
+- [x] 2.6 Escribir `SETUP_LOCAL.md` de TR3SLOG adaptado de MSH, documentando cómo levantar los dos gateways (MSH y TR3SLOG) en la misma máquina sin choque de puertos.
 
 ---
 
 ## Lote 3 — Middleware e identidad espejo, sin conectar (PR 3)
 
+> **Hecho (2026-09-10), 30 tests, 84 aserciones.** Divergencias justificadas en el código: el sello es
+> CONSTANTE (sin `env()`) y falla cerrado si quedara vacío; `ResolveDomainUser` atrapa la
+> `QueryException` del refresco del espejo (UNIQUE en email → sería 500 por petición); comparación
+> con `!==` y no `hash_equals` porque no es un secreto. **3.6 a medias:** los alias están registrados,
+> pero `RequestContext` NO se agregó al grupo `api` global — prependerlo cambia TODAS las rutas vivas
+> en un PR que promete ser inerte; va cuando se migre el dominio. `SuperficieAbiertaSelloForjableTest`
+> documenta el hallazgo 1 con asserts del comportamiento real.
+
 Código inerte: nada se monta sobre una ruta todavía.
 
-- [ ] 3.1 Migración: agregar `users.sso_user_id` string(64) nullable único y `users.sso_clerk_id` string(64) nullable único (`3-design.md §A`).
-- [ ] 3.2 Copiar `RequestContext.php` de MSH; único cambio: prefijo del id generado `treslog-` en vez de `msh-` (`RequestContext.php:146`).
-- [ ] 3.3 Copiar `AuthenticateFromGateway.php` con 2 divergencias: slug de error `unauthenticated` (no `unauthorized`) con `request_id` en el cuerpo; sello del gateway comprobado PRIMERO y sin escape por `env()` vacío — es constante del contrato, no config de ambiente (`3-design.md §C.2`).
-- [ ] 3.4 Copiar `config/sso.php` íntegro, incluidos los comentarios de `§C.1`, agregando `'roles' => [...]` con prefijo `treslog:` para `admin`/`operaciones`/`conductor`/`cliente`.
-- [ ] 3.5 Crear `ResolveDomainUser` (alias `gateway.user`): `User::where('sso_user_id', $identity['id'])->first()`; si no hay fila → `403 forbidden` explícito, **sin** `firstOrCreate` por email; si la hay, refresca `sso_clerk_id`/`email`/`name` y `auth()->setUser($user)` (`3-design.md §A.2`).
-- [ ] 3.6 Registrar alias `gateway.auth`, `gateway.user`, `sso.role` sin montarlos sobre ninguna ruta.
-- [ ] 3.7 Copiar `RequireSsoRole.php` de MSH sin cambios.
-- [ ] 3.8 Test: tabla de verdad completa de `AuthenticateFromGateway` — sin `X-Auth-Gateway` → 401; valor forjado → 401; sello sin `X-User-Id` → 401 (no 500); sin `X-User-Name` → 200; sin `X-User-Roles` → roles vacíos, sin excepción.
-- [ ] 3.9 Test: `RequestContext` — `X-Request-Id` entrante se propaga al cuerpo del error; ausente → id generado, nunca vacío.
-- [ ] 3.10 Test: `ResolveDomainUser` — mismo `sso_user_id` en dos peticiones resuelve la misma fila; email coincidente sin `sso_user_id` → 403, nunca vínculo automático (invariante anti-secuestro de cuenta).
+- [x] 3.1 Migración: agregar `users.sso_user_id` string(64) nullable único y `users.sso_clerk_id` string(64) nullable único (`3-design.md §A`).
+- [x] 3.2 Copiar `RequestContext.php` de MSH; único cambio: prefijo del id generado `treslog-` en vez de `msh-` (`RequestContext.php:146`).
+- [x] 3.3 Copiar `AuthenticateFromGateway.php` con 2 divergencias: slug de error `unauthenticated` (no `unauthorized`) con `request_id` en el cuerpo; sello del gateway comprobado PRIMERO y sin escape por `env()` vacío — es constante del contrato, no config de ambiente (`3-design.md §C.2`).
+- [x] 3.4 Copiar `config/sso.php` íntegro, incluidos los comentarios de `§C.1`, agregando `'roles' => [...]` con prefijo `treslog:` para `admin`/`operaciones`/`conductor`/`cliente`.
+- [x] 3.5 Crear `ResolveDomainUser` (alias `gateway.user`): `User::where('sso_user_id', $identity['id'])->first()`; si no hay fila → `403 forbidden` explícito, **sin** `firstOrCreate` por email; si la hay, refresca `sso_clerk_id`/`email`/`name` y `auth()->setUser($user)` (`3-design.md §A.2`).
+- [x] 3.6 Registrar alias `gateway.auth`, `gateway.user`, `sso.role` sin montarlos sobre ninguna ruta.
+- [x] 3.7 Copiar `RequireSsoRole.php` de MSH sin cambios.
+- [x] 3.8 Test: tabla de verdad completa de `AuthenticateFromGateway` — sin `X-Auth-Gateway` → 401; valor forjado → 401; sello sin `X-User-Id` → 401 (no 500); sin `X-User-Name` → 200; sin `X-User-Roles` → roles vacíos, sin excepción.
+- [x] 3.9 Test: `RequestContext` — `X-Request-Id` entrante se propaga al cuerpo del error; ausente → id generado, nunca vacío.
+- [x] 3.10 Test: `ResolveDomainUser` — mismo `sso_user_id` en dos peticiones resuelve la misma fila; email coincidente sin `sso_user_id` → 403, nunca vínculo automático (invariante anti-secuestro de cuenta).
 
 ---
 
 ## Lote 4 — Cerrar los agujeros de §1 (+N3) con `sso.role` (PR 4)
 
+> **Hecho (2026-09-10), 22 tests.** Con cuatro correcciones al plan, todas medidas con peticiones
+> reales: **(4.1)** montaje PARALELO —`auth:sanctum`+`admin` en las URLs de hoy y `gateway.auth`+
+> `sso.role:treslog:admin` bajo `/api/treslog/`— porque reemplazar apagaba las rutas mientras el
+> gateway no esté en el VPS. **(4.2)** `invitations/verify` y `accept` siguen públicas: quien las llama
+> es el invitado, que por definición no tiene cuenta; queda anotado el agujero de fuerza bruta sin
+> rate limit. **(4.3)** quitar `role` del validate no arreglaba nada —el validador no filtra el input—;
+> se dejó de LEER el campo. **(4.4)** N3 era falso: `POST /users` ya daba 403 a todos (guard `web`);
+> se RETIRA. **(4.11)** escrito como allowlist congelada de rutas públicas, no como «toda ruta de
+> dominio tiene gateway.auth», que nacería rojo cuatro lotes. Tests con Bearer REAL, no `actingAs`.
+
 Sólo toca `roles/*`, `permissions/*`, `zones/*`, `invitations/*` y el alta pública. El resto del dominio sigue con `auth:sanctum` intacto: nadie pierde login.
 
-- [ ] 4.1 Montar `sso.role:treslog:admin` sobre `roles/*`, `permissions/*`, `zones/*` (`routes/api.php:90-108`).
-- [ ] 4.2 Montar `gateway.auth` como mínimo sobre `invitations/*` (`routes/api.php:137-145`), retirando el comentario "without auth for now".
-- [ ] 4.3 Quitar el campo `role` del `validate` de `AuthController::register` (`routes/api.php:40`, `AuthController.php:25,41-46`) para cerrar la auto-escalación, mientras el controlador siga vivo hasta el Lote 9.
-- [ ] 4.4 Retirar `POST /users` público (`routes/api.php:47`, `UserController::store`) o moverlo detrás de `auth:sanctum` + `treslog:admin` — cierre de N3.
-- [ ] 4.5 Test: `POST /register` con `{"role":"admin"}` ya no produce un admin.
-- [ ] 4.6 Test: `roles/*`, `permissions/*`, `zones/*` con `treslog:cliente` (o sin `X-User-Roles`) → 403.
-- [ ] 4.7 Test: `GET /invitations/pending` sin cabeceras de gateway → 401, no 200 con email y nombre.
-- [ ] 4.8 Test estructural: cada valor de `config('sso.roles')` empieza con `treslog:`; ningún archivo de `app/` contiene el literal `Super Admin` (R3/R4).
-- [ ] 4.9 Test: `X-User-Roles: Super Admin` sobre una ruta que exige `treslog:admin` → 403.
-- [ ] 4.10 Test: `X-User-Roles: tienda:vendedor` sobre la misma ruta → 403 (rol de otro inquilino).
-- [ ] 4.11 Test estructural: suite que enumera las rutas de `routes/api.php` y falla si una ruta de dominio no tiene `gateway.auth` (spec `Cobertura total de rutas de dominio`).
+- [x] 4.1 Montar `sso.role:treslog:admin` sobre `roles/*`, `permissions/*`, `zones/*` (`routes/api.php:90-108`).
+- [x] 4.2 Montar `gateway.auth` como mínimo sobre `invitations/*` (`routes/api.php:137-145`), retirando el comentario "without auth for now".
+- [x] 4.3 Quitar el campo `role` del `validate` de `AuthController::register` (`routes/api.php:40`, `AuthController.php:25,41-46`) para cerrar la auto-escalación, mientras el controlador siga vivo hasta el Lote 9.
+- [x] 4.4 Retirar `POST /users` público (`routes/api.php:47`, `UserController::store`) o moverlo detrás de `auth:sanctum` + `treslog:admin` — cierre de N3.
+- [x] 4.5 Test: `POST /register` con `{"role":"admin"}` ya no produce un admin.
+- [x] 4.6 Test: `roles/*`, `permissions/*`, `zones/*` con `treslog:cliente` (o sin `X-User-Roles`) → 403.
+- [x] 4.7 Test: `GET /invitations/pending` sin cabeceras de gateway → 401, no 200 con email y nombre.
+- [x] 4.8 Test estructural: cada valor de `config('sso.roles')` empieza con `treslog:`; ningún archivo de `app/` contiene el literal `Super Admin` (R3/R4).
+- [x] 4.9 Test: `X-User-Roles: Super Admin` sobre una ruta que exige `treslog:admin` → 403.
+- [x] 4.10 Test: `X-User-Roles: tienda:vendedor` sobre la misma ruta → 403 (rol de otro inquilino).
+- [x] 4.11 Test estructural: suite que enumera las rutas de `routes/api.php` y falla si una ruta de dominio no tiene `gateway.auth` (spec `Cobertura total de rutas de dominio`).
 
 ---
 

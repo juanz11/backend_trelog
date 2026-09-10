@@ -6,9 +6,6 @@ use App\Http\Controllers\UserInvitationController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\AlertController;
@@ -43,8 +40,29 @@ Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/verify-reset-token', [AuthController::class, 'verifyResetToken']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-// User registration (public)
-Route::post('/users', [UserController::class, 'store']);
+// -----------------------------------------------------------------------
+//  RETIRADA: `POST /users` (N3 del plan) — Lote 4, tarea 4.4
+// -----------------------------------------------------------------------
+//  El plan la llama "la cuarta via de alta" y pide retirarla o ponerla detras
+//  de auth. SE RETIRA, pero el diagnostico del plan estaba mal y conviene
+//  dejarlo escrito para que nadie la "arregle" el mes que viene:
+//
+//  N3 ES FALSO. Esta ruta NUNCA fue una via de alta. `UserController::store`
+//  abre con `$this->authorize('create', User::class)`, y como la ruta estaba
+//  FUERA de `auth:sanctum`, el guard por defecto es `web` (config/auth.php:19,
+//  sesion) — un Bearer de Sanctum no se resuelve ahi. Comprobado con una
+//  peticion real, no por lectura: `POST /api/users` con el Bearer de un admin
+//  valido devuelve 403 "This action is unauthorized". Le daba 403 a TODO EL
+//  MUNDO, admin incluido.
+//
+//  O sea que no habia agujero: habia codigo muerto. Y el codigo muerto de este
+//  tipo es una trampa cargada — el dia que alguien la mueva adentro de
+//  `auth:sanctum` "para que funcione", se convierte de verdad en la cuarta via
+//  de alta que el plan creia estar cerrando. Por eso se borra en vez de
+//  moverse: 3-design.md §E.1 ya le habia puesto "Muere. El alta la hace el SSO".
+//
+//  `UserController::store` queda en pie a proposito (lo usan las Policies y
+//  muere entero en el Lote 9); lo que desaparece es la unica ruta que lo montaba.
 
 // Public contact form
 Route::post('/contact', [ContactController::class, 'store']);
@@ -86,35 +104,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{id}', [UserController::class, 'destroy']);
     });
 
-    // Role Management Routes
-    Route::prefix('roles')->group(function () {
-        Route::get('/', [RoleController::class, 'index']);
-        Route::get('/{id}', [RoleController::class, 'show']);
-        Route::post('/', [RoleController::class, 'store']);
-        Route::put('/{id}', [RoleController::class, 'update']);
-        Route::delete('/{id}', [RoleController::class, 'destroy']);
-        Route::post('/{roleId}/permissions', [RoleController::class, 'addPermission']);
-        Route::delete('/{roleId}/permissions/{permissionId}', [RoleController::class, 'removePermission']);
-    });
-
-    // Permission Management Routes
-    Route::prefix('permissions')->group(function () {
-        Route::get('/', [PermissionController::class, 'index']);
-        Route::get('/{id}', [PermissionController::class, 'show']);
-        Route::get('/module/{module}', [PermissionController::class, 'getByModule']);
-        Route::post('/', [PermissionController::class, 'store']);
-        Route::put('/{id}', [PermissionController::class, 'update']);
-        Route::delete('/{id}', [PermissionController::class, 'destroy']);
-    });
-
-    // Zone Management Routes
-    Route::prefix('zones')->group(function () {
-        Route::get('/', [ZoneController::class, 'index']);
-        Route::get('/{id}', [ZoneController::class, 'show']);
-        Route::post('/', [ZoneController::class, 'store']);
-        Route::put('/{id}', [ZoneController::class, 'update']);
-        Route::delete('/{id}', [ZoneController::class, 'destroy']);
-    });
+    // `roles/*`, `permissions/*` y `zones/*` SE MUDARON a routes/admin-only.php.
+    // Siguen montadas en las MISMAS URLs y con el MISMO `auth:sanctum` — lo unico
+    // que cambia es que ahora ademas exigen el rol admin. Ver el bloque de abajo.
 
     // Quote Management Routes
     Route::prefix('quotes')->group(function () {
@@ -134,15 +126,78 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
-// User Invitation Routes (without auth for now)
+// -----------------------------------------------------------------------
+//  Invitaciones: la mitad del invitado, y SOLO esa mitad
+// -----------------------------------------------------------------------
+//  El comentario "without auth for now" se retira junto con las cuatro rutas
+//  administrativas que colgaban de aca (`send`, `bulk`, `pending`, `resend`):
+//  se fueron a routes/admin-only.php y ahora exigen admin por los dos caminos.
+//  Comprobado antes de tocar: `GET /api/invitations/pending` sin una sola
+//  cabecera devolvia 200 con el email y el nombre de cada invitacion pendiente.
+//
+//  -- DIVERGENCIA respecto de 2-specs.md ("Invitaciones autenticadas") --------
+//  La spec dice "en TODO endpoint de invitations/*". `verify` y `accept` se
+//  quedan PUBLICAS, y no es una concesion: es que la regla, aplicada a estas
+//  dos, se contradice sola. Quien las llama es el invitado, y el invitado
+//  POR DEFINICION todavia no tiene cuenta — `acceptInvitation` es literalmente
+//  el codigo que se la crea (UserInvitationController.php:252, `User::create`).
+//  Exigir identidad resuelta para poder crear la identidad es pedir estar
+//  adentro para poder entrar: no cierra ningun agujero, mata la funcion entera
+//  y deja invitaciones que nadie puede aceptar nunca.
+//
+//  La credencial de estas dos ES el token de la invitacion, que va en el
+//  cuerpo, es de un solo uso y vence (`isExpired()`, `isPending()`). Es el mismo
+//  modelo que `/reset-password`, que tampoco pide estar logueado.
+//
+//  Lo que si queda expuesto y hay que decirlo: `verify` responde 404 con token
+//  malo y 200 con el bueno, asi que permite adivinar tokens por fuerza bruta si
+//  no hay rate limiting. No se arregla en este lote porque el destino entero de
+//  UserInvitation depende de la Decision D4 (no tiene contraparte en el
+//  contrato del SSO); se anota para que la decision se tome con el dato.
 Route::prefix('invitations')->group(function () {
-    Route::post('/send', [UserInvitationController::class, 'sendInvitation']);
-    Route::post('/bulk', [UserInvitationController::class, 'sendBulkInvitations']);
     Route::post('/verify', [UserInvitationController::class, 'verifyToken']);
     Route::post('/accept', [UserInvitationController::class, 'acceptInvitation']);
-    Route::get('/pending', [UserInvitationController::class, 'getPendingInvitations']);
-    Route::post('/resend', [UserInvitationController::class, 'resendInvitation']);
 });
+
+// -----------------------------------------------------------------------
+//  Superficie de administracion — montaje 1 de 2: el camino VIVO
+// -----------------------------------------------------------------------
+//  Mismas URLs de siempre (`/api/roles`, `/api/permissions`, `/api/zones`) y el
+//  mismo `auth:sanctum`. Lo unico que se agrega es `admin`, que es el cierre del
+//  agujero 2 de `1-proposal.md §1`.
+//
+//  POR QUE NO SE REEMPLAZA POR `sso.role:treslog:admin`, que es lo que pide la
+//  tarea 4.1: `sso.role` lee la identidad que deja `gateway.auth`, y
+//  `gateway.auth` exige venir por el gateway. El gateway del SSO todavia NO esta
+//  en el VPS (`contrato_api_v1_msh.md:353-355`, citado en `1-proposal.md §2`).
+//  Montar solo la guarda nueva no cerraria el agujero: apagaria la
+//  administracion de roles para el unico que hoy la usa legitimamente, el admin,
+//  y encima sin arreglar nada que la guarda local no arregle igual. Se hacen los
+//  DOS montajes, que es exactamente lo que manda `3-design.md §E.2`.
+Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+    require __DIR__.'/admin-only.php';
+});
+
+// -----------------------------------------------------------------------
+//  Superficie de administracion — montaje 2 de 2: el camino del SSO
+// -----------------------------------------------------------------------
+//  H2 del plan: el gateway hace `proxy_pass` SIN componente de path
+//  (gateway/templates/default.conf.template:126,203), asi que NGINX entrega la
+//  URI completa y el backend recibe `/api/treslog/...`. Una ruta registrada como
+//  `/api/roles` con `gateway.auth` seria inalcanzable por el gateway: 401 para
+//  siempre. Por eso el prefijo, y por eso la propia spec escribe el escenario
+//  como `GET /api/treslog/invitations/pending` (2-specs.md:205).
+//
+//  El nombre del rol NO se escribe suelto: sale de config('sso.roles'). Un rol
+//  sin el prefijo `treslog:` no da error en ningun lado — el SSO simplemente no
+//  lo emite nunca, la persona lo tiene asignado y la aplicacion no se entera.
+//  Con el string a mano, alcanza equivocarse una vez; con la config, el test
+//  estructural de InvariantesEstructuralesTest lo agarra.
+Route::prefix('treslog')
+    ->middleware(['gateway.auth', 'sso.role:'.config('sso.roles.admin')])
+    ->group(function () {
+        require __DIR__.'/admin-only.php';
+    });
 
 // -----------------------------------------------------------------------
 // Flutter App Routes (Api namespace - customer facing)
