@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DriverProfile extends Model
 {
+    use \Illuminate\Database\Eloquent\Factories\HasFactory;
+
     protected $fillable = ['user_id', 'driver_id', 'initials', 'vehicle', 'hub', 'shift', 'available'];
 
     protected function casts(): array
