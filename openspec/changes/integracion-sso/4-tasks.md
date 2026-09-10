@@ -45,14 +45,23 @@ Chain strategy: stacked-to-main
 No depende de nada. No toca una línea de auth: todo corre contra el sistema actual (`Sanctum`).
 
 - [ ] 1.1 Crear las 8 factories de dominio que faltan en `database/factories/`: `AddressFactory`, `ShipmentFactory`, `SupportTicketFactory`, `RouteFactory`, `IncidentFactory`, `PayrollPeriodFactory`, `DriverAlertFactory`, `DriverProfileFactory` (hoy sólo existe `UserFactory`, ver `3-design.md §F`).
-- [ ] 1.2 Test de caracterización de rutas de conductor (`routes/api.php:182-193`): `GET /driver/dashboard`, `/routes`, `/routes/{route}`, `POST /stops/{stop}/confirm`, `/stops/{stop}/fail`, `GET /incidents`, `POST /incidents`, `GET /payroll` — dueño 200, otro conductor 403 (`StopController.php:57`, `RouteController.php:24`). Va primero de todo el lote: es el único cliente que no se puede redesplegar (H3).
+  > **A medias (2026-09-10):** hechas `DriverProfileFactory`, `DeliveryRouteFactory` y `RouteStopFactory` —las que el camino del conductor necesita— más `HasFactory` en esos tres modelos, que ninguno tenía (hallazgo 11 de la auditoría). **Corrección al plan:** no existe `RouteFactory`; el modelo es `DeliveryRoute` sobre la tabla `routes`, y Laravel deriva el nombre de la clase. Faltan 5.
+- [x] 1.2 Test de caracterización de rutas de conductor (`routes/api.php:182-193`): `GET /driver/dashboard`, `/routes`, `/routes/{route}`, `POST /stops/{stop}/confirm`, `/stops/{stop}/fail`, `GET /incidents`, `POST /incidents`, `GET /payroll` — dueño 200, otro conductor 403 (`StopController.php:57`, `RouteController.php:24`). Va primero de todo el lote: es el único cliente que no se puede redesplegar (H3).
+  > **Hecho (2026-09-10):** `tests/Feature/Driver/CaracterizacionRutasConductorTest.php`, 8 tests, 20 aserciones. **Con la invariante real, no la del plan:** en la lista (`GET /routes`) el aislamiento es por FILTRO —la ruta ajena no aparece—, y sólo `/routes/{route}` y `stops/{stop}/confirm|fail` dan 403 (hallazgo 14). Los tests capturan cada mecanismo por separado para que unificarlos cueste una decisión.
 - [ ] 1.3 Test de caracterización de pertenencia en el resto del dominio: `ShipmentPolicy::view` (`ShipmentPolicy.php:17`), `AddressController.php:194`, `SupportController.php:21` — dueño ve, otro no.
-- [ ] 1.4 Test de caracterización N1/D7: congelar el `403` actual de un `admin` en `PATCH /quotes/{quote}/status`, `PATCH /app/quotes/{quote}/status`, `GET /support`, `GET /support/{ticket}`, `PUT /support/{ticket}`, con el motivo en el nombre del test y comentario apuntando a D7 (`3-design.md §F.2`, `quotes.edit`/`support.*` no existen en `PermissionSeeder`).
+- [ ] 1.4 ~~Test de caracterización N1/D7: congelar el `403` actual de un `admin`~~ en `PATCH /quotes/{quote}/status`, `PATCH /app/quotes/{quote}/status`, `GET /support`, `GET /support/{ticket}`, `PUT /support/{ticket}`, con el motivo en el nombre del test y comentario apuntando a D7 (`3-design.md §F.2`, `quotes.edit`/`support.*` no existen en `PermissionSeeder`).
+  > **No se hace como está escrito:** la premisa es falsa. `Gate::before` le concede todo al `admin`, así que esos cinco endpoints NO le dan 403 (hallazgo 10 de la auditoría, verificado). Un test que congele un 403 inexistente falla el primer día. D7 se replantea sobre el diagnóstico real.
 - [ ] 1.5 Test de caracterización: `GET /quotes` con `customer` → 403 hoy (`QuotePolicy::viewAny` sólo permite `operations`/`admin`, `3-design.md N1`).
 
 ---
 
-## Lote 2 — Alta en el SSO + gateway local (PR 2) **[BLOQUEADO: D1 — slug `treslog` sin confirmar]**
+## Lote 2 — Alta en el SSO + gateway local (PR 2)
+
+> **D1 resuelto (2026-09-09):** la aplicación está dada de alta en el SSO con slug `treslog`, sus
+> 5 roles reales (`admin`, `driver`, `customer`, `company`, `operations`) y 4 permisos, todos con
+> prefijo `treslog:`. Cliente OAuth `frontend` creado con `sso:app-client`. Verificado: la misma
+> persona obtiene `treslog:driver` aislado de `msh:user` y `tienda:vendedor`. **Los lotes 2, 3 y 4
+> quedan desbloqueados.** Ojo: el plan nombra los roles en español; se usan los del código.
 
 Config e infraestructura pura. Nada del backend de TR3SLOG cambia.
 
@@ -65,7 +74,7 @@ Config e infraestructura pura. Nada del backend de TR3SLOG cambia.
 
 ---
 
-## Lote 3 — Middleware e identidad espejo, sin conectar (PR 3) **[BLOQUEADO: D1 — el prefijo `treslog:` de `config/sso.php` depende del slug]**
+## Lote 3 — Middleware e identidad espejo, sin conectar (PR 3)
 
 Código inerte: nada se monta sobre una ruta todavía.
 
@@ -82,7 +91,7 @@ Código inerte: nada se monta sobre una ruta todavía.
 
 ---
 
-## Lote 4 — Cerrar los agujeros de §1 (+N3) con `sso.role` (PR 4) **[BLOQUEADO: D1]**
+## Lote 4 — Cerrar los agujeros de §1 (+N3) con `sso.role` (PR 4)
 
 Sólo toca `roles/*`, `permissions/*`, `zones/*`, `invitations/*` y el alta pública. El resto del dominio sigue con `auth:sanctum` intacto: nadie pierde login.
 
