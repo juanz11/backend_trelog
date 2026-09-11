@@ -42,6 +42,7 @@ class RequireSsoRole
                 // (sso.role antes que gateway.auth), pero el slug es el mismo igual.
                 'error'   => 'unauthenticated',
                 'message' => 'Falta gateway.auth antes de sso.role en la cadena de middleware.',
+                'request_id' => RequestContext::resolveFor($request),
             ], 401);
         }
 
@@ -53,6 +54,10 @@ class RequireSsoRole
                 'error'    => 'forbidden',
                 'message'  => 'El usuario no tiene ninguno de los roles requeridos.',
                 'required' => $roles,
+                // Con request_id, como TODO error propio segun el contrato. Es el error
+                // mas frecuente del camino nuevo y sin el id no hay forma de seguir la
+                // peticion por los tres logs cuando la reportan. Lo marco la auditoria.
+                'request_id' => RequestContext::resolveFor($request),
             ], 403);
         }
 

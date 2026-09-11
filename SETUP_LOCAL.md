@@ -47,7 +47,7 @@ Quien administra el SSO lo crea así (`Docs/alta_de_aplicacion.md`,
 
 ```bash
 php artisan sso:app-client --app=treslog --kind=frontend-dev \
-    --redirect=http://localhost:3000/login/sso/callback
+    --redirect=http://localhost:3200/login/sso/callback
 ```
 
 Si además vas a probar el login desde la app de conductores en modo web
@@ -129,7 +129,7 @@ gateway al otro es el error más fácil de cometer acá.
 ```bash
 cd ../tr3slog-website
 npm install
-npm run dev                  # queda en http://localhost:3000
+npm run dev                  # queda en http://localhost:3200
 ```
 
 El puerto **3000 no es negociable**: está fijado en `vite.config.js:7`,
@@ -141,6 +141,12 @@ respuesta sin explicar por qué en la consola de red — sólo en la de JS.
 
 ### 3b. La app de conductores (`tr3slog_driver_app`, Flutter)
 
+> **Todavía no funciona, y no es un problema tuyo.** La app de conductores no tiene el flujo de
+> login OAuth PKCE contra el SSO: hoy se loguea contra `/api/driver/login` con usuario y
+> contraseña de TR3SLOG (Lote 6, bloqueado por D6). Levantarla contra el gateway con esta
+> configuración la deja sin poder entrar. Esta sección queda escrita para el día que exista;
+> mientras tanto, la web Next y `curl` son los clientes con los que se prueba el camino nuevo.
+
 El Lote 6 (build nueva de la app, login PKCE) todavía está bloqueado por D6 —
 ver `openspec/changes/integracion-sso/4-tasks.md`. Hoy la app sigue con su
 login viejo. Esta sección es para cuando ese lote se desbloquee, y para probar
@@ -148,13 +154,13 @@ el gateway en modo web mientras tanto:
 
 ```bash
 cd ../tr3slog_driver_app
-flutter run -d chrome --web-port=3001 \
+flutter run -d chrome --web-port=3201 \
     --dart-define=API_BASE_URL=http://localhost:8003/api/treslog
 ```
 
 **3001 y no 3000**: ese puerto ya lo tiene la web Next, y las dos apps se
 corren a la vez durante el desarrollo. Por eso `default.conf.template` habilita
-`localhost:3001` en el `map` además de `:3000` — es la única entrada que
+`localhost:3201` en el `map` además de `:3000` — es la única entrada que
 `3-design.md §G` no trae de MSH, porque TR3SLOG tiene dos clientes de
 navegador y MSH tiene uno solo. En un emulador o dispositivo físico (el caso
 normal de esta app) esta sección no aplica: CORS sólo lo exige un navegador, y
@@ -229,7 +235,7 @@ distinto `container_name`, distinto puerto. Ninguno depende de que el otro
 esté corriendo.
 
 **¿Puedo usar el `client_id` de producción y ahorrarme el pedido?**
-Podés, y no lo hagas. Requiere registrar `http://localhost:3000` en el cliente
+Podés, y no lo hagas. Requiere registrar `http://localhost:3200` en el cliente
 productivo, y esa puerta después queda abierta para siempre, en todas las
 apps. El `frontend-dev` cuesta un comando (`5-auditoria.md` hallazgo 12).
 

@@ -42,10 +42,20 @@
 #     esta entrada: CORS sólo lo aplica un navegador, y ahí no hay `Origin`.
 map $http_origin $cors_origin {
     default                        "";
-    "http://localhost:3000"        $http_origin;
-    "http://127.0.0.1:3000"        $http_origin;
-    "http://localhost:3001"        $http_origin;
-    "http://127.0.0.1:3001"        $http_origin;
+    # Los origenes REGISTRADOS en el SSO para `treslog`, que es la fuente de la que
+    # `php artisan gateway:config` genera este mismo bloque (gateway/nginx/generated/
+    # cors_map.conf en el repo del SSO). La version anterior decia 3000/3001, elegidos
+    # a mano, mientras el SSO registraba 3200: dos fuentes de verdad, y la deriva se
+    # vio recien en la auditoria. Si agregas un origen, va PRIMERO en el SSO y despues
+    # aca — o mejor, se pega el generado. `gateway:config --check` avisa si divergen.
+    #
+    # 3200 y no 3000: el 3000 es de la web de MSH, y `next dev` se corre SOLO a otro
+    # puerto si lo encuentra ocupado. Un origen que cambia en silencio es un CORS
+    # que se rompe en silencio.
+    "http://localhost:3200"        $http_origin;   # tr3slog-website (Next)
+    "http://127.0.0.1:3200"        $http_origin;
+    "http://localhost:3201"        $http_origin;   # tr3slog_driver_app (Flutter web, dev)
+    "http://127.0.0.1:3201"        $http_origin;
 }
 
 server {
