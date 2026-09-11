@@ -16,6 +16,7 @@ use App\Http\Controllers\IncidentAdminController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
 use App\Http\Controllers\Api\Driver\DriverAuthController;
+use App\Http\Controllers\Sso\MeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -286,4 +287,40 @@ Route::prefix('treslog/driver')
     ->middleware(['gateway.auth', 'sso.role:'.config('sso.roles.driver'), 'gateway.user'])
     ->group(function () {
         require __DIR__.'/domain-driver.php';
+    });
+
+// -----------------------------------------------------------------------
+//  «Quien soy» por el camino del SSO — el unico endpoint SIN guarda de rol
+// -----------------------------------------------------------------------
+//  Reemplaza a `GET /api/user` (AuthController::me, que muere en el Lote 9) para
+//  la web. Lo necesita el Lote 7: despues del login PKCE la web tiene un token
+//  del SSO y nada mas, y para dibujar una sola pantalla necesita tres cosas que
+//  no vienen juntas de ningun lado — quien es, que roles de TR3SLOG tiene, y con
+//  que id local se le piden sus envios. `GET /api/v1/user` del SSO responde la
+//  primera, explicitamente NO devuelve roles (contrato §4.1) y no conoce el id
+//  local del que cuelgan las nueve FKs del dominio.
+//
+//  ================== POR QUE NO LLEVA `sso.role` ============================
+//  Es deliberado, y es la unica ruta del prefijo `treslog` que no lo lleva.
+//  Preguntar quien soy no exige ser nada: un cliente, un conductor y una cuenta
+//  de operaciones tienen que poder hacerlo, y exigir un rol concreto obligaria a
+//  la web a adivinar cual pedir antes de saber quien entro — o a montar cuatro
+//  variantes de la misma ruta. La informacion que devuelve es la de la propia
+//  persona y la autorizacion de lo que HACE la sigue decidiendo `sso.role` en
+//  cada ruta de dominio. Lo que NO se puede omitir es `gateway.user`: sin el,
+//  `$request->user()` es null y esto seria un 500 por `null->id`.
+//
+//  ================== QUE SIGNIFICA EL 403 QUE SALE DE ACA ===================
+//  Si la identidad del SSO no tiene fila espejo en `users`, `gateway.user`
+//  responde 403 `forbidden` con `request_id` (ResolveDomainUser, sin tocarse).
+//  Para la persona eso NO es "no tenes permiso": es «tu cuenta del SSO todavia
+//  no esta habilitada en TR3SLOG», y es el estado NORMAL de cualquiera que se
+//  registre en el ecosistema mientras la migracion de cuentas siga fuera de
+//  alcance (R10). La web lo muestra con ese texto y con el `request_id`, y NO
+//  reintenta ni vuelve al login: loguearse de nuevo no lo arregla nunca, lo
+//  arregla alguien dando de alta la cuenta.
+Route::prefix('treslog')
+    ->middleware(['gateway.auth', 'gateway.user'])
+    ->group(function () {
+        Route::get('/me', MeController::class);
     });

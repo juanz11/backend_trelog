@@ -87,6 +87,22 @@ return [
     'gateway_signature' => 'myglobalhub-gateway',
 
     /*
+    | El slug de esta aplicacion en el SSO.
+    |
+    | ES INMUTABLE DEL OTRO LADO: el SSO tira `SlugIsImmutableException` si se
+    | intenta cambiar (fue la Decision D1 del plan, y por eso hubo que confirmarla
+    | con producto ANTES de dar de alta la aplicacion). No es una preferencia
+    | local: es el prefijo con el que el SSO emite CADA rol de TR3SLOG en
+    | `X-User-Roles`, o sea el criterio para distinguir un rol nuestro de uno de
+    | otro inquilino del ecosistema (`msh:user`, `tienda:vendedor`).
+    |
+    | Vive aca y no como literal en el codigo porque el filtrado de roles por
+    | aplicacion (MeController) es defensa en profundidad, y una defensa que
+    | repite un string a mano en otro archivo es la que se desincroniza primero.
+    */
+    'slug' => 'treslog',
+
+    /*
     | Los roles de TR3SLOG en el SSO, indexados por el nombre corto con el que
     | los conoce el codigo de esta aplicacion.
     |

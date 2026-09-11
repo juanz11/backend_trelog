@@ -160,13 +160,36 @@ Requiere el Lote 5 desplegado. Distribuir sin saber cuántas instalaciones hay, 
 
 ## Lote 7 — Web: login PKCE, `AppShell`, perfil partido (PR 7)
 
+> **Hecho (2026-09-10).** Web en `sso/lote7-web-login-pkce`, más UNA ruta aditiva en el backend
+> (`GET /api/treslog/me`, rama `sso/lote1-red-de-seguridad`, 14 tests). 15 tests de la web con
+> `node --test`, sin dependencias nuevas. Corrección al plan en 7.2: el `GET /user` **no** se
+> reemplaza por `GET /api/v1/user` del SSO, porque el SSO NO DEVUELVE ROLES (contrato §4.1,
+> explícito) ni conoce el id local del que cuelgan las nueve FKs del dominio. Sin roles, 7.3 no
+> tiene de dónde leer: el plan se contradice consigo mismo. Por eso `/me` en el backend, detrás del
+> gateway, que devuelve las tres cosas juntas. `POST /logout` sí va directo al SSO, como decía 7.2.
+
 Bajo riesgo: la web se redespliega en minutos, no hay binarios instalados. Requiere el Lote 2 (cliente OAuth registrado).
 
-- [ ] 7.1 Implementar login por `/oauth/authorize` + PKCE en `tr3slog-website`, retirando las llamadas a `POST /register`, `/login`, `/forgot-password`, `/verify-reset-token`, `/reset-password` (`routes/api.php:40-44`).
-- [ ] 7.2 `GET /user` y `POST /logout` pasan a llamar directo a `GET /api/v1/user` y `POST /api/logout` del SSO, no al backend de TR3SLOG.
-- [ ] 7.3 Arreglar `AppShell.jsx:33`: dejar de leer `user?.roles?.some(r => [...].includes(r.name))` (rotura garantizada, `GET /api/v1/user` no devuelve `roles`) y leer strings prefijados (`treslog:admin`) desde donde el SSO los exponga.
-- [ ] 7.4 Partir `PUT /users/{id}` (`:85`): las 7 claves del perfil van a `PUT /api/v1/profile` (SSO); `company` y el resto siguen al backend de TR3SLOG.
-- [ ] 7.5 Checklist manual: un login end-to-end completa el flujo PKCE contra el gateway local.
+- [x] 7.1 Implementar login por `/oauth/authorize` + PKCE en `tr3slog-website`, retirando las llamadas a `POST /register`, `/login`, `/forgot-password`, `/verify-reset-token`, `/reset-password` (`routes/api.php:40-44`).
+  > **Hecho:** `src/lib/sso.js` (funciones puras, probadas), `src/config/sso.js`, `pages/login/sso/callback.jsx`. Borrados `AuthModal.jsx`/`.css`, `pages/reset.jsx`, `pages/reset-password.jsx`, y las cuatro funciones de `api.js`. Se borró además la entrada muerta de Vite (`src/App.jsx`, `src/main.jsx`, `index.html`, `vite.config.js`): era una segunda copia del flujo de auth, `vite` ni siquiera está en `package.json`, y dejar una copia muerta del login que acabamos de migrar es la trampa que alguien "arregla" el mes que viene.
+- [x] 7.2 `GET /user` y `POST /logout` pasan a llamar directo a `GET /api/v1/user` y `POST /api/logout` del SSO, no al backend de TR3SLOG.
+  > **A medias, y a propósito.** `POST /logout` sí: va a `POST ${SSO_URL}/api/logout` con Bearer, best-effort. `GET /user` **no**: se reemplaza por `GET /api/treslog/me` (nuevo, aditivo, backend). `GET /api/v1/user` del SSO devuelve trece claves y ninguna es `roles`, y tampoco el `users.id` local. Con el plan tal cual, `AppShell` se quedaba sin roles para leer.
+- [x] 7.3 Arreglar `AppShell.jsx:33`: dejar de leer `user?.roles?.some(r => [...].includes(r.name))` (rotura garantizada, `GET /api/v1/user` no devuelve `roles`) y leer strings prefijados (`treslog:admin`) desde donde el SSO los exponga.
+  > **Hecho:** `user?.is_admin === true`. La pregunta se responde una sola vez y en el backend (`MeController::alcanzaLaConsola`), no en cada cliente. `roles` viaja igual, como lista de strings filtrada a `treslog:`.
+- [x] 7.4 Partir `PUT /users/{id}` (`:85`): las 7 claves del perfil van a `PUT /api/v1/profile` (SSO); `company` y el resto siguen al backend de TR3SLOG.
+  > **Parcial, con el motivo medido.** De las tres claves editables del formulario, sólo `phone` es de las siete del SSO: se escribe en `PUT /api/v1/profile`. `company` sigue yendo al backend, como pedía la tarea. `name` **queda de sólo lectura**: el contrato §4.2 dice que es derivado de `first_name`+`last_name` y mandarlo es **422**, no un 200 que ignora la clave. Partirlo en dos inputs necesita tres claves de i18n en tres idiomas y decidir cómo se migra el `name` de la gente que ya existe: queda anotado como `@todo` en `Profile.jsx`. Las dos mitades se guardan e informan por separado, para que el 401 del backend legado no se coma el "teléfono guardado".
+- [x] 7.5 Checklist manual: un login end-to-end completa el flujo PKCE contra el gateway local.
+  > **Verificado hasta donde se puede sin navegador, y el límite es real:** el login del SSO es de Clerk (`POST /login/clerk` con un token de Clerk; no hay login por contraseña en `routes/web.php`), así que el salto del medio necesita una persona. Verificado con curl: (a) `GET /oauth/authorize` con challenge S256 válido → **302** a `/login?client_id=…`; (b) con `code_challenge=X` como decía el checklist → **400** `invalid_request`, "Code challenge must follow the specifications of RFC-7636" (el challenge tiene que ser de 43-128 caracteres base64url); (c) `GET /api/treslog/me` por el gateway con token real de `sso:token` → **200** con `roles:["treslog:driver"]`; (d) misma ruta con una identidad del SSO sin fila espejo → **403** `forbidden` con `request_id`, que es la pantalla "tu cuenta no está habilitada". El canje del código lo cubren los tests de `node --test`.
+
+### Ruta aditiva en el backend, no estaba en el plan
+
+- [x] 7.6 `GET /api/treslog/me` bajo `['gateway.auth','gateway.user']`, **sin** `sso.role`: preguntar quién soy no exige ser nada. Devuelve el id local, `sso_user_id`, nombre, correo, `company`, `phone`, `status`, los roles filtrados a `treslog:` y `is_admin` (admin u operations). Los roles salen de la identidad del request, **nunca** de `role_user` — para quien entra por el SSO esa tabla está vacía (hallazgo 2), y leerla devolvería `[]` sin error: un admin viendo el portal del cliente. `tests/Feature/Sso/MeTest.php`, 14 tests; la suite completa queda en **86 tests, 318 aserciones, verde** (incluido `ExampleTest`, que con el `.env` del stack de demo ya no está rojo).
+
+### Lo que este lote NO arregla, y hay que decirlo
+
+- La web entra con un token del SSO, y **todo el dominio sigue detrás de `auth:sanctum`**: envíos, cotizaciones, direcciones y soporte responden **401** hasta el Lote 8. Es el orden que eligió el plan, no una regresión de este lote. `src/api.js` los separa en `LEGACY_API_URL` con la nota.
+- **El Lote 8 tiene un agujero en su enunciado.** §8.1 manda "el resto de rutas de dominio" detrás del gateway, pero tres de ellas son **públicas** y las usa gente sin cuenta: `POST /contact`, `POST /app/quotes` y `GET /app/quotes/track/{code}`. El gateway exige Bearer y responde 401 antes de tocar el backend (comprobado: `POST http://localhost:8003/api/treslog/contact` → 401). Necesitan decisión propia.
+- `NEXT_PUBLIC_API_URL` **ya existía** en el ambiente de producción de la web apuntando al backend legado (comprobado sobre el bundle compilado, sin abrir ningún `.env`). El gateway estrena `NEXT_PUBLIC_GATEWAY_URL`: reusar la vieja habría mandado `GET /me` al backend viejo y el tráfico legado a `localhost`.
 
 ---
 
