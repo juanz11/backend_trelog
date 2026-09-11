@@ -167,6 +167,11 @@ Requiere el Lote 5 desplegado. Distribuir sin saber cuántas instalaciones hay, 
 > explícito) ni conoce el id local del que cuelgan las nueve FKs del dominio. Sin roles, 7.3 no
 > tiene de dónde leer: el plan se contradice consigo mismo. Por eso `/me` en el backend, detrás del
 > gateway, que devuelve las tres cosas juntas. `POST /logout` sí va directo al SSO, como decía 7.2.
+>
+> **Auditado (2026-09-11, tercera ronda de `5-auditoria.md`).** Cuatro lentes a mano, sin agentes.
+> Dos hallazgos, los dos corregidos en la web: las pantallas nuevas del login ignoraban el idioma
+> (ahora trilingües vía `i18n-auth.js`) y un comentario de `config/sso.js` afirmaba una
+> `redirect_uri` que no está registrada. OAuth/PKCE y `/me` sin hallazgos.
 
 Bajo riesgo: la web se redespliega en minutos, no hay binarios instalados. Requiere el Lote 2 (cliente OAuth registrado).
 

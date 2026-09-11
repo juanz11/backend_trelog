@@ -363,3 +363,26 @@ producción»: el map de CORS del gateway decía 3000/3001 mientras el SSO regis
 no existe (`b385058`); y del lado del SSO, un 404 a la subpetición se disfrazaba de caída
 transitoria con `Retry-After` (SSO `1a5a99c`, referencia y contrato — las plantillas de MSH y
 TR3SLOG ya lo distinguían).
+
+---
+
+## Tercera ronda: auditoría del CÓDIGO del Lote 7 (2026-09-11, de madrugada)
+
+Misma mecánica de cuatro lentes, pero **sin agentes**: la hizo el orquestador a mano, de a un
+lente, porque cada subagente en paralelo le pedía permisos al usuario mientras dormía.
+
+| Lente | Qué se verificó | Resultado |
+|---|---|---|
+| OAuth/PKCE atacado | `state` criptográfico, guardado en `sessionStorage`, comparado ANTES de canjear y borrado al leer; verifier de 32 bytes → 43 chars base64url; challenge S256 sin padding; `redirect_uri` desde config en authorize y en el canje; destino post-login fijo (`/dashboard`); solo `access_token` en `localStorage`; error del canje → pantalla con reintento que ARRANCA de nuevo, sin recargar | sin hallazgos |
+| `/me` y el contrato | roles desde la identidad del gateway (`sso_user` en el request), nunca `role_user`; filtro por `config('sso.slug')`; `is_admin` desde `config('sso.roles')`; ruta con `gateway.auth`+`gateway.user`, sin `sso.role`; suite 86 tests / 318 aserciones en verde | sin hallazgos |
+| Regresiones de la web | sin referencias al modal ni a `api.login/register/forgot/reset`; `AppShell` lee `is_admin`; el 403 «no habilitada» conserva el token (corta el bucle); lint limpio; 15/15 tests | **1 hallazgo**: las pantallas nuevas (callback y «Puerta») tenían textos fijos en castellano; el modal que reemplazan era trilingüe. **Corregido**: claves `sso*` en `i18n-auth.js` (es/en/zh-CN), `_app.jsx` pasa `lang` al callback y `a` a la Puerta |
+| Setup copiando y pegando | defaults de `config/sso.js` = lo registrado en el SSO local; `/oauth/authorize` con challenge S256 real → 302 al login; `SETUP_LOCAL.md` dice la verdad sobre `localhost` vs `127.0.0.1` | **1 hallazgo**: el comentario de `config/sso.js` decía que `127.0.0.1:3200` estaba registrada como `redirect_uri` y no lo está. **Corregido** (comentario) |
+
+No se corrió `npm run build` en esta ronda: comparte `.next/` con el `next dev` que sirve la
+demo en :3200 y lo tiraría abajo. El agente del Lote 7 lo corrió antes (callback exportado en
+`out/login/sso/callback.html`); la próxima ronda con la web parada lo repite.
+
+Pendientes que NO son de este lote y quedan con dueño: `.env.local` y `.env.production` de la
+web están versionados con claves de Stripe (rotar, decisión del usuario); solo `localhost:3200`
+registrada como redirect; dominio de la web en 401 hasta el Lote 8 (rama
+`sso/lote8-dominio-por-gateway` creada en un worktree, sin cambios).
