@@ -265,10 +265,17 @@ class RutasConductorPorGatewayTest extends TestCase
             '/api/treslog/driver/dashboard',
             '/api/treslog/driver/me',
         ] as $ruta) {
-            $this->withHeaders($this->delGateway(['X-User-Roles' => 'treslog:customer']))
+            $this->withHeaders($this->delGateway(['X-User-Roles' => 'treslog:customer', 'X-Request-Id' => 'sso-jueces-403']))
                 ->getJson($ruta)
                 ->assertStatus(403, "«{$ruta}» dejo entrar a una identidad sin el rol de conductor")
-                ->assertJsonPath('error', 'forbidden');
+                ->assertJsonPath('error', 'forbidden')
+                // El 403 es el error mas frecuente del camino nuevo, y era el unico
+                // sin request_id: el id entrante se perdia y no habia con que cruzar
+                // la captura del cliente contra los logs. Lo marco la auditoria.
+                ->assertJsonPath('request_id', 'sso-jueces-403')
+                // Y sin `required`: el sobre es cerrado, y los roles que abren la
+                // puerta no se le cuentan a quien la encontro cerrada.
+                ->assertJsonMissingPath('required');
         }
     }
 

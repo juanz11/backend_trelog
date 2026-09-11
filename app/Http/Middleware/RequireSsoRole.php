@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -50,13 +51,24 @@ class RequireSsoRole
         $needed  = array_map('strtolower', $roles);
 
         if (empty(array_intersect($granted, $needed))) {
+            // Los roles exigidos van al LOG, no al cuerpo. El sobre de error del
+            // contrato es cerrado (error/message/request_id, mas errors solo en 422)
+            // y una clave `required` le contaba al cliente que roles abren la puerta
+            // que acaba de encontrar cerrada: un mapa gratis para quien anda probando.
+            // Lo marco la auditoria de los lotes 2-5.
+            Log::info('sso.role.denied', [
+                'request_id' => RequestContext::resolveFor($request),
+                'ruta'       => $request->path(),
+                'tiene'      => $granted,
+                'exige'      => $needed,
+            ]);
+
             return response()->json([
-                'error'    => 'forbidden',
-                'message'  => 'El usuario no tiene ninguno de los roles requeridos.',
-                'required' => $roles,
+                'error'      => 'forbidden',
+                'message'    => 'El usuario no tiene ninguno de los roles requeridos.',
                 // Con request_id, como TODO error propio segun el contrato. Es el error
                 // mas frecuente del camino nuevo y sin el id no hay forma de seguir la
-                // peticion por los tres logs cuando la reportan. Lo marco la auditoria.
+                // peticion por los tres logs cuando la reportan.
                 'request_id' => RequestContext::resolveFor($request),
             ], 403);
         }

@@ -343,3 +343,23 @@ Cinco de los tests del lote bloqueante fallan tal como están especificados, y �
 
 
 ---
+
+---
+
+## Segunda ronda: auditoría del CÓDIGO de los lotes 2–5 (2026-09-11)
+
+Misma mecánica que la primera —cuatro lentes (contrato, camino viejo, seguridad, gateway) y dos
+escépticos por hallazgo—, pero sobre el código escrito, no sobre el plan. 32 agentes, 8 hallazgos
+crudos, **1 sobrevivió**; los otros 7 fueron refutados contra el código o ya estaban declarados
+como decisión en `4-tasks.md`.
+
+| # | Hallazgo | Estado |
+|---|----------|--------|
+| 1 | `RequireSsoRole`: el 403 —el error más frecuente del camino nuevo— salía sin `request_id` y con una clave `required` fuera del sobre cerrado del contrato, que le contaba al cliente qué roles abren la puerta | **Corregido** (`b385058` el `request_id`; esta ronda: `required` al log, y el test que congela las dos cosas en las cuatro rutas del conductor) |
+
+De los refutados, tres se corrigieron igual porque eran ciertos aunque no llegaran a «rompe
+producción»: el map de CORS del gateway decía 3000/3001 mientras el SSO registraba 3200/3201
+(`b385058`); `SETUP_LOCAL.md` §3b mandaba a levantar la app Flutter contra un login que todavía
+no existe (`b385058`); y del lado del SSO, un 404 a la subpetición se disfrazaba de caída
+transitoria con `Retry-After` (SSO `1a5a99c`, referencia y contrato — las plantillas de MSH y
+TR3SLOG ya lo distinguían).
