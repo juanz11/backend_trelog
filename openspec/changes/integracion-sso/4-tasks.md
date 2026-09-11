@@ -200,18 +200,50 @@ Bajo riesgo: la web se redespliega en minutos, no hay binarios instalados. Requi
 
 ## Lote 8 — Resto del dominio al gateway + RBAC por rol (PR 8)
 
+> **Hecho (2026-09-11, de madrugada, a mano y sin agentes).** Backend en la rama
+> `sso/lote8-dominio-por-gateway` (worktree aparte, para no tocar el árbol que sirve la demo);
+> web en `sso/lote8-web-dominio`. Suite del backend en verde con 4 archivos de tests nuevos;
+> web 41/41 con `node --test`, lint limpio.
+>
+> **Decisiones tomadas para destrabar (D8.x), a falta del usuario dormido:**
+> - **D8.1** Las rutas PÚBLICAS (`POST /contact`, `POST /app/quotes`, `GET /app/quotes/track/{code}`)
+>   **no** van detrás del gateway: no llevan identidad y el gateway exige Bearer. La web las llama
+>   por `PUBLIC_API_URL` (backend directo). Cierra el agujero del enunciado de §8.1.
+> - **D8.2** Todo el dominio bajo `/api/treslog/*` lleva `gateway.auth` + `gateway.user`; la consola
+>   de operaciones (choferes, incidentes, padrón, cotizaciones, cambiar/borrar envíos, alertas)
+>   además `sso.role:treslog:operations,treslog:admin` (OR), definido en `routes/api.php` como
+>   `$operaciones` y leído por `routes/domain.php`. Lo del cliente (direcciones, tickets, su
+>   usuario, sus envíos, `pending-count`) queda con las Policies de pertenencia.
+> - **D8.3** `hasPermission()` borrado; cada call site traducido por la matriz de §D.3. N1
+>   (`quotes.*`, `support.*`) → `isAdmin()` con `@todo D7`.
+> - **D8.4** `hasRole/hasAnyRole/isAdmin` con TRES comportamientos: (a) hidratada por
+>   `ResolveDomainUser` → roles del SSO (acepta el nombre corto `admin` vía `config('sso.roles')`);
+>   (b) no hidratada dentro de una petición del gateway → `LogicException`; (c) sin identidad de
+>   gateway (Sanctum, jobs, tinker) → `role_user` como siempre. Así el camino viejo no pierde
+>   acceso y el nuevo no puede caer en `[]` en silencio (hallazgo 2).
+> - **D8.5** `routes/domain.php` montado DOS veces, como `admin-only.php` y `domain-driver.php`.
+>
+> **Dos hallazgos de la caracterización, dichos sin maquillaje:**
+> - `UserController::clients()` daba **500 por los dos caminos** desde siempre: usaba `Role` sin
+>   importar `App\Models\Role`. Corregido (un `use`), porque es un bug y no un cambio de
+>   comportamiento; la consola de clientes de la web estaba rota antes de este lote.
+> - `POST /quotes` **nunca estuvo protegido**: `QuoteController::store` no llama a
+>   `authorize('create')`, así que la Policy de N1 era letra muerta ahí y operaciones creaba
+>   cotizaciones desde siempre (201 por Sanctum). **No se cambió** (§D.5 prohíbe esconder un cambio
+>   de comportamiento acá); se congeló tal cual por los dos caminos y va a **D7** con el dato.
+
 El bloque `auth:sanctum` sigue montado en paralelo hasta el Lote 9: nadie pierde acceso.
 
-- [ ] 8.1 Extraer el resto de rutas de dominio (`quotes`, `shipments`, `drivers`, `incidents`, `addresses`, `support`, `payroll`, `dispatch`) a `routes/domain.php` compartido y montarlas en el bloque `Route::prefix('treslog')` junto a las del Lote 5.
-- [ ] 8.2 Eliminar `User::hasPermission()` (`User.php:71-78`) — no devuelve `false` ni `true`, se borra (`3-design.md §D.3`).
-- [ ] 8.3 Traducir las 20 llamadas a `hasPermission()` (N2) según la matriz de `§D.3`: `users.*` → `treslog:admin`; `drivers.manage`/`dispatch.manage`/`shipments.{edit,delete}`/`quotes.view` → `treslog:operaciones` o `treslog:admin`.
-- [ ] 8.4 `quotes.{create,edit,delete}` y `support.{view,edit}` (N1): traducir a la guarda más restrictiva `treslog:admin` con comentario `@todo D7` — no conceder acceso nuevo (`3-design.md §D.5`).
-- [ ] 8.5 `hasRole()`/`hasAnyRole()`/`isAdmin()` dejan de leer `role_user` y leen la identidad SSO hidratada por `ResolveDomainUser` en la instancia; si el modelo no fue hidratado (job en cola, `tinker`, query directa), los tres métodos **lanzan**, no devuelven `false` (`3-design.md §D.4`).
-- [ ] 8.6 Verificar que los call sites existentes (`DriverController.php:16,47`; `IncidentAdminController.php:15,26,50`; `UserController.php:169,191,194,240`) siguen recibiendo el usuario autenticado del request.
-- [ ] 8.7 Test: las 4 Policies (`Shipment`, `SupportTicket`, `Quote`, `User`) siguen resolviendo pertenencia igual que antes de tocar roles.
-- [ ] 8.8 Test: llamar `hasAnyRole()` sobre un `User` no hidratado (traído por `User::find()`) lanza excepción.
-- [ ] 8.9 Test de cobertura de guardas de rol: cada acción sensible de escritura/borrado/administración en los controladores de dominio tiene una verificación de rol explícita (spec `Cobertura total de guardas de rol`).
-- [ ] 8.10 Correr contra el gateway toda la suite de caracterización de los Lotes 1 y 5, verificando que los 403 de N1/D7 siguen dando 403 (no se "arreglan" solos).
+- [x] 8.1 Extraer el resto de rutas de dominio (`quotes`, `shipments`, `drivers`, `incidents`, `addresses`, `support`, `payroll`, `dispatch`) a `routes/domain.php` compartido y montarlas en el bloque `Route::prefix('treslog')` junto a las del Lote 5.
+- [x] 8.2 Eliminar `User::hasPermission()` (`User.php:71-78`) — no devuelve `false` ni `true`, se borra (`3-design.md §D.3`).
+- [x] 8.3 Traducir las 20 llamadas a `hasPermission()` (N2) según la matriz de `§D.3`: `users.*` → `treslog:admin`; `drivers.manage`/`dispatch.manage`/`shipments.{edit,delete}`/`quotes.view` → `treslog:operaciones` o `treslog:admin`.
+- [x] 8.4 `quotes.{create,edit,delete}` y `support.{view,edit}` (N1): traducir a la guarda más restrictiva `treslog:admin` con comentario `@todo D7` — no conceder acceso nuevo (`3-design.md §D.5`).
+- [x] 8.5 `hasRole()`/`hasAnyRole()`/`isAdmin()` dejan de leer `role_user` y leen la identidad SSO hidratada por `ResolveDomainUser` en la instancia; si el modelo no fue hidratado (job en cola, `tinker`, query directa), los tres métodos **lanzan**, no devuelven `false` (`3-design.md §D.4`).
+- [x] 8.6 Verificar que los call sites existentes (`DriverController.php:16,47`; `IncidentAdminController.php:15,26,50`; `UserController.php:169,191,194,240`) siguen recibiendo el usuario autenticado del request.
+- [x] 8.7 Test: las 4 Policies (`Shipment`, `SupportTicket`, `Quote`, `User`) siguen resolviendo pertenencia igual que antes de tocar roles.
+- [x] 8.8 Test: llamar `hasAnyRole()` sobre un `User` no hidratado (traído por `User::find()`) lanza excepción.
+- [x] 8.9 Test de cobertura de guardas de rol: cada acción sensible de escritura/borrado/administración en los controladores de dominio tiene una verificación de rol explícita (spec `Cobertura total de guardas de rol`).
+- [x] 8.10 Correr contra el gateway toda la suite de caracterización de los Lotes 1 y 5, verificando que los 403 de N1/D7 siguen dando 403 (no se "arreglan" solos).
 
 ---
 

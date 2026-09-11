@@ -386,3 +386,21 @@ Pendientes que NO son de este lote y quedan con dueño: `.env.local` y `.env.pro
 web están versionados con claves de Stripe (rotar, decisión del usuario); solo `localhost:3200`
 registrada como redirect; dominio de la web en 401 hasta el Lote 8 (rama
 `sso/lote8-dominio-por-gateway` creada en un worktree, sin cambios).
+
+---
+
+## Cuarta ronda: el CÓDIGO del Lote 8 (2026-09-11, de madrugada)
+
+Cuatro lentes, a mano y sin agentes, sobre `sso/lote8-dominio-por-gateway` y `sso/lote8-web-dominio`.
+
+| Lente | Evidencia | Resultado |
+|---|---|---|
+| Regresión del camino viejo | `route:list --json` de TODAS las rutas fuera de `api/treslog` (método, URI, acción, cadena de middleware), base contra Lote 8: **93 rutas, idénticas**. Suite completa en verde, incluidas las caracterizaciones de conductor de los Lotes 1 y 5. `hasRole/isAdmin` por Sanctum siguen leyendo `role_user` (`RolesSinHidratarLanzanTest`, caso c) | sin regresiones |
+| Acceso nuevo indebido | `CoberturaDeGuardasDeRolTest`: toda ruta bajo `api/treslog/*` tiene `sso.role` o está en la lista cerrada de pertenencia (con `gateway.user`); un `treslog:customer` recibe 403 del contrato con `request_id` en las 14 rutas de la consola; operaciones pasa las lecturas y el padrón completo sigue siendo solo de admin. `CaracterizacionDominioPorGatewayTest`: los 403 de N1 (cambiar cotizaciones, editar tickets) siguen siendo 403 por los dos caminos | sin hallazgos |
+| Contrato y D8.4 | Cada 403 del camino nuevo sale de `sso.role` (sobre cerrado, `request_id`, sin `required`). `User::find()` dentro de una petición del gateway lanza `LogicException` (caso b, probado). Los call sites de `hasRole/hasAnyRole/isAdmin` en `app/` reciben `$request->user()` (hidratado) salvo `DriverController:67`, que preguntaba por OTRA persona y pasó a consultar `role_user` directo; `DriverAuthController:89` y `Api/QuoteController:60` son del camino viejo | sin hallazgos |
+| Tests que no pueden fallar, y la web | Cada test se escribió contra un fallo real primero: `DataProvider` sin atributo, cuerpos que difieren por `now()`, `in_array` que no ve los parámetros del middleware, 404 del binding antes del 403. La web: `api.test.js` compara la tabla función→base con `Object.keys(api)` (una función nueva sin clasificar falla) y verifica que las públicas no lleven Bearer | **2 hallazgos, los dos preexistentes**: `UserController::clients()` daba 500 por los dos caminos (faltaba `use App\Models\Role`) — **corregido**; `POST /quotes` nunca llamó a `authorize('create')` — **congelado tal cual, va a D7** |
+
+Lo que esta ronda NO cubre y queda con dueño: probar el dominio de la web en un navegador con el
+backend del Lote 8 detrás del gateway (la demo sirve el árbol del Lote 7; cambiar de rama el
+backend de la demo es decisión del usuario); `npm run build` de la web con el `next dev` parado;
+`quotes.create` y el resto de N1 en D7.
