@@ -13,7 +13,8 @@ class DriverController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        if (!$request->user()->hasAnyRole(['admin', 'operations']) && !$request->user()->hasPermission('drivers.manage')) {
+        // `drivers.manage` lo tenian exactamente operations y admin (§D.3).
+        if (!$request->user()->hasAnyRole(['admin', 'operations'])) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -44,7 +45,7 @@ class DriverController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (! $request->user()->hasAnyRole(['admin', 'operations']) && ! $request->user()->hasPermission('drivers.manage')) {
+        if (! $request->user()->hasAnyRole(['admin', 'operations'])) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -64,7 +65,11 @@ class DriverController extends Controller
 
             $user = User::with('driverProfile')->findOrFail($validated['user_id']);
 
-            if ($user->hasRole('driver')) {
+            // Es una pregunta sobre OTRA persona y sobre la tabla local (si ya
+            // tiene la fila de conductor), no sobre la autorizacion de quien
+            // llama: va directo a `role_user`. `hasRole()` sobre un `findOrFail`
+            // por el camino del SSO lanzaria (User.php, comportamiento (b)).
+            if ($user->roles()->where('name', 'driver')->exists()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'El usuario ya es conductor.',

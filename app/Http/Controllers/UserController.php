@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+// Faltaba desde siempre: `clients()` usa `Role::where(...)` y sin este import
+// PHP buscaba `App\Http\Controllers\Role` y respondia 500 por los DOS caminos.
+// Lo destapo la caracterizacion del Lote 8 (CaracterizacionDominioPorGatewayTest):
+// la consola de clientes de la web estaba rota antes de tocar nada.
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -237,7 +242,7 @@ class UserController extends Controller
 
     public function clients(Request $request)
     {
-        if (! $request->user()->hasAnyRole(['admin', 'operations']) && ! $request->user()->hasPermission('drivers.manage')) {
+        if (! $request->user()->hasAnyRole(['admin', 'operations'])) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 

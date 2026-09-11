@@ -9,27 +9,33 @@ class QuotePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('quotes.view');
+        // `quotes.view` lo tenian operations y admin (3-design.md §D.3).
+        return $user->hasAnyRole(['operations', 'admin']);
     }
 
     public function view(User $user, Quote $quote): bool
     {
-        return $user->hasPermission('quotes.view');
+        // `quotes.view` lo tenian operations y admin (3-design.md §D.3).
+        return $user->hasAnyRole(['operations', 'admin']);
     }
 
     public function create(User $user): bool
     {
-        return $user->hasPermission('quotes.create');
+        // @todo D7 — `quotes.create` no lo tenia NADIE (N1). Traduccion mas
+        // restrictiva posible: no concede nada que hoy no exista (§D.5).
+        return $user->isAdmin();
     }
 
     public function update(User $user, Quote $quote): bool
     {
-        return $user->hasPermission('quotes.edit');
+        // @todo D7 — `quotes.edit` no lo tenia nadie (N1). Ver create().
+        return $user->isAdmin();
     }
 
     public function delete(User $user, Quote $quote): bool
     {
-        return $user->hasPermission('quotes.delete');
+        // @todo D7 — `quotes.delete` no lo tenia nadie (N1). Ver create().
+        return $user->isAdmin();
     }
 
     public function restore(User $user, Quote $quote): bool

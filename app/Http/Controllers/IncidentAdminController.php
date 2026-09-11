@@ -12,7 +12,8 @@ class IncidentAdminController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        if (!$request->user()->hasAnyRole(['admin', 'operations']) && !$request->user()->hasPermission('dispatch.manage')) {
+        // `dispatch.manage` lo tenian exactamente operations y admin (§D.3).
+        if (!$request->user()->hasAnyRole(['admin', 'operations'])) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -23,7 +24,8 @@ class IncidentAdminController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (!$request->user()->hasAnyRole(['admin', 'operations']) && !$request->user()->hasPermission('dispatch.manage')) {
+        // `dispatch.manage` lo tenian exactamente operations y admin (§D.3).
+        if (!$request->user()->hasAnyRole(['admin', 'operations'])) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -47,7 +49,8 @@ class IncidentAdminController extends Controller
 
     public function updateStatus(Request $request, Incident $incident): JsonResponse
     {
-        if (!$request->user()->hasAnyRole(['admin', 'operations']) && !$request->user()->hasPermission('dispatch.manage')) {
+        // `dispatch.manage` lo tenian exactamente operations y admin (§D.3).
+        if (!$request->user()->hasAnyRole(['admin', 'operations'])) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 

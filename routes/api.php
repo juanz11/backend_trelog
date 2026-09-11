@@ -67,59 +67,16 @@ Route::post('/contact', [ContactController::class, 'store']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/alerts', [AlertController::class, 'index']);
-    Route::get('/drivers', [DriverController::class, 'index']);
-    Route::post('/drivers', [DriverController::class, 'store']);
-    Route::get('/incidents', [IncidentAdminController::class, 'index']);
-    Route::post('/incidents', [IncidentAdminController::class, 'store']);
-    Route::patch('/incidents/{incident}/status', [IncidentAdminController::class, 'updateStatus']);
-
-    // Address Management Routes
-    Route::prefix('addresses')->group(function () {
-        Route::get('/', [AddressController::class, 'index']);
-        Route::post('/', [AddressController::class, 'store']);
-        Route::get('/{address}', [AddressController::class, 'show']);
-        Route::put('/{address}', [AddressController::class, 'update']);
-        Route::delete('/{address}', [AddressController::class, 'destroy']);
-    });
-
-    // Support Tickets Routes
-    Route::prefix('support')->group(function () {
-        Route::post('/', [SupportController::class, 'store']);
-        Route::get('/', [SupportController::class, 'index']);
-        Route::get('/{ticket}', [SupportController::class, 'show']);
-        Route::put('/{ticket}', [SupportController::class, 'update']);
-    });
-
-    // User Management Routes
-    Route::prefix('users')->group(function () {
-        Route::get('/', [UserController::class, 'index']);
-        Route::get('/clients', [UserController::class, 'clients']);
-        Route::get('/{id}', [UserController::class, 'show']);
-        Route::put('/{id}', [UserController::class, 'update']);
-        Route::delete('/{id}', [UserController::class, 'destroy']);
-    });
 
     // `roles/*`, `permissions/*` y `zones/*` SE MUDARON a routes/admin-only.php.
     // Siguen montadas en las MISMAS URLs y con el MISMO `auth:sanctum` — lo unico
     // que cambia es que ahora ademas exigen el rol admin. Ver el bloque de abajo.
 
-    // Quote Management Routes
-    Route::prefix('quotes')->group(function () {
-        Route::get('/', [QuoteController::class, 'index']);
-        Route::post('/', [QuoteController::class, 'store']);
-        Route::get('/pending-count', [QuoteController::class, 'pendingCount']);
-        Route::patch('/{quote}/status', [QuoteController::class, 'updateStatus']);
-    });
-
-    // Shipment Management Routes
-    Route::prefix('shipments')->group(function () {
-        Route::get('/', [ShipmentController::class, 'index']);
-        Route::post('/', [ShipmentController::class, 'store']);
-        Route::get('/{id}', [ShipmentController::class, 'show']);
-        Route::put('/{id}', [ShipmentController::class, 'update']);
-        Route::delete('/{id}', [ShipmentController::class, 'destroy']);
-    });
+    // El resto del dominio (alertas, choferes, incidentes, direcciones, soporte,
+    // usuarios, cotizaciones, envios) SE MUDO a routes/domain.php — Lote 8. Mismas
+    // URLs, mismo `auth:sanctum`, mismos controladores. Sin `$operaciones`
+    // definido, ese archivo monta las rutas exactamente como vivian aca.
+    require __DIR__.'/domain.php';
 });
 
 // -----------------------------------------------------------------------
@@ -323,4 +280,33 @@ Route::prefix('treslog')
     ->middleware(['gateway.auth', 'gateway.user'])
     ->group(function () {
         Route::get('/me', MeController::class);
+    });
+
+// -----------------------------------------------------------------------
+//  El dominio de la web — montaje 2 de 2: el camino del SSO (Lote 8)
+// -----------------------------------------------------------------------
+//  Las mismas rutas de routes/domain.php que el bloque `auth:sanctum` de arriba,
+//  bajo `api/treslog/*` (H2) y con `gateway.auth` + `gateway.user`: la identidad
+//  la pone el gateway, y `gateway.user` la traduce a la fila de `users` de la que
+//  cuelgan las nueve FKs del dominio. Ahi mismo hidrata los roles del SSO en la
+//  instancia, y de eso viven `hasAnyRole()`/`isAdmin()` en controladores y
+//  Policies por este camino (User.php, comportamiento (a)).
+//
+//  `$operaciones` es la guarda de rol de la consola (choferes, incidentes,
+//  padron, cotizaciones, cambiar/borrar envios): `treslog:operations` O
+//  `treslog:admin`, con el 403 del contrato. Se define ACA y no adentro de
+//  domain.php a proposito: el montaje viejo no la tiene ni la necesita —alla
+//  deciden los controladores leyendo `role_user`— y una guarda `sso.role` en el
+//  camino viejo seria un 401 para todo el mundo (no hay `gateway.auth` delante).
+//
+//  Lo que sigue SIN estar detras del gateway, y por que, esta en 4-tasks.md
+//  Lote 8 (D8.1): `POST /contact`, `POST /app/quotes` y
+//  `GET /app/quotes/track/{code}` son publicas y no llevan identidad; el
+//  gateway exige Bearer y las mataria.
+Route::prefix('treslog')
+    ->middleware(['gateway.auth', 'gateway.user'])
+    ->group(function () {
+        $operaciones = ['sso.role:'.config('sso.roles.operations').','.config('sso.roles.admin')];
+
+        require __DIR__.'/domain.php';
     });

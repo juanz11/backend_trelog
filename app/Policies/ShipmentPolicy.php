@@ -24,12 +24,14 @@ class ShipmentPolicy
 
     public function update(User $user, Shipment $shipment): bool
     {
-        return $user->hasAnyRole(['admin', 'operations']) || $user->hasPermission('shipments.edit');
+        // `shipments.edit` lo tenian exactamente operations y admin (§D.3): el
+        // `|| hasPermission()` no agregaba a nadie.
+        return $user->hasAnyRole(['admin', 'operations']);
     }
 
     public function delete(User $user, Shipment $shipment): bool
     {
-        return $user->hasAnyRole(['admin', 'operations']) || $user->hasPermission('shipments.delete');
+        return $user->hasAnyRole(['admin', 'operations']);
     }
 
     public function restore(User $user, Shipment $shipment): bool

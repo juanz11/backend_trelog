@@ -91,6 +91,13 @@ class ResolveDomainUser
 
         $this->refrescarEspejo($user, $identity);
 
+        // Los roles del SSO viven en ESTA instancia y no en la base (Lote 8,
+        // 3-design.md §D.4): `role_user` esta vacia para quien entra por aca, y
+        // `hasAnyRole()`/`isAdmin()` en controladores y Policies leen de lo que se
+        // hidrata en esta linea. Una instancia distinta de este mismo usuario
+        // (`User::find()`, `->fresh()`) NO la tiene, y por eso lanza.
+        $user->hidratarRolesSso(is_array($identity['roles'] ?? null) ? $identity['roles'] : []);
+
         // No emite eventos de login ni toca la sesion: no hay credenciales que
         // validar, el gateway ya decidio. Un guard de Laravel aca seria ceremonia
         // que ademas reintroduce el habito de Auth::attempt que estamos retirando.
