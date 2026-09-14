@@ -1,23 +1,15 @@
 # D6 y D3: las cuentas de TR3SLOG viven en el SSO
 
-**Fecha**: 2026-09-14 · **Decide**: el usuario (dueño del SSO) · **Estado**: D6 resuelta; D3 con
-propuesta y cuatro preguntas para el equipo de TR3SLOG.
+**Fecha**: 2026-09-14 · **Estado**: D6 **ABIERTA** (la respuesta de la tarde se dio sin contexto y se
+retira); D3 con propuesta. Las preguntas al equipo están juntas en `7-preguntas-al-equipo.md`.
 
 ---
 
-## D6 — resuelta: no hay instalaciones reales
+## D6 — ABIERTA: instalaciones reales de la app de conductores
 
-> «D6 es algo que aún está en desarrollo, no hay nada publicado, solo lo que vemos en repo.»
-
-Consecuencias, todas favorables:
-
-1. **El Lote 6 queda desbloqueado.** La app de conductores puede pasar al login por el SSO
-   (PKCE) sin dejar a nadie afuera: no hay choferes con la app instalada.
-2. **El camino viejo deja de ser sagrado.** Hoy `/api/driver/*` con Sanctum se mantiene «porque
-   hay binarios en la calle». No los hay. El Lote 9 sigue siendo el punto de no retorno, pero
-   su bloqueo real pasa a ser uno solo: cómo se crean las cuentas (D3, abajo).
-3. La URL congelada en el binario (`api_service.dart`) es un problema del futuro build, no del
-   presente.
+Sigue siendo la pregunta 1 de `7-preguntas-al-equipo.md`. Hasta que el equipo confirme si hay
+conductores usando una build instalada y contra qué URL apunta, el Lote 6 se puede DESARROLLAR
+pero no PUBLICAR, y el camino viejo `/api/driver/*` se mantiene.
 
 ---
 

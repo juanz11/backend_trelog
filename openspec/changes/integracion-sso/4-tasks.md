@@ -146,15 +146,13 @@ Nada se retira: `/api/driver/*` con `auth:sanctum` sigue vivo. Sin bloqueo — e
 
 ---
 
-## Lote 6 — Build nueva de la app de conductores (PR 6)
+## Lote 6 — Build nueva de la app de conductores (PR 6) **[BLOQUEADO para PUBLICAR: D6 abierta; se puede desarrollar]**
 
-> **D6 resuelta (2026-09-14): no hay nada publicado, no hay instalaciones reales.** El lote queda
-> DESBLOQUEADO. Ver `6-decisiones-d6-d3.md`. La tarea 6.1 se cierra con ese dato.
+> D6 sigue abierta (2026-09-14): la pregunta va al equipo en `7-preguntas-al-equipo.md`.
 
 Requiere el Lote 5 desplegado. Distribuir sin saber cuántas instalaciones hay, o sin identidades creadas en Clerk, dejaría conductores viendo un 403 sin aviso.
 
-- [x] 6.1 Confirmar D6: instalaciones reales existentes y contra qué URL apuntan (`https://api.tr3log.com/api` no resuelve hoy).
-  > **Resuelta:** ninguna. Lo que hay es lo que está en el repo.
+- [ ] 6.1 Confirmar D6: instalaciones reales existentes y contra qué URL apuntan (`https://api.tr3log.com/api` no resuelve hoy).
 - [ ] 6.2 Arreglar `api_service.dart:4-7`: apuntar a la URL del gateway vía `--dart-define`, documentar el valor de release.
 - [ ] 6.3 Reemplazar login por email+password por el flujo PKCE contra el SSO; retirar las pantallas que llaman `POST /driver/register` y `/login`.
 - [ ] 6.4 Arreglar la degradación silenciosa: `_bootstrap()` (`app.dart:84-90`) debe validar el token, no sólo comprobar que exista; `DriverRepository` debe cerrar sesión y avisar ante `statusCode != 200`, no `return;` en silencio.
