@@ -108,6 +108,19 @@ class AltaDeConductorPorElSsoTest extends TestCase
         $this->assertSame('Ana Perez', $local->fresh()->name, 'el nombre del SSO manda');
     }
 
+    public function test_al_vincular_una_fila_local_se_anula_su_contraseña_y_sus_tokens(): void
+    {
+        $this->ssoConPersona();
+        $local = User::factory()->create(['email' => 'ana@ejemplo.com', 'password' => \Illuminate\Support\Facades\Hash::make('Vieja1!')]);
+        $local->createToken('camino-viejo');
+        $this->assertSame(1, $local->tokens()->count());
+
+        $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'ana@ejemplo.com'])->assertStatus(201);
+
+        $this->assertFalse(\Illuminate\Support\Facades\Hash::check('Vieja1!', $local->fresh()->password), 'la contraseña vieja sigue valiendo');
+        $this->assertSame(0, $local->fresh()->tokens()->count(), 'los tokens viejos siguen vivos');
+    }
+
     public function test_si_el_sso_no_responde_es_un_502_y_no_queda_nada_a_medias(): void
     {
         Http::fake([

@@ -263,19 +263,20 @@ class MeTest extends TestCase
      * mientras la migracion de cuentas siga fuera de alcance (R10). Para la
      * persona no significa "no tenes permiso", significa «tu cuenta del SSO
      * todavia no esta habilitada en TR3SLOG», y loguearse de nuevo no lo arregla
-     * nunca. Por eso 403 y no 401, y por eso el `request_id`: es lo unico con lo
-     * que el soporte encuentra esta peticion en los tres logs.
+     * nunca. Por eso 403 y no 401, y por eso el `request_id`. Desde D3 ese 403
+     * queda solo para el correo en uso por una cuenta local sin ancla (test de
+     * abajo); una identidad nueva se da de alta sola.
      */
-    public function test_una_identidad_sin_fila_espejo_responde_403_con_request_id(): void
+    public function test_una_identidad_sin_fila_espejo_se_da_de_alta_y_me_responde(): void
     {
-        // Existe la persona en el SSO (cabeceras validas) y NO hay espejo local.
+        // Existe la persona en el SSO (cabeceras validas) y NO hay espejo local:
+        // desde D3 (2026-09-15) la primera peticion lo crea, y /me responde con la
+        // identidad del SSO. El 403 queda para el correo en uso por una cuenta local.
         User::factory()->create();
-
-        $this->withHeaders($this->delGateway(['X-Request-Id' => 'sso-no-habilitada']))
+        $this->withHeaders($this->delGateway(['X-Request-Id' => 'sso-alta-automatica']))
             ->getJson('/api/treslog/me')
-            ->assertStatus(403)
-            ->assertJsonPath('error', 'forbidden')
-            ->assertJsonPath('request_id', 'sso-no-habilitada');
+            ->assertOk();
+        $this->assertDatabaseCount('users', 2);
     }
 
     /**

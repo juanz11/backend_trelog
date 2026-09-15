@@ -75,15 +75,36 @@ class ResolveDomainUserTest extends TestCase
         $this->assertDatabaseCount('users', 1);
     }
 
-    public function test_identidad_del_sso_sin_fila_local_responde_403_explicito_y_no_crea_nada(): void
+    public function test_identidad_del_sso_sin_fila_local_da_de_alta_el_espejo_sin_roles_locales(): void
     {
-        // 403 y no 401: un 401 dice "volve a loguearte", y loguearse de nuevo no
-        // lo arregla nunca. Son dos acciones distintas del lado del cliente.
-        $this->getJson(self::URI, $this->cabecerasDelGateway(['X-User-Id' => '777']))
+        // D3 (2026-09-15): el registro lo absorbio el SSO y no hay padron local
+        // que proteger. La primera peticion crea la fila espejo; los roles los
+        // sigue diciendo el SSO (role_user queda vacia).
+        $this->getJson(self::URI, $this->cabecerasDelGateway([
+            'X-User-Id' => '777', 'X-User-Email' => 'nueva@tr3slog.test', 'X-User-Name' => 'Persona Nueva',
+        ]))->assertOk();
+
+        $this->assertDatabaseCount('users', 1);
+        $espejo = User::where('sso_user_id', '777')->first();
+        $this->assertSame('nueva@tr3slog.test', $espejo->email);
+        $this->assertSame('Persona Nueva', $espejo->name);
+        $this->assertSame(0, $espejo->roles()->count(), 'los roles no se copian a role_user');
+        $this->assertFalse(\Illuminate\Support\Facades\Hash::check('', (string) $espejo->password));
+
+        // La segunda peticion resuelve la misma fila: no hay dos altas.
+        $this->getJson(self::URI, $this->cabecerasDelGateway(['X-User-Id' => '777', 'X-User-Email' => 'nueva@tr3slog.test']))->assertOk();
+        $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_una_identidad_sin_correo_no_se_puede_dar_de_alta_y_es_403(): void
+    {
+        $cabeceras = $this->cabecerasDelGateway(['X-User-Id' => '778']);
+        unset($cabeceras['X-User-Email']);
+
+        $this->getJson(self::URI, $cabeceras)
             ->assertStatus(403)
             ->assertJsonPath('error', 'forbidden')
             ->assertJsonPath('request_id', fn ($v) => is_string($v) && $v !== '');
-
         $this->assertDatabaseCount('users', 0);
     }
 

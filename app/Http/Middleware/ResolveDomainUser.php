@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\Sso\Espejo;
 use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -49,44 +50,56 @@ class ResolveDomainUser
 
         // EL ANCLA, Y LA UNICA. `sso_user_id` viene de X-User-Id (3-design.md §A).
         //
-        // ACA NO HAY, NI VA A HABER, UN firstOrCreate POR EMAIL.
+        // ACA NO HAY, NI VA A HABER, UN VINCULO POR EMAIL.
         // El email del SSO lo controla la persona desde su perfil de Clerk. Un
         // vinculo automatico por correo significa que cualquiera que registre en
         // el SSO el email de un cliente de TR3SLOG se queda con SU cuenta de
-        // logistica: sus envios, sus direcciones, su facturacion. No es un riesgo
-        // teorico ni un caso borde — es la forma normal de robar una cuenta
-        // cuando el proveedor de identidad y el dominio no comparten el registro.
-        // La spec lo prohibe explicitamente ("Migracion de cuentas existentes
-        // fuera de alcance") y el test ResolveDomainUserTest lo congela.
+        // logistica: sus envios, sus direcciones, su facturacion. ResolveDomainUserTest
+        // lo congela.
+        //
+        // Lo que SI hay desde 2026-09-15 (D3, 6-decisiones-d6-d3.md): ALTA AUTOMATICA
+        // de la fila espejo cuando no existe ninguna con esa ancla. El registro lo
+        // absorbio el SSO, no hay padron local que proteger (el equipo lo confirmo)
+        // y un 403 «no habilitada» a cada persona nueva solo estorba. La fila nace
+        // como identidad: los roles los sigue diciendo el SSO. Si ya existe una fila
+        // local con ese correo y sin ancla, sigue el 403: la vincula un administrador
+        // con `sso:espejo`, que se niega a robar el id de otra persona.
         $user = User::where('sso_user_id', $identity['id'])->first();
-
         if ($user === null) {
-            // La persona existe en el SSO pero no esta dada de alta en TR3SLOG.
-            // 403 y mensaje explicito: el 401 diria "volve a loguearte", y
-            // loguearse de nuevo no lo arregla nunca. Se distinguen las dos
-            // cosas porque el cliente hace cosas distintas con cada una.
-            //
-            // Por que `forbidden` y no un slug nuevo tipo `account_not_provisioned`:
-            // el catalogo de errores del contrato es CERRADO (trece slugs,
-            // congelado con assertSame). Inventar uno es un cambio de contrato
-            // unilateral que la app cliente no reconoce. Si hace falta el slug,
-            // se pide; mientras tanto, `forbidden` con mensaje.
-            Log::warning('gateway.user rechazo 403: identidad del SSO sin cuenta en TR3SLOG.', [
-                'event'  => 'domain_user_not_provisioned',
-                'reason' => 'sso_user_id_sin_fila',
-                'method' => $request->getMethod(),
-                'path'   => $request->path(),
-                // El id del SSO NO es una credencial y es exactamente el dato que
-                // hace falta para dar de alta la cuenta que falta. Va al log a
-                // proposito; el email y el nombre, no.
-                'sso_user_id' => $identity['id'],
-            ]);
+            try {
+                if (blank($identity['email'] ?? null)) {
+                    throw new \RuntimeException('La identidad llego sin correo y el espejo lo necesita.');
+                }
+                $user = Espejo::asegurar((string) $identity['id'], $identity['email'], $identity['name'] ?? null, vincularPorCorreo: false);
+                Log::info('gateway.user dio de alta el espejo de una identidad nueva.', [
+                    'event' => 'domain_user_provisioned',
+                    'sso_user_id' => $identity['id'],
+                    'users_id' => $user->id,
+                ]);
+            } catch (\RuntimeException $e) {
+                // La persona existe en el SSO pero su espejo no se puede crear solo
+                // (correo en uso por una cuenta local, o identidad sin correo). 403 y
+                // mensaje explicito: el 401 diria «volve a loguearte», y loguearse de
+                // nuevo no lo arregla nunca. `forbidden` y no un slug nuevo: el
+                // catalogo del contrato es cerrado.
+                Log::warning('gateway.user rechazo 403: identidad del SSO sin cuenta en TR3SLOG.', [
+                    'event'  => 'domain_user_not_provisioned',
+                    'reason' => 'sso_user_id_sin_fila',
+                    'detalle' => $e->getMessage(),
+                    'method' => $request->getMethod(),
+                    'path'   => $request->path(),
+                    // El id del SSO NO es una credencial y es exactamente el dato que
+                    // hace falta para dar de alta la cuenta que falta. Va al log a
+                    // proposito; el email y el nombre, no.
+                    'sso_user_id' => $identity['id'],
+                ]);
 
-            return response()->json([
-                'error'      => 'forbidden',
-                'message'    => 'La cuenta existe en el SSO pero no esta dada de alta en TR3SLOG.',
-                'request_id' => RequestContext::resolveFor($request),
-            ], 403);
+                return response()->json([
+                    'error'      => 'forbidden',
+                    'message'    => 'La cuenta existe en el SSO pero no esta dada de alta en TR3SLOG.',
+                    'request_id' => RequestContext::resolveFor($request),
+                ], 403);
+            }
         }
 
         $this->refrescarEspejo($user, $identity);
