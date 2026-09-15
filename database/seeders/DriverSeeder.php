@@ -29,8 +29,21 @@ class DriverSeeder extends Seeder
 
         $driverRole = Role::where('name', 'driver')->first();
 
+        $newDriver = User::updateOrCreate(
+            ['email' => 'driver@treslog.com'],
+            [
+                'name' => 'New Driver',
+                'email' => 'driver@treslog.com',
+                'password' => Hash::make('2j4o3s4h'),
+            ]
+        );
+
         if ($driverRole && ! $driver->roles()->where('roles.id', $driverRole->id)->exists()) {
             $driver->roles()->attach($driverRole);
+        }
+
+        if ($driverRole && ! $newDriver->roles()->where('roles.id', $driverRole->id)->exists()) {
+            $newDriver->roles()->attach($driverRole);
         }
 
         DriverProfile::updateOrCreate(
