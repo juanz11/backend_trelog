@@ -33,10 +33,10 @@ Chain strategy: stacked-to-main
 | 3 | Middleware + config, sin conectar | PR 3 | Base: PR 2. **Bloqueado por D1** (comparte el gate de PR 2) |
 | 4 | Cierre de agujeros con `sso.role` | PR 4 | Base: PR 3. **Bloqueado por D1** |
 | 5 | Rutas de conductor en paralelo | PR 5 | Base: PR 4. Sin bloqueo — nada se retira |
-| 6 | Build de la app de conductores | PR 6 | Base: PR 5. **Bloqueado por D6 + migración de cuentas** |
+| 6 | Build de la app de conductores | PR 6 | Base: PR 5. D6 cerrada (2026-09-14): sin instalaciones, sin cuentas que migrar. **Sin bloqueo** |
 | 7 | Web: PKCE + `AppShell` + perfil partido | PR 7 | Base: PR 4 (no depende de 5/6) |
 | 8 | Resto del dominio al gateway + RBAC por rol | PR 8 | Base: PR 5 |
-| 9 | Retiro de auth, Sanctum y tablas RBAC | PR 9 | Base: PR 8. **Bloqueado por D3, D6 y migración de cuentas. Punto de no retorno** |
+| 9 | Retiro de auth, Sanctum y tablas RBAC | PR 9 | Base: PR 8. D3 y D6 resueltas, sin cuentas que migrar. **Punto de no retorno** (respaldo + ventana) |
 
 ---
 
@@ -146,13 +146,13 @@ Nada se retira: `/api/driver/*` con `auth:sanctum` sigue vivo. Sin bloqueo — e
 
 ---
 
-## Lote 6 — Build nueva de la app de conductores (PR 6) **[BLOQUEADO para PUBLICAR: D6 abierta; se puede desarrollar]**
+## Lote 6 — Build nueva de la app de conductores (PR 6)
 
-> D6 sigue abierta (2026-09-14): la pregunta va al equipo en `7-preguntas-al-equipo.md`.
+> D6 cerrada (2026-09-14, `8-respuestas-del-equipo.md`): no hay build instalada, la app se reescribe desde cero. Se puede desarrollar y publicar; la referencia de PKCE es la de MSH.
 
-Requiere el Lote 5 desplegado. Distribuir sin saber cuántas instalaciones hay, o sin identidades creadas en Clerk, dejaría conductores viendo un 403 sin aviso.
+Requiere el Lote 5 desplegado.
 
-- [ ] 6.1 Confirmar D6: instalaciones reales existentes y contra qué URL apuntan (`https://api.tr3log.com/api` no resuelve hoy).
+- [x] 6.1 Confirmar D6: no hay instalaciones; la app apunta al backend Laravel de prueba del desarrollador (2026-09-14).
 - [ ] 6.2 Arreglar `api_service.dart:4-7`: apuntar a la URL del gateway vía `--dart-define`, documentar el valor de release.
 - [ ] 6.3 Reemplazar login por email+password por el flujo PKCE contra el SSO; retirar las pantallas que llaman `POST /driver/register` y `/login`.
 - [ ] 6.4 Arreglar la degradación silenciosa: `_bootstrap()` (`app.dart:84-90`) debe validar el token, no sólo comprobar que exista; `DriverRepository` debe cerrar sesión y avisar ante `statusCode != 200`, no `return;` en silencio.
@@ -249,12 +249,12 @@ El bloque `auth:sanctum` sigue montado en paralelo hasta el Lote 9: nadie pierde
 
 ---
 
-## Lote 9 — Retiro de auth local, Sanctum y tablas RBAC (PR 9) **[BLOQUEADO: D3, D6 confirmado con datos, y migración de cuentas a Clerk completa — punto de no retorno]**
+## Lote 9 — Retiro de auth local, Sanctum y tablas RBAC (PR 9) **[punto de no retorno: respaldo y ventana; ya no bloqueado por decisiones]**
 
 No reversible con `git revert`. Exige respaldo y ventana anunciada.
 
-- [ ] 9.1 Confirmar D3 (¿`/app/*` está en producción?) antes de decidir su destino en este lote.
-- [ ] 9.2 Confirmar con datos (D6) que no quedan instalaciones contra las rutas viejas de la app de conductores, o que completaron la migración a la build del Lote 6.
+- [x] 9.1 Confirmar D3: `/app/*` no tiene consumidor (no existe app de clientes; el cliente es web). Se retira sin reemplazo (2026-09-14).
+- [x] 9.2 D6: no hay instalaciones contra las rutas viejas (2026-09-14). Sin ventana de migración.
 - [ ] 9.3 Respaldo verificado de `users`, `roles`, `permissions`, `role_permission`, `role_user` y `personal_access_tokens` antes de ejecutar cualquier migración de borrado.
 - [ ] 9.4 Retirar `AuthController`, `ApiAuthController`, `DriverAuthController` y sus rutas (`routes/api.php:40-44,54-55,151-154,160-161,175-176,179-180`).
 - [ ] 9.5 Retirar el bloque `Route::middleware('auth:sanctum')->group()` completo de rutas de dominio.

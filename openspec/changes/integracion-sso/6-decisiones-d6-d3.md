@@ -1,19 +1,24 @@
 # D6 y D3: las cuentas de TR3SLOG viven en el SSO
 
-**Fecha**: 2026-09-14 · **Estado**: D6 **ABIERTA** (la respuesta de la tarde se dio sin contexto y se
-retira); D3 con propuesta. Las preguntas al equipo están juntas en `7-preguntas-al-equipo.md`.
+**Fecha**: 2026-09-14 · **Estado**: D6 **CERRADA** (respuesta del equipo con contexto, ver
+`8-respuestas-del-equipo.md`); D3 **confirmada** por el equipo. Las respuestas completas están en
+`8-respuestas-del-equipo.md`.
 
 ---
 
-## D6 — ABIERTA: instalaciones reales de la app de conductores
+## D6 — CERRADA: no hay instalaciones de la app de conductores
 
-Sigue siendo la pregunta 1 de `7-preguntas-al-equipo.md`. Hasta que el equipo confirme si hay
-conductores usando una build instalada y contra qué URL apunta, el Lote 6 se puede DESARROLLAR
-pero no PUBLICAR, y el camino viejo `/api/driver/*` se mantiene.
+Respuesta del desarrollador de TR3SLOG (2026-09-14, 18:44): «no existe build en ningún teléfono;
+estamos creando todo desde cero; apenas está la portada». Apunta a su backend Laravel de prueba.
+
+Consecuencia: el Lote 6 se puede desarrollar y **publicar**; `/api/driver/*` viejo se retira en el
+Lote 9 sin ventana de migración porque no hay a quién esperar. (La respuesta corta de la tarde,
+que se había retirado por falta de contexto, resultó ir en el mismo sentido; se cierra ahora
+porque la confirmó quien tiene el repo.)
 
 ---
 
-## D3 — decidido en principio: registro Y login los absorbe el SSO
+## D3 — confirmada por el equipo: registro Y login los absorbe el SSO
 
 > «Lo ideal es que el registro como el login lo absorbamos nosotros, por lo que esos usuarios de
 > TR3SLOG los debemos crear con permisos que permitan manejarse en la app.»
@@ -67,8 +72,9 @@ y asigna el rol. Sirve para arrancar; no sirve para operar.
 - **Cuentas locales existentes.** No hay producción, así que no hay cuentas que migrar. Si las
   hubiera, la regla ya escrita en MSH aplica: vincular por correo **verificado por Clerk**, nunca
   crear una segunda fila.
-- **El rol `company`.** Existe en el SSO y en `roles`, pero ningún punto de entrada lo asigna.
-  Pregunta 4.
+- **El rol `company`.** Respondido (pregunta 5): `company` es una **cuenta empresarial** con
+  miembros e invitaciones, no un rol de persona. Los roles dentro de la empresa son dominio de
+  TR3SLOG; el rol `treslog:company` del SSO queda sin uso y se retira.
 
 ---
 
