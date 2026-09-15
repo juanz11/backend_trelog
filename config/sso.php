@@ -136,4 +136,24 @@ return [
         'customer'   => 'treslog:customer',
     ],
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Canal de aplicacion: este backend hablando con el SSO, servidor a servidor
+    |--------------------------------------------------------------------------
+    |
+    | Con el cliente confidencial de TR3SLOG (client_credentials) y el scope
+    | `app.users`, el backend encuentra a una persona por correo y le asigna o
+    | quita roles `treslog:*`. Es lo que usa el alta de conductor desde la consola.
+    | El secreto vive SOLO en el .env del backend.
+    |
+    */
+
+    'base_url' => rtrim((string) env('SSO_BASE_URL', 'https://sso.mysocialhub.social'), '/'),
+
+    'backend_client' => [
+        'id' => env('SSO_BACKEND_CLIENT_ID'),
+        'secret' => env('SSO_BACKEND_CLIENT_SECRET'),
+    ],
+
 ];

@@ -31,6 +31,24 @@ perfil C.
 
 ---
 
+## El backend hablando con el SSO (alta de conductores)
+
+Por el gateway, `POST /drivers` ya **no crea usuarios con contraseña**: operaciones da un correo, el
+backend le pide al SSO que encuentre a esa persona y le asigne `treslog:driver`, y acá quedan la
+fila espejo y el `DriverProfile`. Para eso el backend necesita su cliente confidencial del SSO:
+
+```
+SSO_BASE_URL=https://sso.mysocialhub.social      # o http://host.docker.internal si el SSO corre local
+SSO_BACKEND_CLIENT_ID=<client_id del cliente backend de treslog>
+SSO_BACKEND_CLIENT_SECRET=<su secreto>
+```
+
+Lo entrega quien administra el SSO (`php artisan sso:app-client --app=treslog --kind=backend`).
+Sin las variables, el alta responde `502` con un mensaje claro; el resto del backend no se entera.
+Si la persona todavía no existe en el SSO, el alta responde `422` «pedile que ingrese una vez»:
+crear personas desde la consola llega con las invitaciones. Contrato:
+`SSO/Docs/contrato_api_apps_usuarios.md`.
+
 ## Perfil B — tu backend local
 
 ### 1. El backend

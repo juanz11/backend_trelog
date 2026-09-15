@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\DriverProfile;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Sso\SsoAppClient;
+use App\Support\Sso\Espejo;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -43,7 +46,7 @@ class DriverController extends Controller
         return response()->json($mapped);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, SsoAppClient $sso): JsonResponse
     {
         if (! $request->user()->hasAnyRole(['admin', 'operations'])) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
@@ -56,7 +59,45 @@ class DriverController extends Controller
             'shift' => ['nullable', 'string', 'max:255'],
         ];
 
-        if ($request->filled('user_id')) {
+        if ($request->attributes->has('sso_user') && ! $request->filled('user_id')) {
+            // POR EL GATEWAY el conductor nuevo NO se crea con contraseña: la persona
+            // ya existe en el SSO (se registro en TR3SLOG y quedo como cliente) y
+            // operaciones la PROMUEVE. El SSO le asigna `treslog:driver`; aca queda
+            // la fila espejo y el DriverProfile. Si no existe en el SSO, todavia no
+            // hay forma de crearla desde aca (invitaciones, pendiente): se le pide
+            // que ingrese una vez.
+            $validated = $request->validate(array_merge($baseRules, [
+                'email' => ['required', 'string', 'email', 'max:255'],
+                'name' => ['nullable', 'string', 'max:255'],
+            ]));
+
+            try {
+                $persona = $sso->buscarPorCorreo($validated['email']);
+                if ($persona === null) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Esa persona todavia no se registro en TR3SLOG. Pedile que ingrese una vez con su correo y volve a intentarlo.',
+                    ], 422);
+                }
+                $persona = $sso->asignarRol($persona['id'], (string) config('sso.roles.driver'));
+            } catch (\Illuminate\Http\Client\RequestException|\Illuminate\Http\Client\ConnectionException $e) {
+                Log::error('alta de conductor: el SSO no respondio', ['email' => $validated['email'], 'error' => $e->getMessage()]);
+
+                return response()->json(['success' => false, 'message' => 'El SSO no respondio. Intentalo de nuevo en un momento.'], 502);
+            }
+
+            $user = Espejo::asegurar($persona['id'], $persona['email'], $persona['name'] ?: ($validated['name'] ?? null));
+            if (! empty($validated['phone'])) {
+                $user->phone = $validated['phone'];
+                $user->save();
+            }
+            // El rol local se mantiene por el camino sin gateway (User.php,
+            // comportamiento (c)); por el gateway manda lo que dice el SSO.
+            $driverRole = Role::where('name', 'driver')->first();
+            if ($driverRole && ! $user->roles()->where('roles.id', $driverRole->id)->exists()) {
+                $user->roles()->attach($driverRole);
+            }
+        } elseif ($request->filled('user_id')) {
             $validated = $request->validate(array_merge($baseRules, [
                 'user_id' => ['required', 'exists:users,id'],
                 'name' => ['nullable', 'string', 'max:255'],
