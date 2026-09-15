@@ -118,16 +118,17 @@ return [
     | El plan escribe estos roles en castellano (`treslog:cliente`,
     | `treslog:conductor`, `treslog:operaciones`). ESTA MAL, y no es cosmetico:
     | los roles YA cargados en el SSO para el slug `treslog` son
-    | `treslog:admin`, `treslog:driver`, `treslog:customer`, `treslog:company` y
+    | `treslog:admin`, `treslog:driver`, `treslog:customer` y
     | `treslog:operations`, en ingles, igual que los de la tabla `roles` de esta
     | aplicacion (RoleSeeder). Traducirlos no renombra nada: produce un mapeo que
     | no matchea ningun rol emitido por el SSO, o sea la falla silenciosa que el
     | propio §D.2 dice querer evitar. Se usan los nombres REALES.
     |
-    | `treslog:company` existe en el catalogo del SSO pero NO se mapea aca a
-    | proposito: el rol `company` tiene cero permisos en RolePermissionSeeder y
-    | cero comprobaciones en el codigo (3-design.md §D.1). Mapearlo seria
-    | inventar una guarda que hoy no existe.
+    | `treslog:company` se RETIRO del SSO (2026-09-15): el equipo confirmo que
+    | una empresa es una cuenta con miembros e invitaciones, no un rol de
+    | persona (8-respuestas-del-equipo.md). El `company` de la tabla `roles`
+    | local nunca tuvo permisos ni comprobaciones (3-design.md §D.1) y cae con
+    | esa tabla en el Lote 9.
     */
     'roles' => [
         'admin'      => 'treslog:admin',
