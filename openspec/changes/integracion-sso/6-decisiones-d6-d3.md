@@ -64,8 +64,13 @@ hoy «todavía no tiene camino genérico» según `alta_de_aplicacion.md`):
   SSO sólo acepta roles con el prefijo del `slug` del cliente que llama (`treslog:*`): una
   aplicación no puede tocar roles de otra ni los de plataforma.
 
-Sin esto, la alternativa que funciona hoy es **manual**: el admin de TR3SLOG entra al panel del SSO
-y asigna el rol. Sirve para arrancar; no sirve para operar.
+**Estado 2026-09-15**: la segunda mitad **existe** en el SSO (rama `feat/sprint-2-trust`,
+`Docs/contrato_api_apps_usuarios.md`): `GET /api/v1/apps/users?email=` (encontrar) y
+`POST|DELETE /api/v1/apps/users/{id}/roles` (asignar/quitar solo roles `treslog:*`), canal
+`client_credentials` con scope `app.users`. La primera mitad («creá si no existe») depende de la
+Invitations API de Clerk (`alta-usuarios-por-invitacion`, diseñado, no implementado). Mientras
+tanto: la persona se registra sola (queda `treslog:customer`) y operaciones la promueve a
+conductor desde la consola.
 
 ### Lo que NO se decide acá (y por qué)
 
