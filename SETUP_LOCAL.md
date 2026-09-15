@@ -45,8 +45,9 @@ SSO_BACKEND_CLIENT_SECRET=<su secreto>
 
 Lo entrega quien administra el SSO (`php artisan sso:app-client --app=treslog --kind=backend`).
 Sin las variables, el alta responde `502` con un mensaje claro; el resto del backend no se entera.
-Si la persona todavía no existe en el SSO, el alta responde `422` «pedile que ingrese una vez»:
-crear personas desde la consola llega con las invitaciones. Contrato:
+Si la persona todavía no existe en el SSO, el SSO **la invita por correo** (Clerk) con el rol de
+conductor: el alta responde `201` con `invited: true`, el espejo y el `DriverProfile` quedan
+creados, y la persona entra cuando acepta la invitación. Contrato:
 `SSO/Docs/contrato_api_apps_usuarios.md`.
 
 ## Perfil B — tu backend local

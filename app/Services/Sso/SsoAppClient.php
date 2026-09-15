@@ -31,6 +31,26 @@ class SsoAppClient
         return $this->datos($r);
     }
 
+    /**
+     * «Crea o encontra a esta persona por correo» con un rol de TR3SLOG. Si no
+     * existe, el SSO la INVITA por Clerk y responde 202: queda pendiente hasta
+     * que acepte desde el correo.
+     *
+     * @return array{persona: array{id: string, email: string, name: string, is_active: bool, roles: string[]}, creada: bool, acceso: string}
+     */
+    public function crearOEncontrar(string $email, ?string $nombre, string $rol): array
+    {
+        $r = $this->peticion()->post(config('sso.base_url').'/api/v1/apps/users', array_filter([
+            'email' => $email, 'first_name' => $nombre, 'role' => $rol,
+        ], fn ($v) => $v !== null));
+        if ($r->status() === 401) {
+            Cache::forget(self::CACHE_TOKEN);
+        }
+        $r->throw();
+
+        return ['persona' => $r->json('data'), 'creada' => (bool) $r->json('created'), 'acceso' => (string) $r->json('access')];
+    }
+
     /** @return array{id: string, email: string, name: string, is_active: bool, roles: string[]} */
     public function asignarRol(string $ssoUserId, string $rol): array
     {

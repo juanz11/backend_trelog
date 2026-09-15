@@ -43,12 +43,11 @@ class AltaDeConductorPorElSsoTest extends TestCase
         ]);
     }
 
-    private function ssoConPersona(array $persona = ['id' => '55', 'email' => 'ana@ejemplo.com', 'name' => 'Ana Perez', 'is_active' => true, 'roles' => ['treslog:customer']]): void
+    private function ssoConPersona(array $persona = ['id' => '55', 'email' => 'ana@ejemplo.com', 'name' => 'Ana Perez', 'is_active' => true, 'roles' => ['treslog:customer']], bool $creada = false): void
     {
         Http::fake([
             self::SSO.'/oauth/token' => Http::response(['access_token' => 'tok', 'expires_in' => 3600]),
-            self::SSO.'/api/v1/apps/users?email=*' => Http::response(['data' => $persona]),
-            self::SSO.'/api/v1/apps/users/55/roles' => Http::response(['data' => $persona + ['roles' => ['treslog:customer', 'treslog:driver']]]),
+            self::SSO.'/api/v1/apps/users' => Http::response(['data' => array_merge($persona, ['roles' => ['treslog:customer', 'treslog:driver']]), 'created' => $creada, 'access' => $creada ? 'pending' : 'active'], $creada ? 202 : 200),
         ]);
     }
 
@@ -63,8 +62,7 @@ class AltaDeConductorPorElSsoTest extends TestCase
         $r->assertStatus(201)->assertJsonPath('email', 'ana@ejemplo.com')->assertJsonPath('name', 'Ana Perez')->assertJsonPath('v', 'Van 12');
 
         Http::assertSent(fn (PeticionHttp $p) => $p->url() === self::SSO.'/oauth/token' && $p['scope'] === 'app.users');
-        Http::assertSent(fn (PeticionHttp $p) => str_starts_with($p->url(), self::SSO.'/api/v1/apps/users?email=') && $p->hasHeader('Authorization', 'Bearer tok'));
-        Http::assertSent(fn (PeticionHttp $p) => $p->url() === self::SSO.'/api/v1/apps/users/55/roles' && $p['role'] === 'treslog:driver');
+        Http::assertSent(fn (PeticionHttp $p) => $p->url() === self::SSO.'/api/v1/apps/users' && $p->hasHeader('Authorization', 'Bearer tok') && $p['email'] === 'Ana@Ejemplo.com' && $p['role'] === 'treslog:driver');
 
         $espejo = User::where('sso_user_id', '55')->first();
         $this->assertNotNull($espejo);
@@ -79,19 +77,28 @@ class AltaDeConductorPorElSsoTest extends TestCase
         $this->assertStringStartsWith('DR-', $perfil->driver_id);
     }
 
-    public function test_si_la_persona_no_existe_en_el_sso_lo_dice_y_no_crea_nada(): void
+    public function test_si_la_persona_no_existe_el_sso_la_invita_y_aca_queda_espejo_y_perfil_pendientes(): void
+    {
+        $this->ssoConPersona(['id' => '77', 'email' => 'nuevo@ejemplo.com', 'name' => 'Nuevo Conductor', 'is_active' => true, 'roles' => []], creada: true);
+
+        $r = $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'nuevo@ejemplo.com', 'name' => 'Nuevo Conductor', 'vehicle' => 'Moto 3']);
+
+        $r->assertStatus(201)->assertJsonPath('invited', true)->assertJsonPath('email', 'nuevo@ejemplo.com');
+        Http::assertSent(fn (PeticionHttp $p) => $p->url() === self::SSO.'/api/v1/apps/users' && $p['first_name'] === 'Nuevo Conductor');
+        $espejo = User::where('sso_user_id', '77')->first();
+        $this->assertNotNull($espejo);
+        $this->assertSame('Moto 3', DriverProfile::where('user_id', $espejo->id)->value('vehicle'));
+    }
+
+    public function test_si_el_sso_rechaza_la_invitacion_lo_dice_y_no_crea_nada(): void
     {
         Http::fake([
             self::SSO.'/oauth/token' => Http::response(['access_token' => 'tok', 'expires_in' => 3600]),
-            self::SSO.'/api/v1/apps/users?email=*' => Http::response(['error' => 'not_found'], 404),
+            self::SSO.'/api/v1/apps/users' => Http::response(['error' => 'validation_failed', 'message' => 'Clerk rechazo', 'errors' => ['email' => ['Ya hay una invitacion en curso']]], 422),
         ]);
 
-        $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'nadie@ejemplo.com'])
-            ->assertStatus(422)
-            ->assertJsonPath('success', false)
-            ->assertJsonFragment(['message' => 'Esa persona todavia no se registro en TR3SLOG. Pedile que ingrese una vez con su correo y volve a intentarlo.']);
+        $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'nadie@ejemplo.com'])->assertStatus(502);
 
-        Http::assertNotSent(fn (PeticionHttp $p) => str_contains($p->url(), '/roles'));
         $this->assertSame(1, User::count());
         $this->assertSame(0, DriverProfile::count());
     }
@@ -125,7 +132,7 @@ class AltaDeConductorPorElSsoTest extends TestCase
     {
         Http::fake([
             self::SSO.'/oauth/token' => Http::response(['access_token' => 'tok', 'expires_in' => 3600]),
-            self::SSO.'/api/v1/apps/users?email=*' => Http::response('', 503),
+            self::SSO.'/api/v1/apps/users' => Http::response('', 503),
         ]);
 
         $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'ana@ejemplo.com'])

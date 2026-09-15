@@ -60,26 +60,21 @@ class DriverController extends Controller
         ];
 
         if ($request->attributes->has('sso_user') && ! $request->filled('user_id')) {
-            // POR EL GATEWAY el conductor nuevo NO se crea con contraseña: la persona
-            // ya existe en el SSO (se registro en TR3SLOG y quedo como cliente) y
-            // operaciones la PROMUEVE. El SSO le asigna `treslog:driver`; aca queda
-            // la fila espejo y el DriverProfile. Si no existe en el SSO, todavia no
-            // hay forma de crearla desde aca (invitaciones, pendiente): se le pide
-            // que ingrese una vez.
+            // POR EL GATEWAY el conductor nuevo NO se crea con contraseña: el SSO
+            // encuentra a la persona (y la promueve a `treslog:driver`) o la invita
+            // por correo con ese rol (alta-usuarios-por-invitacion). Aca queda la
+            // fila espejo y el DriverProfile desde ya; la persona entra cuando acepte.
             $validated = $request->validate(array_merge($baseRules, [
                 'email' => ['required', 'string', 'email', 'max:255'],
                 'name' => ['nullable', 'string', 'max:255'],
             ]));
 
             try {
-                $persona = $sso->buscarPorCorreo($validated['email']);
-                if ($persona === null) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Esa persona todavia no se registro en TR3SLOG. Pedile que ingrese una vez con su correo y volve a intentarlo.',
-                    ], 422);
-                }
-                $persona = $sso->asignarRol($persona['id'], (string) config('sso.roles.driver'));
+                // El SSO encuentra a la persona o la INVITA por correo (Clerk) con el
+                // rol de conductor; en ambos casos devuelve su id.
+                $resultado = $sso->crearOEncontrar($validated['email'], $validated['name'] ?? null, (string) config('sso.roles.driver'));
+                $persona = $resultado['persona'];
+                $invitada = $resultado['creada'];
             } catch (\Illuminate\Http\Client\RequestException|\Illuminate\Http\Client\ConnectionException $e) {
                 Log::error('alta de conductor: el SSO no respondio', ['email' => $validated['email'], 'error' => $e->getMessage()]);
 
@@ -181,6 +176,7 @@ class DriverController extends Controller
 
         return response()->json([
             'id' => $profile->driver_id,
+            'invited' => $invitada ?? false,
             'n' => $profile->initials ?? $user->name,
             'name' => $user->name,
             'email' => $user->email,
