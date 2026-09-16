@@ -13,6 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // El gateway (nginx) corre en este mismo host y manda X-Forwarded-For /
+        // X-Real-IP. Sin esto, `throttle` cuenta todas las peticiones publicas como
+        // si vinieran de 127.0.0.1 y un cupo por IP seria un cupo global.
+        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
+
         $middleware->api(append: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);

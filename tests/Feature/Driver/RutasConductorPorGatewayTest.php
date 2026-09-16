@@ -315,15 +315,21 @@ class RutasConductorPorGatewayTest extends TestCase
      * un dato que falta, y el cliente reintentaria contra algo que nunca va a
      * funcionar.
      */
-    public function test_identidad_del_SSO_sin_fila_espejo_responde_403_y_no_500(): void
+    public function test_identidad_del_SSO_sin_fila_espejo_se_da_de_alta_sola_y_responde(): void
     {
+        // D3 (2026-09-15): el espejo se crea solo en la primera peticion; el 403
+        // queda para el correo en uso por una cuenta local sin ancla. Aca la fila
+        // vieja tiene OTRO correo, asi que nace una nueva y el conductor entra.
         $u = $this->espejoDeConductor();
         $u->forceFill(['sso_user_id' => null])->save();
+        $antes = \App\Models\User::count();
 
         $this->withHeaders($this->delGateway())
             ->getJson('/api/treslog/driver/routes')
-            ->assertStatus(403)
-            ->assertJsonPath('error', 'forbidden');
+            ->assertOk();
+
+        $this->assertSame($antes + 1, \App\Models\User::count());
+        $this->assertNull($u->fresh()->sso_user_id, 'la fila vieja no se toca');
     }
 
     /**

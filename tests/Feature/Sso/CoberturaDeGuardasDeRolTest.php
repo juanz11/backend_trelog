@@ -71,7 +71,11 @@ class CoberturaDeGuardasDeRolTest extends TestCase
     {
         return array_values(array_filter(
             Route::getRoutes()->getRoutes(),
+            // `api/treslog/public/` es el camino publico por el gateway (D8.1): no
+            // lleva identidad POR DEFINICION y lo custodia CaminoPublicoPorGatewayTest,
+            // que fija que ahi vivan exactamente tres rutas y ninguna mas.
             static fn (RutaRegistrada $r): bool => str_starts_with($r->uri(), 'api/treslog/')
+                && ! str_starts_with($r->uri(), 'api/treslog/public/')
         ));
     }
 

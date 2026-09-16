@@ -310,3 +310,18 @@ Route::prefix('treslog')
 
         require __DIR__.'/domain.php';
     });
+
+//  El camino PUBLICO por el gateway (cierra D8.1, 2026-09-16). El equipo confirmo
+//  que contacto, cotizacion sin cuenta y tracking por codigo son producto, no
+//  descuido: cualquiera cotiza y le llega por correo; el tracking es «como UPS».
+//  El gateway les da un `location /api/treslog/public/` SIN auth_request, y aca
+//  se montan las MISMAS tres acciones que en el prefijo viejo, con un cupo por
+//  IP (el gateway corre en este mismo host y esta como proxy confiable, asi que
+//  la IP es la real). Nada mas entra por aca: cada ruta se agrega a mano.
+Route::prefix('treslog/public')
+    ->middleware('throttle:30,1')
+    ->group(function () {
+        Route::post('/contact', [ContactController::class, 'store']);
+        Route::post('/app/quotes', [ApiQuoteController::class, 'store']);
+        Route::get('/app/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track']);
+    });

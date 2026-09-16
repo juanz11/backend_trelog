@@ -96,6 +96,10 @@ class InvariantesEstructuralesTest extends TestCase
             'POST /api/contact'             => 'Formulario de contacto publico del sitio.',
             'POST /api/app/quotes'          => 'Cotizacion sin cuenta: es el embudo comercial.',
             'GET /api/app/quotes/track/{tracking_code}' => 'Seguimiento por codigo. La credencial es el codigo.',
+            // Las mismas tres, por el camino publico del gateway (D8.1 cerrado 2026-09-16).
+            'POST /api/treslog/public/contact'          => 'Contacto publico via gateway (location sin auth_request).',
+            'POST /api/treslog/public/app/quotes'       => 'Cotizacion sin cuenta via gateway.',
+            'GET /api/treslog/public/app/quotes/track/{tracking_code}' => 'Seguimiento por codigo via gateway.',
 
             // Invitaciones: la mitad del invitado. Ver el comentario largo en
             // routes/api.php — exigirles identidad resuelta las mata.
@@ -189,6 +193,13 @@ class InvariantesEstructuralesTest extends TestCase
 
         foreach ($this->rutasApi() as $ruta) {
             if (! str_starts_with($ruta->uri(), 'api/treslog/')) {
+                continue;
+            }
+            // `api/treslog/public/` es el camino publico por el gateway (D8.1): sin
+            // identidad por definicion. Lo custodia CaminoPublicoPorGatewayTest, que
+            // fija que ahi vivan exactamente tres rutas; y la lista publica de este
+            // mismo archivo las nombra una por una.
+            if (str_starts_with($ruta->uri(), 'api/treslog/public/')) {
                 continue;
             }
 
