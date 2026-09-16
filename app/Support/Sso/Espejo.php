@@ -3,8 +3,6 @@
 namespace App\Support\Sso;
 
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -43,19 +41,9 @@ final class Espejo
         if ($local && ! $vincularPorCorreo) {
             throw new RuntimeException("Ya existe una cuenta local con el correo {$email} y sin ancla: la vincula un administrador con sso:espejo.");
         }
-        if ($local) {
-            // Se vincula: la cuenta pasa a ser SOLO del SSO. Contraseña anulada y
-            // tokens revocados, para que el camino viejo no siga entrando.
-            $local->password = Hash::make(Str::random(48));
-            $local->tokens()->delete();
-        }
-
-        $user = $dueno
-            ?? $local
-            // `password` sigue siendo NOT NULL hasta el Lote 9. La fila espejo lleva
-            // una contraseña que nadie conoce ni puede adivinar: la persona entra por
-            // el SSO, nunca por aca.
-            ?? new User(['email' => $email, 'password' => Hash::make(Str::random(48))]);
+        // Si hay fila local sin ancla, se vincula tal cual: ya no hay contraseña
+        // que anular ni tokens que revocar (Lote 9), la unica puerta es el SSO.
+        $user = $dueno ?? $local ?? new User(['email' => $email]);
 
         if ($nombre !== null && $nombre !== '') {
             $user->name = $nombre;

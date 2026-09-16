@@ -2,25 +2,24 @@
 
 namespace Tests\Feature\Sso;
 
-use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * Los TRES comportamientos de hasRole()/hasAnyRole()/isAdmin() (Lote 8, D8.4):
+ * Los DOS comportamientos de hasRole()/hasAnyRole()/isAdmin() desde el Lote 9
+ * (en el Lote 8 eran tres; el tercero, «sin gateway -> lee role_user», murio
+ * con la tabla):
  *
  *   (a) hidratada por ResolveDomainUser -> lee los roles del SSO;
- *   (b) NO hidratada en una peticion que entro por el gateway -> LANZA;
- *   (c) NO hidratada y sin gateway (Sanctum, tinker, jobs) -> lee role_user.
+ *   (b) NO hidratada, en una peticion del gateway O fuera de toda peticion
+ *       (tinker, un job) -> LANZA.
  *
- * Cada caso puede fallar solo: si (a) leyera role_user, un admin del SSO veria
- * el portal del cliente sin un error en ningun log (hallazgo 2); si (b)
- * devolviera false, un `User::find()->isAdmin()` seria una denegacion fantasma;
- * si (c) lanzara, los conductores con la app instalada se quedarian sin backend.
+ * Si (a) leyera otra cosa, un admin del SSO veria el portal del cliente sin
+ * un error en ningun log; si (b) devolviera false, un `User::find()->isAdmin()`
+ * seria una denegacion fantasma.
  */
 class RolesSinHidratarLanzanTest extends TestCase
 {
@@ -64,26 +63,18 @@ class RolesSinHidratarLanzanTest extends TestCase
             // La trampa que D8.4 existe para agarrar: OTRA instancia de la misma fila.
             Route::get('/_sonda/find', fn (Request $r) => ['admin' => User::find($r->user()->id)->isAdmin()]);
         });
-
-        Route::prefix('api')->middleware('auth:sanctum')->group(function () {
-            Route::get('/_sonda/legacy', fn (Request $r) => [
-                'hidratado' => $r->user()->tieneRolesSsoHidratados(),
-                'admin'     => $r->user()->isAdmin(),
-                'ops'       => $r->user()->hasAnyRole(['admin', 'operations']),
-            ]);
-        });
     }
 
     // ---- (a) hidratada ------------------------------------------------------
 
-    public function test_a_hidratada_lee_los_roles_del_sso_y_no_role_user(): void
+    public function test_a_hidratada_lee_los_roles_del_sso_y_no_la_foto_de_la_fila(): void
     {
         $this->montarSondas();
         $u = $this->espejo();
 
-        // Le damos `admin` en role_user a proposito: por el camino del SSO NO
-        // tiene que contar. Si contara, el test de abajo (customer) daria admin.
-        $u->roles()->attach(Role::create(['name' => 'admin', 'display_name' => 'Admin']));
+        // Le dejamos una foto vieja que dice `admin` a proposito: la foto es para
+        // listar, NO para autorizar. Si contara, el test de abajo (customer) daria admin.
+        $u->forceFill(['sso_roles' => ['treslog:admin']])->save();
 
         $this->withHeaders($this->delGateway(['X-User-Roles' => 'treslog:admin,treslog:driver']))
             ->getJson('/api/treslog/_sonda/roles')
@@ -94,7 +85,7 @@ class RolesSinHidratarLanzanTest extends TestCase
             ->getJson('/api/treslog/_sonda/roles')
             ->assertOk()
             ->assertJson(['hidratado' => true, 'admin' => false, 'ops' => false, 'driver' => false, 'completo' => true],
-                'Con role_user diciendo admin y el SSO diciendo customer, gano role_user: el hallazgo 2 al reves.');
+                'Con la foto diciendo admin y el SSO diciendo customer, gano la foto: la foto no autoriza.');
     }
 
     public function test_a_un_rol_de_otra_aplicacion_no_cuenta_aunque_llegue(): void
@@ -123,37 +114,22 @@ class RolesSinHidratarLanzanTest extends TestCase
             ->getJson('/api/treslog/_sonda/find');
     }
 
-    // ---- (c) sin gateway -> role_user, como siempre -------------------------
+    // ---- (b) fuera de toda peticion -> tambien lanza ------------------------
 
-    public function test_c_por_sanctum_sigue_leyendo_role_user(): void
+    public function test_b_fuera_de_toda_peticion_del_gateway_tambien_lanza(): void
     {
-        $this->montarSondas();
+        // Lo que ve un job en cola o `tinker`: una instancia traida por query.
+        // Hasta el Lote 9 leia role_user; ya no hay de donde leer, y devolver
+        // false seria mentir. Para listar por rol esta la foto `sso_roles`.
         $u = User::factory()->create();
-        Sanctum::actingAs($u);
-
-        $this->getJson('/api/_sonda/legacy')
-            ->assertOk()
-            ->assertJson(['hidratado' => false, 'admin' => false, 'ops' => false]);
-
-        $u->roles()->attach(Role::create(['name' => 'operations', 'display_name' => 'Ops']));
-
-        $this->getJson('/api/_sonda/legacy')
-            ->assertOk()
-            ->assertJson(['hidratado' => false, 'admin' => false, 'ops' => true]);
-    }
-
-    public function test_c_fuera_de_toda_peticion_del_gateway_no_lanza_y_lee_role_user(): void
-    {
-        // Lo que ve un job en cola o `tinker`: una instancia traida por query,
-        // sin ninguna identidad de gateway en el request de la aplicacion.
-        $u = User::factory()->create();
-        $u->roles()->attach(Role::create(['name' => 'admin', 'display_name' => 'Admin']));
+        $u->forceFill(['sso_roles' => ['treslog:admin']])->save();
 
         $otraInstancia = User::find($u->id);
-
         $this->assertFalse($otraInstancia->tieneRolesSsoHidratados());
-        $this->assertTrue($otraInstancia->isAdmin());
-        $this->assertTrue($otraInstancia->hasAnyRole(['operations', 'admin']));
-        $this->assertFalse($otraInstancia->hasRole('driver'));
+        $this->assertSame(['treslog:admin'], $otraInstancia->sso_roles, 'la foto se lee sin hidratar');
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('no fue hidratado');
+        $otraInstancia->isAdmin();
     }
 }

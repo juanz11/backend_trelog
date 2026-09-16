@@ -3,12 +3,10 @@
 namespace Tests\Feature\Sso;
 
 use App\Models\Address;
-use App\Models\Role;
 use App\Models\Shipment;
 use App\Models\SupportTicket;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
@@ -35,23 +33,12 @@ class PoliciesSiguenIgualesTest extends TestCase
         ];
     }
 
-    private function persona(string $ssoUserId, ?string $rolViejo = null): User
+    private function persona(string $ssoUserId): User
     {
         $u = User::factory()->create(['email' => "p{$ssoUserId}@tr3slog.test"]);
         $u->forceFill(['sso_user_id' => $ssoUserId])->save();
 
-        if ($rolViejo !== null) {
-            $u->roles()->attach(Role::firstOrCreate(['name' => $rolViejo], ['display_name' => ucfirst($rolViejo)]));
-        }
-
         return $u->fresh();
-    }
-
-    private function viejo(User $u, string $ruta)
-    {
-        Sanctum::actingAs($u);
-
-        return $this->getJson('/api'.$ruta);
     }
 
     private function nuevo(User $u, string $rol, string $ruta)
@@ -80,7 +67,7 @@ class PoliciesSiguenIgualesTest extends TestCase
         return [$yo, $otro, $ajeno, $mio];
     }
 
-    public function test_lo_mio_200_y_lo_ajeno_403_por_los_dos_caminos(): void
+    public function test_lo_mio_200_y_lo_ajeno_403(): void
     {
         [$yo, , $ajeno, $mio] = $this->escenario();
 
@@ -92,7 +79,6 @@ class PoliciesSiguenIgualesTest extends TestCase
         ];
 
         foreach ($casos as $ruta => $esperado) {
-            $this->assertSame($esperado, $this->viejo($yo, $ruta)->status(), "Sanctum «GET {$ruta}»");
             $this->assertSame($esperado, $this->nuevo($yo, 'customer', $ruta)->status(), "gateway «GET {$ruta}»");
         }
     }
@@ -101,21 +87,18 @@ class PoliciesSiguenIgualesTest extends TestCase
     {
         [$yo, $otro] = $this->escenario();
 
-        $this->assertSame(403, $this->viejo($yo, "/users/{$otro->id}")->status());
         $this->assertSame(403, $this->nuevo($yo, 'customer', "/users/{$otro->id}")->status());
 
-        $admin = $this->persona('7003', 'admin');
-        $this->assertSame(200, $this->viejo($admin, "/users/{$otro->id}")->status());
+        $admin = $this->persona('7003');
         $this->assertSame(200, $this->nuevo($admin, 'admin', "/users/{$otro->id}")->status());
     }
 
-    public function test_admin_ve_lo_ajeno_por_los_dos_caminos(): void
+    public function test_admin_ve_lo_ajeno(): void
     {
         [, , $ajeno] = $this->escenario();
-        $admin = $this->persona('7003', 'admin');
+        $admin = $this->persona('7003');
 
         foreach (["/shipments/{$ajeno['envio']}", "/addresses/{$ajeno['direccion']}", "/support/{$ajeno['ticket']}"] as $ruta) {
-            $this->assertSame(200, $this->viejo($admin, $ruta)->status(), "Sanctum admin «GET {$ruta}»");
             $this->assertSame(200, $this->nuevo($admin, 'admin', $ruta)->status(), "gateway admin «GET {$ruta}»");
         }
     }
@@ -123,14 +106,11 @@ class PoliciesSiguenIgualesTest extends TestCase
     public function test_operaciones_ve_envios_ajenos_pero_no_tickets_ajenos(): void
     {
         // ShipmentPolicy::view: operaciones o dueño. SupportTicketPolicy::view:
-        // admin o dueño — operaciones NO. Asi era, asi queda, por los dos caminos.
+        // admin o dueño — operaciones NO. Asi era, asi queda.
         [, , $ajeno] = $this->escenario();
-        $ops = $this->persona('7004', 'operations');
+        $ops = $this->persona('7004');
 
-        $this->assertSame(200, $this->viejo($ops, "/shipments/{$ajeno['envio']}")->status());
         $this->assertSame(200, $this->nuevo($ops, 'operations', "/shipments/{$ajeno['envio']}")->status());
-
-        $this->assertSame(403, $this->viejo($ops, "/support/{$ajeno['ticket']}")->status());
         $this->assertSame(403, $this->nuevo($ops, 'operations', "/support/{$ajeno['ticket']}")->status());
     }
 }

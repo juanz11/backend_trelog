@@ -12,40 +12,29 @@ use App\Http\Controllers\UserController;
 
 /*
 |--------------------------------------------------------------------------
-| El dominio de la web — UNA definicion, DOS montajes (Lote 8)
+| El dominio de la web (clientes y consola de operaciones)
 |--------------------------------------------------------------------------
 |
-| Este archivo NO se registra solo. Lo hace `require` routes/api.php desde dos
-| grupos distintos (3-design.md §E.2, "montaje en paralelo, no bifurcacion"),
-| igual que routes/admin-only.php y routes/domain-driver.php:
-|
-|   1. `middleware('auth:sanctum')`          -> el camino VIVO: la web vieja y la
-|                                              app de clientes, hasta el Lote 9
-|   2. `prefix('treslog') + ['gateway.auth', 'gateway.user']`
-|                                           -> el camino del SSO (H2: el gateway
-|                                              entrega la URI completa)
-|
-| LAS RUTAS NO CAMBIARON NI UN CARACTER respecto de como vivian dentro del grupo
-| `auth:sanctum` de routes/api.php. Lo unico nuevo es el grupo `$operaciones`.
+| Este archivo NO se registra solo: lo hace `require` routes/api.php bajo
+| `prefix('treslog') + ['gateway.auth', 'gateway.user']`, con `$operaciones`
+| definido ANTES del `require`. Hasta el Lote 9 se montaba tambien bajo
+| `auth:sanctum` para la web vieja; esa web ya no existe (Lote 7) y el montaje
+| se retiro con Sanctum. Sigue en archivo aparte para que el dominio tenga un
+| solo lugar y el test estructural lo cuente.
 |
 |--------------------------------------------------------------------------
-| `$operaciones`: la guarda de rol que solo existe en el montaje del SSO
+| `$operaciones`: la guarda de rol de la consola
 |--------------------------------------------------------------------------
 |
-| Lo define el grupo que hace el `require`, ANTES de incluir este archivo:
-|   - el montaje viejo no lo define -> `[]`, y las rutas quedan EXACTAMENTE como
-|     estaban: la autorizacion la siguen decidiendo los controladores y las
-|     Policies con `hasAnyRole()`/`isAdmin()`, que por ese camino leen `role_user`
-|     como siempre (User.php, comportamiento (c)).
-|   - el montaje del SSO lo define como `sso.role:treslog:operations,treslog:admin`
-|     (OR), y ademas los controladores y Policies siguen corriendo: ahi
-|     `hasAnyRole()` lee los roles que el gateway inyecto en X-User-Roles.
+| `sso.role:treslog:operations,treslog:admin` (OR). Ademas los controladores y
+| Policies siguen corriendo: ahi `hasAnyRole()`/`isAdmin()` leen los roles que
+| el gateway inyecto en X-User-Roles (User.php).
 |
 | POR QUE LA GUARDA VA EN LA RUTA Y NO SOLO EN EL CONTROLADOR: el 403 del
 | controlador es `{"success":false,"message":"Unauthorized"}`, sin `request_id`
-| y fuera del sobre cerrado del contrato. El de `sso.role` es el del contrato.
-| Por el camino nuevo, quien no es de operaciones se va ANTES de tocar el dominio
-| y con un error que soporte puede rastrear. Por el viejo, nada cambia.
+| y fuera del sobre cerrado del contrato. El de `sso.role` es el del contrato:
+| quien no es de operaciones se va ANTES de tocar el dominio y con un error que
+| soporte puede rastrear.
 |
 | QUE VA EN `$operaciones` Y QUE NO — la regla es la matriz de 3-design.md §D.3:
 |   - operaciones/admin: choferes, incidentes, padron de usuarios, cotizaciones
@@ -56,9 +45,6 @@ use App\Http\Controllers\UserController;
 |     sus tickets, su propio usuario, sus envios (listar, crear, ver), y el
 |     contador de cotizaciones pendientes, que el controlador ya filtra por
 |     correo cuando quien pregunta no es de operaciones.
-|
-| Ninguna ruta del camino nuevo es MAS abierta que la vieja. Varias son mas
-| cerradas (las de la consola), y eso es deliberado: restringir no concede.
 */
 
 $operaciones = $operaciones ?? [];

@@ -79,7 +79,7 @@ class ResolveDomainUserTest extends TestCase
     {
         // D3 (2026-09-15): el registro lo absorbio el SSO y no hay padron local
         // que proteger. La primera peticion crea la fila espejo; los roles los
-        // sigue diciendo el SSO (role_user queda vacia).
+        // sigue diciendo el SSO (la fila solo guarda la foto `sso_roles`).
         $this->getJson(self::URI, $this->cabecerasDelGateway([
             'X-User-Id' => '777', 'X-User-Email' => 'nueva@tr3slog.test', 'X-User-Name' => 'Persona Nueva',
         ]))->assertOk();
@@ -88,9 +88,7 @@ class ResolveDomainUserTest extends TestCase
         $espejo = User::where('sso_user_id', '777')->first();
         $this->assertSame('nueva@tr3slog.test', $espejo->email);
         $this->assertSame('Persona Nueva', $espejo->name);
-        $this->assertSame(0, $espejo->roles()->count(), 'los roles no se copian a role_user');
-        $this->assertFalse(\Illuminate\Support\Facades\Hash::check('', (string) $espejo->password));
-
+        $this->assertSame(['treslog:driver'], $espejo->sso_roles, 'la foto de roles se escribe al dar de alta');
         // La segunda peticion resuelve la misma fila: no hay dos altas.
         $this->getJson(self::URI, $this->cabecerasDelGateway(['X-User-Id' => '777', 'X-User-Email' => 'nueva@tr3slog.test']))->assertOk();
         $this->assertDatabaseCount('users', 1);

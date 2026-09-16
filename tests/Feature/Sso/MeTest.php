@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Sso;
 
-use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -196,35 +195,13 @@ class MeTest extends TestCase
      * `AuthController::me`— devolveria `admin` y le abriria la consola a alguien
      * al que el SSO no le dio ese rol. La fuente de verdad es la cabecera.
      */
-    public function test_un_rol_local_en_role_user_NO_concede_la_consola(): void
-    {
-        $u = $this->espejo();
-        // `display_name` es NOT NULL en la tabla (create_roles_table) y no tiene
-        // default: sin el, el fixture explota antes de probar nada.
-        $u->roles()->attach(Role::create(['name' => 'admin', 'display_name' => 'Administrador'])->id);
-
-        $this->assertTrue($u->fresh()->hasRole('admin'),
-            'El fixture dejo de representar el caso: el usuario tiene que tener el rol LOCAL.');
-
-        $this->withHeaders($this->delGateway(['X-User-Roles' => 'treslog:customer']))
-            ->getJson('/api/treslog/me')
-            ->assertOk()
-            ->assertJsonPath('data.roles', ['treslog:customer'])
-            ->assertJsonPath('data.is_admin', false);
-    }
-
-    /**
-     * El complemento, y el caso REAL de todos los dias: un admin del SSO cuya
-     * fila espejo no tiene NADA en `role_user`. Si esta ruta leyera la tabla,
-     * este 200 vendria con `roles: []` y la web lo mandaria al portal del
-     * cliente sin una sola linea de log que lo explique.
-     */
-    public function test_un_admin_del_SSO_sin_fila_en_role_user_alcanza_la_consola(): void
+    public function test_un_admin_del_SSO_alcanza_la_consola_sin_ningun_rol_local(): void
     {
         $u = $this->espejo();
 
-        $this->assertFalse($u->hasRole('admin'),
-            'El fixture dejo de representar el caso: un espejo del SSO no tiene roles locales.');
+        // Desde el Lote 9 no hay roles locales: la fila nace sin foto y preguntar
+        // `hasRole()` fuera de una peticion lanza (User.php, (b)).
+        $this->assertNull($u->sso_roles);
 
         $this->withHeaders($this->delGateway(['X-User-Roles' => 'treslog:admin']))
             ->getJson('/api/treslog/me')
@@ -310,17 +287,16 @@ class MeTest extends TestCase
     public function test_el_sobre_no_filtra_credenciales(): void
     {
         $u = $this->espejo();
-        $u->forceFill([
-            'reset_token'         => 'token-de-reseteo-secreto',
-            'reset_token_expires' => now()->addHour(),
-        ])->save();
+        // Ya no hay credenciales en la fila (Lote 9); lo que no debe salir es el
+        // ancla de Clerk ni la foto de roles cruda: `data` es una lista blanca.
+        $u->forceFill(['sso_clerk_id' => 'user_clerk_secreto', 'sso_roles' => ['treslog:admin']])->save();
 
         $cuerpo = $this->withHeaders($this->delGateway())
             ->getJson('/api/treslog/me')
             ->assertOk()
             ->getContent();
 
-        foreach (['password', 'remember_token', 'reset_token', 'token-de-reseteo-secreto'] as $prohibido) {
+        foreach (['password', 'remember_token', 'reset_token', 'sso_roles', 'user_clerk_secreto'] as $prohibido) {
             $this->assertStringNotContainsString($prohibido, $cuerpo,
                 "El sobre de `/me` filtro «{$prohibido}»: `data` se arma con una lista blanca de claves, no con toArray().");
         }

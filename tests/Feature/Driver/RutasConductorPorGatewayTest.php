@@ -3,13 +3,11 @@
 namespace Tests\Feature\Driver;
 
 use App\Http\Middleware\AuthenticateFromGateway;
-use App\Http\Middleware\EnsureUserIsDriver;
 use App\Http\Middleware\RequireSsoRole;
 use App\Http\Middleware\ResolveDomainUser;
 use App\Models\DeliveryRoute;
 use App\Models\DriverProfile;
 use App\Models\User;
-use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Route as RutaRegistrada;
 use Illuminate\Support\Facades\Route;
@@ -173,56 +171,24 @@ class RutasConductorPorGatewayTest extends TestCase
      * La regla dura del lote: el camino viejo NO SE TOCA. Hay conductores con la
      * app instalada en la calle y la URL congelada en el binario (H3).
      */
-    public function test_el_camino_viejo_sigue_con_auth_sanctum_y_la_guarda_local(): void
-    {
-        $publicas = ['api/driver/register', 'api/driver/login'];
-        $flojas   = [];
-        $vistas   = 0;
-
-        foreach ($this->rutasBajo('api/driver/') as $ruta) {
-            if (in_array($ruta->uri(), $publicas, true)) {
-                continue;
-            }
-
-            $vistas++;
-            $cadena = $this->cadena($ruta);
-
-            $tieneSanctum = (bool) array_filter(
-                $cadena,
-                static fn (string $m): bool => str_contains($m, 'auth:sanctum')
-                    || str_contains($m, Authenticate::class.':sanctum')
-            );
-
-            if (! $tieneSanctum || ! in_array(EnsureUserIsDriver::class, $cadena, true)) {
-                $flojas[] = $this->etiqueta($ruta);
-            }
-        }
-
-        $this->assertGreaterThan(0, $vistas, 'Desaparecieron las rutas de `api/driver/`: la app instalada se quedo sin backend.');
-        $this->assertSame([], $flojas,
-            "El bloque viejo perdio guardas en:\n    ".implode("\n    ", $flojas).
-            "\nEste lote solo AGREGA un montaje; el camino de la app instalada se retira en el Lote 9.");
-    }
-
     /**
-     * `logout` borra el access token de Sanctum. Por el camino del SSO no hay
-     * ninguno —el gateway vacia el Authorization antes del proxy— asi que seria
-     * `null->delete()`: un 500 justo cuando la persona quiere irse. Y ademas la
-     * credencial real la revoca el SSO, no TR3SLOG.
+     * Lote 9: el camino viejo (`api/driver/*` con Sanctum) NO existe mas, y
+     * `logout` tampoco en ningun lado: la credencial es el Bearer de Passport y
+     * la revoca el SSO (`POST /api/logout`), no TR3SLOG.
      */
-    public function test_logout_NO_se_monta_por_el_camino_del_SSO(): void
+    public function test_el_camino_viejo_del_conductor_ya_no_existe_ni_hay_logout(): void
     {
         $uris = array_map(
             static fn (RutaRegistrada $r): string => $r->uri(),
             Route::getRoutes()->getRoutes()
         );
 
-        $this->assertContains('api/driver/logout', $uris,
-            'Se cayo el logout del camino viejo: la app instalada no puede cerrar sesion.');
+        $viejas = array_values(array_filter($uris, static fn (string $u): bool => str_starts_with($u, 'api/driver/')));
+        $this->assertSame([], $viejas, "Volvio el camino viejo del conductor:\n    ".implode("\n    ", $viejas));
 
         $this->assertNotContains('api/treslog/driver/logout', $uris,
-            'Alguien mudo `logout` a routes/domain-driver.php. Por el gateway no hay token de '.
-            'Sanctum que borrar: `currentAccessToken()` devuelve null y la ruta tira 500.');
+            'Alguien monto `logout` en routes/domain-driver.php. Por el gateway no hay nada que borrar '.
+            'aca: la revocacion es del SSO.');
     }
 
     // =======================================================================
@@ -285,16 +251,19 @@ class RutasConductorPorGatewayTest extends TestCase
      * contra `role_user` LOCAL, que para quien entra por el SSO esta vacio
      * (hallazgo 2). Este usuario NO tiene rol local y tiene que entrar igual.
      */
-    public function test_el_conductor_del_SSO_entra_SIN_tener_fila_en_role_user(): void
+    public function test_el_conductor_del_SSO_entra_sin_ningun_rol_local(): void
     {
+        // Desde el Lote 9 no hay `role_user`: una fila espejo no puede tener roles
+        // locales ni preguntar por ellos fuera de una peticion (User.php, (b)).
         $u = $this->espejoDeConductor();
 
-        $this->assertFalse($u->hasRole('driver'),
-            'El fixture dejo de representar el caso real: un espejo del SSO no tiene roles locales.');
+        $this->assertNull($u->sso_roles, 'El fixture dejo de representar el caso real: el espejo nace sin foto de roles.');
 
         $this->withHeaders($this->delGateway())
             ->getJson('/api/treslog/driver/dashboard')
             ->assertOk();
+
+        $this->assertSame(['treslog:driver'], $u->fresh()->sso_roles, 'La foto de roles se escribe al entrar.');
     }
 
     public function test_sin_cabeceras_del_gateway_responde_401_unauthenticated(): void

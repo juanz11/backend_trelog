@@ -7,44 +7,24 @@ use App\Models\DriverAlert;
 use App\Models\DriverProfile;
 use App\Models\Incident;
 use App\Models\PayrollPeriod;
-use App\Models\Role;
 use App\Models\RouteAuditLog;
 use App\Models\RouteStop;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class DriverSeeder extends Seeder
 {
     public function run(): void
     {
+        // Datos de demostracion de UN conductor (ruta, paradas, alertas, nomina).
+        // Sin contraseña ni rol local (Lote 9): la persona entra por el SSO, y
+        // esta fila espejo se ancla a su cuenta con `sso:espejo` o la crea
+        // `gateway.user` al entrar. Lo que la hace conductora para la consola es
+        // el DriverProfile de abajo; el rol `treslog:driver` lo da el SSO.
         $driver = User::firstOrCreate(
             ['email' => 'driver@tr3slog.com'],
-            [
-                'name' => 'E. Rivera',
-                'phone' => '787-555-0110',
-                'password' => Hash::make('password'),
-            ]
+            ['name' => 'E. Rivera', 'phone' => '787-555-0110']
         );
-
-        $driverRole = Role::where('name', 'driver')->first();
-
-        $newDriver = User::updateOrCreate(
-            ['email' => 'driver@treslog.com'],
-            [
-                'name' => 'New Driver',
-                'email' => 'driver@treslog.com',
-                'password' => Hash::make('2j4o3s4h'),
-            ]
-        );
-
-        if ($driverRole && ! $driver->roles()->where('roles.id', $driverRole->id)->exists()) {
-            $driver->roles()->attach($driverRole);
-        }
-
-        if ($driverRole && ! $newDriver->roles()->where('roles.id', $driverRole->id)->exists()) {
-            $newDriver->roles()->attach($driverRole);
-        }
 
         DriverProfile::updateOrCreate(
             ['user_id' => $driver->id],

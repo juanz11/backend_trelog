@@ -3,7 +3,6 @@
 namespace Tests\Feature\Sso;
 
 use App\Models\DriverProfile;
-use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as PeticionHttp;
@@ -29,8 +28,6 @@ class AltaDeConductorPorElSsoTest extends TestCase
         parent::setUp();
         config(['sso.base_url' => self::SSO, 'sso.backend_client.id' => 'cli', 'sso.backend_client.secret' => 'sec']);
         Cache::flush();
-        Role::firstOrCreate(['name' => 'driver'], ['display_name' => 'Driver']);
-        Role::firstOrCreate(['name' => 'operations'], ['display_name' => 'Operations']);
         $this->operaciones = User::factory()->create(['email' => 'ops@tr3slog.test']);
         $this->operaciones->forceFill(['sso_user_id' => '10'])->save();
     }
@@ -68,9 +65,9 @@ class AltaDeConductorPorElSsoTest extends TestCase
         $this->assertNotNull($espejo);
         $this->assertSame('ana@ejemplo.com', $espejo->email);
         $this->assertSame('+58 424', $espejo->phone);
-        // `password` es NOT NULL hasta el Lote 9: la fila lleva una que nadie conoce.
-        $this->assertFalse(\Illuminate\Support\Facades\Hash::check('', (string) $espejo->password));
-        $this->assertTrue($espejo->roles()->where('name', 'driver')->exists());
+        // Sin contraseña ni rol local (Lote 9): lo que la hace conductora para la
+        // consola es el DriverProfile; el rol `treslog:driver` lo da el SSO.
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('users', 'password'));
         $perfil = DriverProfile::where('user_id', $espejo->id)->first();
         $this->assertSame('Van 12', $perfil->vehicle);
         $this->assertSame('AP', $perfil->initials);
@@ -115,19 +112,6 @@ class AltaDeConductorPorElSsoTest extends TestCase
         $this->assertSame('Ana Perez', $local->fresh()->name, 'el nombre del SSO manda');
     }
 
-    public function test_al_vincular_una_fila_local_se_anula_su_contraseña_y_sus_tokens(): void
-    {
-        $this->ssoConPersona();
-        $local = User::factory()->create(['email' => 'ana@ejemplo.com', 'password' => \Illuminate\Support\Facades\Hash::make('Vieja1!')]);
-        $local->createToken('camino-viejo');
-        $this->assertSame(1, $local->tokens()->count());
-
-        $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'ana@ejemplo.com'])->assertStatus(201);
-
-        $this->assertFalse(\Illuminate\Support\Facades\Hash::check('Vieja1!', $local->fresh()->password), 'la contraseña vieja sigue valiendo');
-        $this->assertSame(0, $local->fresh()->tokens()->count(), 'los tokens viejos siguen vivos');
-    }
-
     public function test_si_el_sso_no_responde_es_un_502_y_no_queda_nada_a_medias(): void
     {
         Http::fake([
@@ -141,13 +125,27 @@ class AltaDeConductorPorElSsoTest extends TestCase
         $this->assertSame(1, User::count());
     }
 
-    public function test_por_el_gateway_no_se_acepta_contraseña_ni_hace_falta(): void
+    public function test_una_contraseña_en_la_peticion_se_ignora_porque_no_hay_donde_guardarla(): void
     {
         $this->ssoConPersona();
 
         $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'ana@ejemplo.com', 'password' => 'Secreta1!'])->assertStatus(201);
 
-        $this->assertFalse(\Illuminate\Support\Facades\Hash::check('Secreta1!', (string) User::where('sso_user_id', '55')->first()->password));
+        $this->assertNotNull(User::where('sso_user_id', '55')->first());
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('users', 'password'));
+    }
+
+    public function test_el_listado_de_conductores_es_quien_tiene_perfil_de_conductor(): void
+    {
+        $this->ssoConPersona();
+        $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'ana@ejemplo.com', 'vehicle' => 'Van 12'])->assertStatus(201);
+        User::factory()->create(['email' => 'cliente@ejemplo.com']);
+
+        $lista = $this->comoOperaciones()->getJson('/api/treslog/drivers')->assertOk()->json();
+
+        $this->assertCount(1, $lista);
+        $this->assertSame('ana@ejemplo.com', $lista[0]['email']);
+        $this->assertSame('Van 12', $lista[0]['v']);
     }
 
     public function test_solo_admin_u_operaciones(): void

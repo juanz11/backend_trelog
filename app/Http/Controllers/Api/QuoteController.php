@@ -53,60 +53,9 @@ class QuoteController extends Controller
         return response()->json($quote, 201);
     }
 
-    public function index(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        if ($user->hasAnyRole(['admin', 'operations'])) {
-            $quotes = Quote::orderByDesc('created_at')->paginate(50);
-        } else {
-            $quotes = Quote::where('client_email', $user->email)
-                ->orderByDesc('created_at')
-                ->paginate(50);
-        }
-
-        return response()->json($quotes);
-    }
-
-    public function pendingCount(Request $request): JsonResponse
-    {
-        $this->authorize('viewAny', Quote::class);
-
-        $count = Quote::where('status', 'pending')->count();
-
-        return response()->json(['count' => $count]);
-    }
-
-    public function show(Request $request, Quote $quote): JsonResponse
-    {
-        $this->authorize('view', $quote);
-
-        return response()->json($quote);
-    }
-
-    public function updateStatus(Request $request, Quote $quote): JsonResponse
-    {
-        $this->authorize('update', $quote);
-
-        $data = $request->validate([
-            'status' => ['required', 'in:pending,processing,approved,rejected'],
-        ]);
-
-        $quote->update(['status' => $data['status']]);
-
-        return response()->json($quote);
-    }
-
-    public function markViewed(Request $request, Quote $quote): JsonResponse
-    {
-        $this->authorize('view', $quote);
-
-        if (! $quote->viewed_at) {
-            $quote->update(['viewed_at' => now()]);
-        }
-
-        return response()->json($quote);
-    }
+    // index/pendingCount/show/updateStatus/markViewed SE FUERON en el Lote 9:
+    // vivian bajo `/app/*` con auth:sanctum para una app de clientes que nunca
+    // existio (D3). La cotizacion autenticada de la web es App\Http\Controllers\QuoteController.
 
     public function track($trackingCode): JsonResponse
     {

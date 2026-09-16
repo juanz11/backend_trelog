@@ -5,20 +5,20 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'company', 'phone', 'email', 'password', 'status', 'business_name', 'street_address', 'city', 'zone', 'payment_method', 'reset_token', 'reset_token_expires'])]
-#[Hidden(['password', 'remember_token'])]
+// Sin `password`, `remember_token` ni `reset_token*` (Lote 9): esta tabla no
+// autentica a nadie. `sso_user_id` y `sso_roles` NO son fillable a proposito:
+// los escribe solo el espejo (Espejo::asegurar / ResolveDomainUser).
+#[Fillable(['name', 'company', 'phone', 'email', 'status', 'business_name', 'street_address', 'city', 'zone', 'payment_method'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable;
 
     /**
      * Get the attributes that should be cast.
@@ -29,17 +29,16 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'sso_roles' => 'array',
         ];
     }
 
-    /**
-     * The roles that belong to the user.
-     */
-    public function roles()
-    {
-        return $this->belongsToMany(Role::class);
-    }
+    // `roles()` (belongsToMany Role) SE BORRO en el Lote 9 junto con las tablas
+    // `roles`/`role_user`. Los roles de una persona los dice el SSO en cada
+    // peticion; lo que queda en la fila es `sso_roles`, una FOTO de los ultimos
+    // que emitio, y sirve para LISTAR (conductores, clientes), nunca para
+    // autorizar. Autorizar es `hasRole()`/`hasAnyRole()` sobre la instancia
+    // hidratada.
 
     /**
      * Los roles que el SSO emitio para ESTA peticion (X-User-Roles), tal como los
@@ -72,41 +71,32 @@ class User extends Authenticatable
     }
 
     /**
-     * De donde salen los roles de esta instancia. TRES comportamientos (Lote 8,
-     * D8.4), y los tres estan probados en RolesSinHidratarLanzanTest:
+     * De donde salen los roles de esta instancia. DOS comportamientos desde el
+     * Lote 9 (antes habia un tercero, el camino viejo con `role_user`, que
+     * murio con la tabla):
      *
      *   (a) hidratada por ResolveDomainUser -> los roles del SSO.
-     *   (b) NO hidratada, pero la peticion entro por el gateway -> LANZA. Es un
-     *       `User::find()` (o un `->fresh()`) en un controlador del camino nuevo:
-     *       la fila no sabe nada de roles, y devolver `false` seria una
-     *       denegacion fantasma sin rastro en ningun log. Si algo dejo de ser
-     *       posible, tiene que dejar de compilar (§D.3); y si no puede dejar de
-     *       compilar, tiene que explotar.
-     *   (c) NO hidratada y sin identidad de gateway en la peticion (el camino
-     *       viejo con Sanctum, un job en cola, `tinker`) -> `null`, y el que
-     *       llama lee `role_user` como siempre. El camino viejo no cambia ni un
-     *       bit hasta el Lote 9.
+     *   (b) NO hidratada -> LANZA. Es un `User::find()` (o un `->fresh()`) en un
+     *       controlador, o un `hasRole()` desde un job o `tinker`: la fila no
+     *       sabe nada de roles, y devolver `false` seria una denegacion fantasma
+     *       sin rastro en ningun log. Si algo dejo de ser posible, tiene que
+     *       dejar de compilar (§D.3); y si no puede dejar de compilar, tiene que
+     *       explotar. Para LISTAR por rol (no autorizar) esta `sso_roles`.
      *
-     * @return list<string>|null
+     * @return list<string>
      */
-    private function rolesDeLaPeticion(): ?array
+    private function rolesDeLaPeticion(): array
     {
         if ($this->rolesSso !== null) {
             return $this->rolesSso;
         }
 
-        $request = app()->bound('request') ? app('request') : null;
-
-        if ($request !== null && $request->attributes->has('sso_user')) {
-            throw new \LogicException(sprintf(
-                'User #%s no fue hidratado con la identidad del SSO. En una peticion que entro por el '.
-                'gateway los roles son de la PETICION, no de la fila: usa $request->user(), no User::find() '.
-                'ni ->fresh(). Si de verdad necesitas los roles de OTRA persona, esa pregunta se le hace al SSO.',
-                (string) $this->getKey(),
-            ));
-        }
-
-        return null;
+        throw new \LogicException(sprintf(
+            'User #%s no fue hidratado con la identidad del SSO. Los roles son de la PETICION, no de la '.
+            'fila: usa $request->user(), no User::find() ni ->fresh(). Para listar personas por rol esta la '.
+            'foto `sso_roles`; para los roles de OTRA persona, esa pregunta se le hace al SSO.',
+            (string) $this->getKey(),
+        ));
     }
 
     /**
@@ -124,13 +114,7 @@ class User extends Authenticatable
      */
     public function hasRole($roleName): bool
     {
-        $sso = $this->rolesDeLaPeticion();
-
-        if ($sso === null) {
-            return $this->roles()->where('name', $roleName)->exists();
-        }
-
-        return in_array($this->rolCompleto((string) $roleName), $sso, true);
+        return in_array($this->rolCompleto((string) $roleName), $this->rolesDeLaPeticion(), true);
     }
 
     /**
@@ -139,10 +123,6 @@ class User extends Authenticatable
     public function hasAnyRole($roleNames): bool
     {
         $sso = $this->rolesDeLaPeticion();
-
-        if ($sso === null) {
-            return $this->roles()->whereIn('name', (array) $roleNames)->exists();
-        }
 
         foreach ((array) $roleNames as $rol) {
             if (in_array($this->rolCompleto((string) $rol), $sso, true)) {

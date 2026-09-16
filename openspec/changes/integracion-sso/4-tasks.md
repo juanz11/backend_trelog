@@ -274,13 +274,36 @@ El bloque `auth:sanctum` sigue montado en paralelo hasta el Lote 9: nadie pierde
 
 No reversible con `git revert`. Exige respaldo y ventana anunciada.
 
+> **Hecho (2026-09-16).** Decisión del usuario: «que no queden cosas muertas». 114 tests verdes
+> (`vendor/bin/phpunit`; `artisan test` sin `.env` en el contenedor reporta warnings espurios).
+> Dos correcciones al plan, con su porqué:
+>
+> - **Listar por rol sin `role_user`.** La consola lista conductores y clientes, y el backend
+>   solo conoce los roles de la persona de CADA petición. Un conductor pasa a ser «quien tiene
+>   `driver_profiles`» (la fila nace en `POST /drivers`). Un cliente, «quien tiene
+>   `treslog:customer` en `users.sso_roles`», una FOTO de los últimos roles que emitió el SSO
+>   que `ResolveDomainUser` escribe en cada petición. La foto **no autoriza nada**
+>   (`RolesSinHidratarLanzanTest` lo prueba: con la foto diciendo admin y el SSO diciendo
+>   customer, gana el SSO); `hasRole()` fuera de una petición ahora **lanza** en vez de leer una
+>   tabla que no existe.
+> - **`DriverAuthController::me` sobrevive** como `Api\Driver\MeController`: la app de
+>   conductores lo usa al abrir. El resto del controlador (`register`, `login`, `logout`) se fue.
+>
+> También se retiró lo que el plan no listaba pero era del mismo cadáver: el flujo viejo de
+> invitaciones con contraseña (`UserInvitationController`, `user_invitations`, sus correos), los
+> `Role`/`Permission` y sus controladores, los seeders de roles/admin, `IsAdmin`/`EnsureUserIsDriver`,
+> `/app/*` entero, `POST /users` (una persona nace en el SSO) y `TestMail`. `Espejo::asegurar` ya no
+> inventa contraseñas aleatorias. `Lote9RetiroTest` es la guarda: rutas viejas ausentes, esquema
+> sin credenciales, y un grep de `Hash::check`/`createToken`/`auth:sanctum`/`Models\Role` sobre
+> `app/`, `routes/`, `config/` y `bootstrap/` que tiene que dar vacío (9.9).
+
 - [x] 9.1 Confirmar D3: `/app/*` no tiene consumidor (no existe app de clientes; el cliente es web). Se retira sin reemplazo (2026-09-14).
 - [x] 9.2 D6: no hay instalaciones contra las rutas viejas (2026-09-14). Sin ventana de migración.
-- [ ] 9.3 Respaldo verificado de `users`, `roles`, `permissions`, `role_permission`, `role_user` y `personal_access_tokens` antes de ejecutar cualquier migración de borrado.
-- [ ] 9.4 Retirar `AuthController`, `ApiAuthController`, `DriverAuthController` y sus rutas (`routes/api.php:40-44,54-55,151-154,160-161,175-176,179-180`).
-- [ ] 9.5 Retirar el bloque `Route::middleware('auth:sanctum')->group()` completo de rutas de dominio.
-- [ ] 9.6 Migración: borrar `roles`, `permissions`, `role_permission`, `role_user`, `password_reset_tokens`, `personal_access_tokens`.
-- [ ] 9.7 Migración: retirar de `users` las columnas `password`, `remember_token`, `reset_token`, `reset_token_expires`.
-- [ ] 9.8 Retirar `laravel/sanctum` del proyecto (`composer.json`, `config/sanctum.php`, provider).
-- [ ] 9.9 Test: un grep de `Hash::check`, `createToken` y `auth:sanctum` en `app/` y `routes/` no devuelve nada (criterio de éxito de la propuesta).
-- [ ] 9.10 Ventana de mantenimiento anunciada antes de ejecutar — no hay vuelta atrás sin restaurar el respaldo del 9.3.
+- [x] 9.3 Respaldo verificado antes de migrar: `treslog_en_vps.sh` vuelca la base entera (`mysqldump --single-transaction`) a `/root/respaldos/treslog-db-<sello>.sql` (600) y se niega a migrar si el volcado falla. El `down()` de la migración lanza a propósito: la vuelta atrás es ese volcado.
+- [x] 9.4 Retirados `AuthController`, `Api\AuthController`, `DriverAuthController` (su `me` pasó a `Api\Driver\MeController`) y todas sus rutas; `routes/api.php` quedó con los cuatro montajes del gateway más el camino público.
+- [x] 9.5 Retirados los tres montajes con `auth:sanctum` (dominio, admin, conductor); `domain.php`, `admin-only.php` y `domain-driver.php` se montan UNA vez, por el gateway.
+- [x] 9.6 `2026_09_16_200000_lote9_retirar_autenticacion_local`: borra `role_user`, `role_permission`, `permissions`, `roles`, `personal_access_tokens`, `password_reset_tokens` y `user_invitations`; agrega `users.sso_roles`.
+- [x] 9.7 Misma migración: fuera `password`, `remember_token`, `reset_token`, `reset_token_expires`. `User` sin `HasApiTokens`, sin `roles()`, sin `password` en fillable/casts.
+- [x] 9.8 `composer remove laravel/sanctum` (json + lock); `config/sanctum.php` no existía; `sanctum/csrf-cookie` fuera de `config/cors.php`. Efecto colateral destapado: el provider de Sanctum resolvía el kernel HTTP al arrancar y por eso los tests estructurales veían los alias de middleware; ahora lo hace `tests/TestCase::setUp` a propósito.
+- [x] 9.9 `Lote9RetiroTest::test_no_queda_ni_hash_check_ni_create_token_ni_auth_sanctum_en_app_ni_routes` (también `currentAccessToken`, `HasApiTokens`, `Models\Role`, `role_user`, `personal_access_tokens`; ignora comentarios), más el esquema y las rutas viejas ausentes.
+- [x] 9.10 Sin ventana: no hay tráfico real que cortar (D3, D6, un solo ambiente de demostración). El usuario lo pidió para el mismo día. Desplegado con `treslog_en_vps.sh` (volcado previo incluido).

@@ -146,6 +146,19 @@ class ResolveDomainUser
             }
         }
 
+        // `sso_roles` es la FOTO de los ultimos roles que el SSO emitio para esta
+        // persona (Lote 9). Existe porque el dominio necesita LISTAR gente por
+        // rol (conductores para asignar, clientes para un envio) y `role_user`
+        // ya no existe; y se escribe aca, en cada peticion, porque el unico
+        // momento en que el backend sabe los roles de alguien es cuando esa
+        // persona entra. NO autoriza nada: para eso estan los roles hidratados
+        // en la instancia (User::hasRole), que son los de ESTA peticion.
+        $roles = is_array($identity['roles'] ?? null) ? array_values(array_map('strval', $identity['roles'])) : [];
+        sort($roles);
+        if ($user->sso_roles !== $roles) {
+            $cambios['sso_roles'] = $roles;
+        }
+
         if ($cambios === []) {
             return;
         }

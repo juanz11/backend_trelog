@@ -62,7 +62,7 @@ class EspejoCommand extends Command
 
         $user = User::firstOrCreate(
             ['email' => $email],
-            ['name' => Str::before($email, '@'), 'password' => bcrypt(Str::random(32))],
+            ['name' => Str::before($email, '@')],
         );
 
         $cambio = $user->sso_user_id !== $ssoId;

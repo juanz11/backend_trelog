@@ -3,14 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\DriverProfile;
-use App\Models\Role;
 use App\Models\User;
 use App\Services\Sso\SsoAppClient;
 use App\Support\Sso\Espejo;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
 class DriverController extends Controller
 {
@@ -21,9 +19,11 @@ class DriverController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
-        $drivers = User::whereHas('roles', function ($query) {
-            $query->where('name', 'driver');
-        })->with('driverProfile')->get();
+        // Un conductor es una persona con fila en `driver_profiles` (Lote 9): el
+        // rol `treslog:driver` lo da el SSO y es lo que le abre la app, pero el
+        // padron de la consola es local y nace en `store()`. Antes se listaba por
+        // `role_user`, que ya no existe.
+        $drivers = User::whereHas('driverProfile')->with('driverProfile')->get();
 
         $mapped = $drivers->map(function ($driver) {
             $profile = $driver->driverProfile;
@@ -59,93 +59,33 @@ class DriverController extends Controller
             'shift' => ['nullable', 'string', 'max:255'],
         ];
 
-        if ($request->attributes->has('sso_user') && ! $request->filled('user_id')) {
-            // POR EL GATEWAY el conductor nuevo NO se crea con contraseña: el SSO
-            // encuentra a la persona (y la promueve a `treslog:driver`) o la invita
-            // por correo con ese rol (alta-usuarios-por-invitacion). Aca queda la
-            // fila espejo y el DriverProfile desde ya; la persona entra cuando acepte.
-            $validated = $request->validate(array_merge($baseRules, [
-                'email' => ['required', 'string', 'email', 'max:255'],
-                'name' => ['nullable', 'string', 'max:255'],
-            ]));
+        // El conductor nuevo NO se crea con contraseña (Lote 8/9): el SSO encuentra
+        // a la persona (y la promueve a `treslog:driver`) o la invita por correo
+        // con ese rol (alta-usuarios-por-invitacion). Aca queda la fila espejo y
+        // el DriverProfile desde ya; la persona entra cuando acepte.
+        $validated = $request->validate(array_merge($baseRules, [
+            'email' => ['required', 'string', 'email', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
+        ]));
 
-            try {
-                // El SSO encuentra a la persona o la INVITA por correo (Clerk) con el
-                // rol de conductor; en ambos casos devuelve su id.
-                $resultado = $sso->crearOEncontrar($validated['email'], $validated['name'] ?? null, (string) config('sso.roles.driver'));
-                $persona = $resultado['persona'];
-                $invitada = $resultado['creada'];
-            } catch (\Illuminate\Http\Client\RequestException|\Illuminate\Http\Client\ConnectionException $e) {
-                Log::error('alta de conductor: el SSO no respondio', ['email' => $validated['email'], 'error' => $e->getMessage()]);
+        try {
+            // El SSO encuentra a la persona o la INVITA por correo (Clerk) con el
+            // rol de conductor; en ambos casos devuelve su id.
+            $resultado = $sso->crearOEncontrar($validated['email'], $validated['name'] ?? null, (string) config('sso.roles.driver'));
+            $persona = $resultado['persona'];
+            $invitada = $resultado['creada'];
+        } catch (\Illuminate\Http\Client\RequestException|\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error('alta de conductor: el SSO no respondio', ['email' => $validated['email'], 'error' => $e->getMessage()]);
 
-                return response()->json(['success' => false, 'message' => 'El SSO no respondio. Intentalo de nuevo en un momento.'], 502);
-            }
-
-            $user = Espejo::asegurar($persona['id'], $persona['email'], $persona['name'] ?: ($validated['name'] ?? null));
-            if (! empty($validated['phone'])) {
-                $user->phone = $validated['phone'];
-                $user->save();
-            }
-            // El rol local se mantiene por el camino sin gateway (User.php,
-            // comportamiento (c)); por el gateway manda lo que dice el SSO.
-            $driverRole = Role::where('name', 'driver')->first();
-            if ($driverRole && ! $user->roles()->where('roles.id', $driverRole->id)->exists()) {
-                $user->roles()->attach($driverRole);
-            }
-        } elseif ($request->filled('user_id')) {
-            $validated = $request->validate(array_merge($baseRules, [
-                'user_id' => ['required', 'exists:users,id'],
-                'name' => ['nullable', 'string', 'max:255'],
-                'password' => ['nullable', 'string', 'regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/'],
-            ]));
-
-            $user = User::with('driverProfile')->findOrFail($validated['user_id']);
-
-            // Es una pregunta sobre OTRA persona y sobre la tabla local (si ya
-            // tiene la fila de conductor), no sobre la autorizacion de quien
-            // llama: va directo a `role_user`. `hasRole()` sobre un `findOrFail`
-            // por el camino del SSO lanzaria (User.php, comportamiento (b)).
-            if ($user->roles()->where('name', 'driver')->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El usuario ya es conductor.',
-                ], 422);
-            }
-
-            if (! empty($validated['name'])) {
-                $user->name = $validated['name'];
-            }
-            if (! empty($validated['phone'])) {
-                $user->phone = $validated['phone'];
-            }
-            if (! empty($validated['password'])) {
-                $user->password = Hash::make($validated['password']);
-            }
-            $user->save();
-
-            $driverRole = Role::where('name', 'driver')->first();
-            if ($driverRole && ! $user->roles()->where('roles.id', $driverRole->id)->exists()) {
-                $user->roles()->attach($driverRole);
-            }
-        } else {
-            $validated = $request->validate(array_merge($baseRules, [
-                'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-                'password' => ['required', 'string', 'regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/'],
-            ]));
-
-            $user = User::create([
-                'name' => $validated['name'],
-                'phone' => $validated['phone'] ?? null,
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-            ]);
-
-            $driverRole = Role::where('name', 'driver')->first();
-            if ($driverRole) {
-                $user->roles()->attach($driverRole);
-            }
+            return response()->json(['success' => false, 'message' => 'El SSO no respondio. Intentalo de nuevo en un momento.'], 502);
         }
+
+        $user = Espejo::asegurar($persona['id'], $persona['email'], $persona['name'] ?: ($validated['name'] ?? null));
+        if (! empty($validated['phone'])) {
+            $user->phone = $validated['phone'];
+            $user->save();
+        }
+        $user->load('driverProfile');
 
         $profile = $user->driverProfile;
         if (! $profile) {

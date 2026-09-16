@@ -173,10 +173,14 @@ del SSO y del backend a la vez.
 
 - **La web** (`tr3slog-website`): ya entra por el SSO. Sus perfiles están en su
   `next.config.mjs`; no hay nada que pedir.
-- **La app de conductores** (`tr3slog_driver_app`): **todavía no** entra por el SSO.
-  Sigue con su login propio (`/api/driver/login`, usuario y contraseña de TR3SLOG),
-  que este backend mantiene vivo en el camino viejo. Es el Lote 6 del plan, bloqueado
-  hasta saber cuántas instalaciones reales hay.
+- **La app de conductores** (`tr3slog_driver_app`): entra por el SSO desde el Lote 6
+  (rama `sso/lote6-login-pkce`), con PKCE en el navegador del teléfono y vuelta a la app.
+  Sus valores están en su `SETUP_LOCAL.md`.
+
+Desde el **Lote 9** (2026-09-16) este backend **no autentica**: no hay `/api/login`, ni
+`/api/driver/login`, ni Sanctum, ni contraseñas ni roles locales. Todo lo que no sea el camino
+público (`/api/treslog/public/*`) exige pasar por el gateway. Un usuario de prueba se consigue
+invitándolo desde el panel del SSO con el rol que haga falta, no sembrándolo acá.
 
 ---
 
