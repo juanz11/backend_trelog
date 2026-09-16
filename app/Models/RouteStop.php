@@ -9,10 +9,15 @@ class RouteStop extends Model
 {
     use \Illuminate\Database\Eloquent\Factories\HasFactory;
 
-    protected $fillable = ['route_id', 'n', 'name', 'addr', 'type', 'eta', 'state'];
+    protected $fillable = ['route_id', 'shipment_id', 'n', 'name', 'addr', 'type', 'eta', 'state'];
 
     public function route(): BelongsTo
     {
         return $this->belongsTo(DeliveryRoute::class, 'route_id');
+    }
+
+    public function shipment(): BelongsTo
+    {
+        return $this->belongsTo(Shipment::class, 'shipment_id');
     }
 }

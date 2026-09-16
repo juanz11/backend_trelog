@@ -22,6 +22,7 @@ class StopController extends Controller
         ]);
 
         $stop->update(['state' => 'Done']);
+        $this->syncShipmentStatus($stop, $stop->type === 'Pickup' ? 'in_transit' : 'delivered');
 
         RouteAuditLog::create([
             'route_id' => $stop->route_id,
@@ -42,6 +43,7 @@ class StopController extends Controller
         ]);
 
         $stop->update(['state' => 'Failed']);
+        $this->syncShipmentStatus($stop, 'incident');
 
         RouteAuditLog::create([
             'route_id' => $stop->route_id,
@@ -55,5 +57,13 @@ class StopController extends Controller
     private function authorizeStop(Request $request, RouteStop $stop): void
     {
         abort_if($stop->route->driver_id !== $request->user()->id, 403);
+    }
+
+    /**
+     * Keep the client-facing shipment in sync with the stop the driver just resolved.
+     */
+    private function syncShipmentStatus(RouteStop $stop, string $status): void
+    {
+        $stop->shipment?->update(['status' => $status]);
     }
 }
