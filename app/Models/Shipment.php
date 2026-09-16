@@ -5,9 +5,13 @@ namespace App\Models;
 use App\Helpers\TrackingGenerator;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'user_id',
+    'driver_id',
+    'assigned_at',
     'tracking_number',
     'origin',
     'destination',
@@ -28,9 +32,25 @@ class Shipment extends Model
     {
         return [
             'packages' => 'array',
+            'assigned_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function stop(): HasOne
+    {
+        return $this->hasOne(RouteStop::class, 'shipment_id');
     }
 
     /**

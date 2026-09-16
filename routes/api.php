@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\Driver\DriverAuthController;
 use App\Http\Controllers\Api\Driver\IncidentController;
 use App\Http\Controllers\Api\Driver\PayrollController;
 use App\Http\Controllers\Api\Driver\RouteController;
+use App\Http\Controllers\Api\Driver\ShipmentController as DriverShipmentController;
 use App\Http\Controllers\Api\Driver\StopController;
 
 /*
@@ -183,6 +184,11 @@ Route::prefix('driver')->group(function () {
 
         Route::get('/routes', [RouteController::class, 'index']);
         Route::get('/routes/{route}', [RouteController::class, 'show']);
+
+        Route::get('/shipments', [DriverShipmentController::class, 'index']);
+        Route::get('/shipments/{shipment}', [DriverShipmentController::class, 'show']);
+        Route::post('/shipments/{shipment}/claim', [DriverShipmentController::class, 'claim']);
+        Route::patch('/shipments/{shipment}/status', [DriverShipmentController::class, 'updateStatus']);
 
         Route::post('/stops/{stop}/confirm', [StopController::class, 'confirm']);
         Route::post('/stops/{stop}/fail', [StopController::class, 'fail']);
