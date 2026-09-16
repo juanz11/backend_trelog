@@ -149,14 +149,35 @@ Nada se retira: `/api/driver/*` con `auth:sanctum` sigue vivo. Sin bloqueo — e
 ## Lote 6 — Build nueva de la app de conductores (PR 6)
 
 > D6 cerrada (2026-09-14, `8-respuestas-del-equipo.md`): no hay build instalada, la app se reescribe desde cero. Se puede desarrollar y publicar; la referencia de PKCE es la de MSH.
+>
+> **Hecho (2026-09-16).** App en `tr3slog_driver_app`, rama `sso/lote6-login-pkce`; 37 tests con
+> `flutter test`, `flutter analyze` limpio. Dos correcciones al plan, con su porqué:
+>
+> - La referencia de MSH es **web-only** (`browser_navigator_stub.dart` tira `UnsupportedError`
+>   fuera del navegador): en el teléfono el navegador es otro proceso, así que el login abre un
+>   Custom Tab / `ASWebAuthenticationSession` (`flutter_web_auth_2`) y vuelve por un esquema
+>   propio, `tr3slog://login/sso/callback`. Ese redirect se **sumó** al cliente `frontend` de
+>   TR3SLOG en el SSO —el MISMO que usa la web— con una opción nueva del comando del SSO,
+>   `sso:app-client --add`, porque la única alternativa que existía (`--force`) revocaba el
+>   cliente entero y dejaba a la web afuera.
+> - «Validar el token» (6.4) es `GET /driver/me` por el gateway, que responde a la vez si el
+>   token vale (401) y si la persona sigue siendo conductora (403). El SSO deja entrar a
+>   cualquier cuenta de MyGlobalHub; lo único que separa a un usuario de MSH de la nómina es el
+>   rol `treslog:driver`, y un 403 en el login se explica y NO guarda sesión (revoca el token).
+>
+> 6.5 se resolvió con un workflow de GitHub Actions que compila el APK en cada push (la máquina
+> de integración no tiene Android SDK ni Xcode). **iOS no se compiló** en este lote. La release
+> se firma con la llave de debug (TODO heredado del equipo): sirve para instalar por APK, no para
+> Play Store.
 
 Requiere el Lote 5 desplegado.
 
 - [x] 6.1 Confirmar D6: no hay instalaciones; la app apunta al backend Laravel de prueba del desarrollador (2026-09-14).
-- [ ] 6.2 Arreglar `api_service.dart:4-7`: apuntar a la URL del gateway vía `--dart-define`, documentar el valor de release.
-- [ ] 6.3 Reemplazar login por email+password por el flujo PKCE contra el SSO; retirar las pantallas que llaman `POST /driver/register` y `/login`.
-- [ ] 6.4 Arreglar la degradación silenciosa: `_bootstrap()` (`app.dart:84-90`) debe validar el token, no sólo comprobar que exista; `DriverRepository` debe cerrar sesión y avisar ante `statusCode != 200`, no `return;` en silencio.
-- [ ] 6.5 Build y distribución de la nueva versión.
+- [x] 6.2 `api_service.dart` apunta al gateway (`https://api.mysocialhub.social/api/treslog`) con `--dart-define`, mismo valor en debug y release a propósito; los cuatro valores documentados en `SETUP_LOCAL.md` de la app.
+- [x] 6.3 Login PKCE contra el SSO (`services/pkce.dart`, `services/sso_auth.dart`, `services/auth_service.dart`); pantalla con un solo botón «Entrar con MyGlobalHub»; `register_screen.dart` y `login_fields.dart` retirados; tokens en `flutter_secure_storage`, no en SharedPreferences. Logout revoca en el SSO (`POST /api/logout`).
+- [x] 6.4 `_bootstrap()` valida contra `GET /driver/me` (401 → un refresh y reintento; 403 → sin rol; sin red → se confía en la guardada). `DriverRepository` pasa todo por `_send`: 401/403 cierran la sesión y mandan al login con el motivo (`SessionEvents`), cualquier otro fallo avisa por SnackBar global en vez de `return;`. Una sola renovación en curso aunque cinco peticiones reciban 401 a la vez.
+- [x] 6.5 `.github/workflows/apk.yml`: analyze + test + `flutter build apk --release`, APK como artefacto del run, `--dart-define` desde variables del repositorio. Manifest: `CallbackActivity` para `tr3slog://` y permiso `INTERNET` en el manifest principal (solo estaba en debug/profile).
+- [ ] 6.6 Prueba en teléfono real: login, vuelta a la app, tablero con datos; y compilación iOS con Xcode. Pendiente de alguien con el toolchain.
 
 ---
 
