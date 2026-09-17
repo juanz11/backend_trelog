@@ -104,5 +104,8 @@ Route::prefix('treslog/public')
     ->group(function () {
         Route::post('/contact', [ContactController::class, 'store']);
         Route::post('/app/quotes', [ApiQuoteController::class, 'store']);
-        Route::get('/app/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track']);
+        // El tracking lleva un cupo mas corto propio (10/min por IP, ademas del
+        // general): el codigo es secuencial y esta es la unica ruta que se puede
+        // recorrer. Nadie consulta diez envios por minuto a mano.
+        Route::get('/app/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track'])->middleware('throttle:tracking');
     });
