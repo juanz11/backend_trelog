@@ -78,34 +78,24 @@ class InvariantesEstructuralesTest extends TestCase
      */
     private function publicasPermitidas(): array
     {
+        // Lote 9 (2026-09-16): murieron los tres logins, los resets, /app/* y las
+        // invitaciones viejas. Lo unico publico es el camino sin identidad del
+        // gateway, y es una lista cerrada: cada ruta nueva se agrega a mano CON
+        // EL MOTIVO, y ademas al `location /api/treslog/public/` de nginx.
         return [
-            // Los tres logins. Mueren en el Lote 9, cuando el SSO los reemplace.
-            'POST /api/register'            => 'Alta publica de la web. Ya no acepta `role` (Lote 4).',
-            'POST /api/login'               => 'Login de la web Next.',
-            'POST /api/forgot-password'     => 'Reset: por definicion lo pide quien no puede entrar.',
-            'POST /api/verify-reset-token'  => 'Idem. La credencial es el token del correo.',
-            'POST /api/reset-password'      => 'Idem.',
-            'POST /api/app/register'        => 'Alta de la app de clientes (`/app/*`, D3).',
-            'POST /api/app/login'           => 'Login de la app de clientes.',
-            'POST /api/app/forgot-password' => 'Reset de la app de clientes.',
-            'POST /api/app/reset-password'  => 'Idem.',
-            'POST /api/driver/register'     => 'Alta de la app de conductores (binario en la calle, H3).',
-            'POST /api/driver/login'        => 'Login de la app de conductores.',
-
-            // Formularios de gente que todavia no es cliente.
-            'POST /api/contact'             => 'Formulario de contacto publico del sitio.',
-            'POST /api/app/quotes'          => 'Cotizacion sin cuenta: es el embudo comercial.',
-            'GET /api/app/quotes/track/{tracking_code}' => 'Seguimiento por codigo. La credencial es el codigo.',
-            // Las mismas tres, por el camino publico del gateway (D8.1 cerrado 2026-09-16).
             'POST /api/treslog/public/contact'          => 'Contacto publico via gateway (location sin auth_request).',
-            'POST /api/treslog/public/app/quotes'       => 'Cotizacion sin cuenta via gateway.',
-            'GET /api/treslog/public/app/quotes/track/{tracking_code}' => 'Seguimiento por codigo via gateway.',
-
-            // Invitaciones: la mitad del invitado. Ver el comentario largo en
-            // routes/api.php — exigirles identidad resuelta las mata.
-            'POST /api/invitations/verify'  => 'La llama el invitado, que todavia no tiene cuenta.',
-            'POST /api/invitations/accept'  => 'Es el codigo que CREA la cuenta del invitado.',
+            'POST /api/treslog/public/app/quotes'       => 'Cotizacion sin cuenta via gateway: es el embudo comercial.',
+            'GET /api/treslog/public/app/quotes/track/{tracking_code}' => 'Seguimiento por codigo via gateway. La credencial es el codigo; el payload es minimo y el cupo, corto.',
         ];
+    }
+
+    /** La lista de arriba tiene que ser EXACTAMENTE lo que existe: una entrada muerta es una puerta que alguien puede volver a abrir sin que este test lo cuente. */
+    public function test_la_lista_de_publicas_no_tiene_entradas_muertas(): void
+    {
+        $existentes = array_map(fn ($r) => $this->etiqueta($r), $this->rutasApi());
+        foreach (array_keys($this->publicasPermitidas()) as $publica) {
+            $this->assertContains($publica, $existentes, "«{$publica}» esta en publicasPermitidas() pero ya no existe.");
+        }
     }
 
     // =======================================================================
@@ -168,8 +158,8 @@ class InvariantesEstructuralesTest extends TestCase
             '`1-proposal.md §1`: nadie los abrio queriendo, se agrego una ruta y',
             'el sintoma fue que todo funcionaba.',
             '',
-            'Si la ruta tiene que estar protegida -> ponele `auth:sanctum` (camino',
-            'viejo) o `gateway.auth` (camino del SSO, bajo el prefijo `treslog`).',
+            'Si la ruta tiene que estar protegida -> montala bajo el prefijo `treslog`',
+            'con `gateway.auth` (y `gateway.user` si toca $request->user()).',
             'Si de verdad tiene que ser publica -> agregala a publicasPermitidas()',
             'CON EL MOTIVO ESCRITO, para que la proxima revision lo vea.',
             '',

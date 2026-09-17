@@ -82,9 +82,11 @@ class UserController extends Controller
 
         $this->authorize('update', $user);
 
+        // `name` y `email` NO se editan aca: los gobierna el SSO y ResolveDomainUser
+        // los refresca en cada peticion (se pisaria lo que se escriba). Peor: un
+        // email cambiado a mano bloqueaba el alta automatica de OTRA persona con
+        // ese correo (revision de jueces 2026-09-16, menor). Si llegan, se ignoran.
         $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|string|email|max:255|unique:users,email,' . $id,
             'company' => 'sometimes|nullable|string|max:255',
             'phone' => 'sometimes|nullable|string|max:255',
             'status' => 'sometimes|in:active,pending,suspended',
@@ -101,12 +103,6 @@ class UserController extends Controller
         // existe y los roles se cambian en el SSO. Si llegan, se ignoran: un
         // cliente viejo que los mande no rompe nada, pero tampoco cambia nada.
 
-        if ($request->has('name')) {
-            $user->name = $request->name;
-        }
-        if ($request->has('email')) {
-            $user->email = $request->email;
-        }
         if ($request->has('company')) {
             $user->company = $request->company;
         }
