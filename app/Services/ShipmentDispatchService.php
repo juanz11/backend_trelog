@@ -21,11 +21,6 @@ class ShipmentDispatchService
     public const CLOSED_STATUSES = ['delivered', 'cancelled'];
 
     /**
-     * Statuses that mean the shipment has not started moving yet.
-     */
-    public const OPEN_STATUSES = ['pending', 'assigned'];
-
-    /**
      * Assign (or unassign) a driver and keep the driver route in sync.
      */
     public function assignDriver(Shipment $shipment, ?User $driver): Shipment
