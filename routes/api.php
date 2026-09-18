@@ -131,6 +131,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [ShipmentController::class, 'store']);
         Route::get('/{id}', [ShipmentController::class, 'show']);
         Route::put('/{id}', [ShipmentController::class, 'update']);
+        Route::patch('/{shipment}/driver', [ShipmentController::class, 'assignDriver']);
         Route::delete('/{id}', [ShipmentController::class, 'destroy']);
     });
 });

@@ -32,6 +32,11 @@ class ShipmentPolicy
         return $user->hasAnyRole(['admin', 'operations']) || $user->hasPermission('shipments.delete');
     }
 
+    public function assignDriver(User $user, Shipment $shipment): bool
+    {
+        return $user->hasAnyRole(['admin', 'operations']) || $user->hasPermission('dispatch.manage');
+    }
+
     public function restore(User $user, Shipment $shipment): bool
     {
         return false;
