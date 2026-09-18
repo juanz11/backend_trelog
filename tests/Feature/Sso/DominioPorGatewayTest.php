@@ -147,4 +147,25 @@ class DominioPorGatewayTest extends TestCase
         $this->assertSame([], $cliente->fresh()->sso_roles);
         $this->assertSame([], $this->porElGateway($admin, 'admin', 'GET', '/users/clients')->json());
     }
+
+    public function test_despacho_asignar_conductor_es_de_operaciones_y_busca_por_perfil(): void
+    {
+        // Llego de main el 2026-09-18 escrito contra role_user; adaptado al Lote 9:
+        // el conductor se busca por driver_profiles (id local o codigo DR-…).
+        $ops = $this->persona('6161');
+        $cliente = $this->persona('5151');
+        $conductor = User::factory()->create(['email' => 'chofer@tr3slog.test']);
+        \App\Models\DriverProfile::factory()->create(['user_id' => $conductor->id, 'driver_id' => 'DR-000042']);
+        $envio = Shipment::forceCreate(['user_id' => $cliente->id, 'origin' => 'A', 'destination' => 'B', 'status' => 'pending']);
+
+        $this->assertSame(403, $this->porElGateway($cliente, 'customer', 'PATCH', "/shipments/{$envio->id}/driver", ['driver_id' => 'DR-000042'])->status());
+
+        $this->porElGateway($ops, 'operations', 'PATCH', "/shipments/{$envio->id}/driver", ['driver_id' => 'DR-000042'])->assertOk();
+        $this->assertSame($conductor->id, $envio->fresh()->driver_id);
+
+        $this->porElGateway($ops, 'operations', 'PATCH', "/shipments/{$envio->id}/driver", ['driver_id' => 'DR-999999'])->assertStatus(422);
+
+        // Quien no tiene perfil de conductor no es conductor, aunque exista.
+        $this->porElGateway($ops, 'operations', 'PATCH', "/shipments/{$envio->id}/driver", ['driver_id' => (string) $cliente->id])->assertStatus(422);
+    }
 }

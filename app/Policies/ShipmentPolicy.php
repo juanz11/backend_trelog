@@ -34,6 +34,14 @@ class ShipmentPolicy
         return $user->hasAnyRole(['admin', 'operations']);
     }
 
+    public function assignDriver(User $user, Shipment $shipment): bool
+    {
+        // Llego de main con `|| hasPermission('dispatch.manage')`: ese metodo se
+        // borro en el Lote 8 (§D.3, no hay permisos finos por el SSO) y ningun
+        // rol lo tenia. Despachar es de la consola: operations o admin.
+        return $user->hasAnyRole(['admin', 'operations']);
+    }
+
     public function restore(User $user, Shipment $shipment): bool
     {
         return false;

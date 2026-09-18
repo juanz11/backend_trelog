@@ -31,6 +31,7 @@ class DriverController extends Controller
 
             return [
                 'id' => $profile?->driver_id ? (string) $profile->driver_id : (string) $driver->id,
+                'user_id' => $driver->id,
                 'n' => $profile?->initials ?? $driver->name,
                 'name' => $driver->name,
                 'email' => $driver->email,
@@ -117,6 +118,7 @@ class DriverController extends Controller
         return response()->json([
             'id' => $profile->driver_id,
             'invited' => $invitada ?? false,
+            'user_id' => $user->id,
             'n' => $profile->initials ?? $user->name,
             'name' => $user->name,
             'email' => $user->email,

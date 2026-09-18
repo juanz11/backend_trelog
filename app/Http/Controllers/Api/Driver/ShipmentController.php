@@ -3,14 +3,10 @@
 namespace App\Http\Controllers\Api\Driver;
 
 use App\Http\Controllers\Controller;
-use App\Models\DeliveryRoute;
-use App\Models\RouteAuditLog;
-use App\Models\RouteStop;
 use App\Models\Shipment;
-use App\Models\User;
+use App\Services\ShipmentDispatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ShipmentController extends Controller
 {
@@ -22,7 +18,11 @@ class ShipmentController extends Controller
     /**
      * Statuses that take a shipment out of the driver's active workload.
      */
-    private const CLOSED_STATUSES = ['delivered', 'cancelled'];
+    private const CLOSED_STATUSES = ShipmentDispatchService::CLOSED_STATUSES;
+
+    public function __construct(private ShipmentDispatchService $dispatch)
+    {
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -77,16 +77,9 @@ class ShipmentController extends Controller
             return response()->json(['message' => 'Este envío ya no está disponible.'], 409);
         }
 
-        DB::transaction(function () use ($shipment, $driver) {
-            $shipment->update([
-                'driver_id' => $driver->id,
-                'assigned_at' => now(),
-            ]);
+        $shipment = $this->dispatch->assignDriver($shipment, $driver);
 
-            $this->syncStopForShipment($shipment, $driver);
-        });
-
-        return response()->json($this->present($shipment->fresh(['stop'])));
+        return response()->json($this->present($shipment));
     }
 
     public function updateStatus(Request $request, Shipment $shipment): JsonResponse
@@ -100,92 +93,9 @@ class ShipmentController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        DB::transaction(function () use ($shipment, $driver, $data) {
-            $shipment->update(['status' => $data['status']]);
+        $shipment = $this->dispatch->applyStatus($shipment, $data['status'], $data['notes'] ?? null);
 
-            $stop = $shipment->stop ?? $this->syncStopForShipment($shipment, $driver);
-            $stop->update(['state' => $this->stopStateFor($data['status'])]);
-
-            RouteAuditLog::create([
-                'route_id' => $stop->route_id,
-                'title' => "Envío {$shipment->tracking_number} · {$data['status']}",
-                'meta' => $data['notes'] ?? $shipment->destination,
-            ]);
-
-            $this->refreshRouteProgress($stop->route_id);
-        });
-
-        return response()->json($this->present($shipment->fresh(['stop'])));
-    }
-
-    /**
-     * Ensure the shipment is represented as a stop on the driver's active route.
-     */
-    private function syncStopForShipment(Shipment $shipment, User $driver): RouteStop
-    {
-        if ($shipment->stop) {
-            return $shipment->stop;
-        }
-
-        $route = $this->activeRouteFor($driver);
-
-        $stop = RouteStop::create([
-            'route_id' => $route->id,
-            'shipment_id' => $shipment->id,
-            'n' => (int) RouteStop::where('route_id', $route->id)->max('n') + 1,
-            'name' => $shipment->recipient_name ?: ($shipment->tracking_number ?: "Envío #{$shipment->id}"),
-            'addr' => $shipment->destination ?: '—',
-            'type' => 'Delivery',
-            'state' => $this->stopStateFor($shipment->status),
-        ]);
-
-        $this->refreshRouteProgress($route->id);
-
-        $shipment->setRelation('stop', $stop);
-
-        return $stop;
-    }
-
-    private function activeRouteFor(User $driver): DeliveryRoute
-    {
-        $route = DeliveryRoute::where('driver_id', $driver->id)
-            ->whereIn('status', ['In progress', 'Pending'])
-            ->orderByRaw('FIELD(status, "In progress", "Pending")')
-            ->latest()
-            ->first();
-
-        if ($route) {
-            return $route;
-        }
-
-        return DeliveryRoute::create([
-            'driver_id' => $driver->id,
-            'code' => 'RT-' . now()->format('dmy') . '-' . strtoupper(substr(md5((string) $driver->id), 0, 2)),
-            'date_label' => ucfirst(now()->translatedFormat('l, j \d\e F')),
-            'status' => 'Pending',
-            'vehicle' => $driver->driverProfile?->vehicle,
-        ]);
-    }
-
-    private function refreshRouteProgress(int $routeId): void
-    {
-        $stops = RouteStop::where('route_id', $routeId)->get();
-        $done = $stops->where('state', 'Done')->count();
-
-        DeliveryRoute::where('id', $routeId)->update([
-            'stops_count' => $stops->count(),
-            'progress' => $stops->isEmpty() ? 0 : round($done / $stops->count(), 2),
-        ]);
-    }
-
-    private function stopStateFor(string $shipmentStatus): string
-    {
-        return match ($shipmentStatus) {
-            'delivered' => 'Done',
-            'incident' => 'Failed',
-            'in_transit', 'out_for_delivery' => 'Next',
-            default => 'Pending',
-        };
+        return response()->json($this->present($shipment));
     }
 
     private function present(Shipment $shipment): array

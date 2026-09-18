@@ -78,6 +78,9 @@ Route::middleware($operaciones)->group(function () {
     // operaciones/admin, sin pertenencia.
     Route::prefix('shipments')->group(function () {
         Route::put('/{id}', [ShipmentController::class, 'update']);
+        // Despacho (equipo TR3SLOG, 2026-09-18): asignar/quitar conductor. Es de
+        // la consola: va en el grupo de operaciones, y ademas ShipmentPolicy::assignDriver.
+        Route::patch('/{shipment}/driver', [ShipmentController::class, 'assignDriver']);
         Route::delete('/{id}', [ShipmentController::class, 'destroy']);
     });
 });

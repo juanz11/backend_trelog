@@ -4,11 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Incident;
 use App\Models\Shipment;
+use App\Models\User;
+use App\Services\ShipmentDispatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ShipmentController extends Controller
 {
+    public function __construct(private ShipmentDispatchService $dispatch)
+    {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', Shipment::class);
@@ -22,7 +28,7 @@ class ShipmentController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        $shipments = $query->orderByDesc('created_at')->get();
+        $shipments = $query->with(['driver.driverProfile'])->orderByDesc('created_at')->get();
 
         // Add parsed tracking data to each shipment and reflect open incidents
         $shipments->transform(function ($shipment) {
@@ -80,6 +86,7 @@ class ShipmentController extends Controller
 
         $this->authorize('view', $shipment);
 
+        $shipment->load('driver.driverProfile');
         $shipment->parsed_tracking = $shipment->getParsedTracking();
         $shipment->tracking_url = $shipment->getTrackingUrl();
 
@@ -119,9 +126,59 @@ class ShipmentController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $shipment->update($data);
+        $status = $data['status'] ?? null;
+        unset($data['status']);
+
+        if ($data) {
+            $shipment->update($data);
+        }
+
+        // A status change has to reach the driver route/stop as well, so it is
+        // applied through the dispatch service instead of a plain update.
+        if ($status !== null && $status !== $shipment->status) {
+            $shipment = $this->dispatch->applyStatus($shipment, $status);
+        }
+
+        $shipment->parsed_tracking = $shipment->getParsedTracking();
+        $shipment->tracking_url = $shipment->getTrackingUrl();
 
         return response()->json($shipment);
+    }
+
+    public function assignDriver(Request $request, Shipment $shipment): JsonResponse
+    {
+        $this->authorize('assignDriver', $shipment);
+
+        $data = $request->validate([
+            'driver_id' => ['nullable', 'string'],
+        ]);
+
+        $driver = null;
+        if (! empty($data['driver_id'])) {
+            // Un conductor es quien tiene fila en driver_profiles (Lote 9): llego de
+            // main con `whereHas('roles', driver)`, y `roles()` ya no existe. Se
+            // acepta el id local o el codigo DR-000001.
+            $driver = User::whereHas('driverProfile')
+                ->where(function ($query) use ($data) {
+                    $query->where('id', $data['driver_id'])
+                        ->orWhereHas('driverProfile', fn ($profile) => $profile->where('driver_id', $data['driver_id']));
+                })
+                ->first();
+
+            if (! $driver) {
+                return response()->json(['message' => 'El conductor seleccionado no existe o no tiene perfil de conductor.'], 422);
+            }
+        }
+
+        $shipment = $this->dispatch->assignDriver($shipment, $driver);
+
+        $shipment->parsed_tracking = $shipment->getParsedTracking();
+        $shipment->tracking_url = $shipment->getTrackingUrl();
+
+        return response()->json([
+            'message' => $driver ? 'Conductor asignado correctamente.' : 'Conductor removido correctamente.',
+            'shipment' => $shipment,
+        ]);
     }
 
     public function destroy(string $id): JsonResponse
