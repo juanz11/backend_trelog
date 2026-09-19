@@ -168,4 +168,21 @@ class DominioPorGatewayTest extends TestCase
         // Quien no tiene perfil de conductor no es conductor, aunque exista.
         $this->porElGateway($ops, 'operations', 'PATCH', "/shipments/{$envio->id}/driver", ['driver_id' => (string) $cliente->id])->assertStatus(422);
     }
+
+    /** 2026-09-19: sin ningun rol de TR3SLOG no se entra al dominio, ni se crea espejo. */
+    public function test_sin_rol_de_treslog_no_se_entra_al_dominio_de_la_web(): void
+    {
+        foreach (['', 'msh:user', 'Super Admin', 'treslog:driver'] as $roles) {
+            $r = $this->withHeaders($this->delGateway($roles, '8080'))->getJson('/api/treslog/addresses');
+            $this->assertSame(403, $r->status(), "«{$roles}» entro a las rutas de cliente");
+            $this->assertSame('forbidden', $r->json('error'));
+        }
+        $this->assertNull(User::where('sso_user_id', '8080')->first(), 'gateway.user corrio antes que la guarda de rol');
+
+        // Con cualquiera de los tres roles de la web, entra (y se crea el espejo).
+        $this->withHeaders($this->delGateway('treslog:customer', '8080'))->getJson('/api/treslog/addresses')->assertOk();
+        $this->assertNotNull(User::where('sso_user_id', '8080')->first());
+        // /me responde a cualquiera con identidad (es lo que la web usa para decir «sin acceso»).
+        $this->withHeaders($this->delGateway('', '8081'))->getJson('/api/treslog/me')->assertOk();
+    }
 }

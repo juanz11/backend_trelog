@@ -82,8 +82,15 @@ Route::prefix('treslog/driver')
 //  `$operaciones` es la guarda de rol de la consola (choferes, incidentes,
 //  padron, cotizaciones, cambiar/borrar envios): `treslog:operations` O
 //  `treslog:admin`, con el 403 del contrato. Se define aca y la lee domain.php.
+//  El montaje entero exige ALGUN rol de la web de TR3SLOG (cliente, operaciones
+//  o admin; 2026-09-19). Tener un token del SSO es ser de la plataforma, no ser
+//  de TR3SLOG: el 17/9 una persona sin ningun rol entro a las rutas de cliente
+//  (direcciones, envios, tickets) porque solo se pedia identidad. El rol de
+//  cliente lo concede el SSO al registrarse desde TR3SLOG o al autorizarla por
+//  primera vez (registro abierto); sin el, 403 `forbidden` antes de que
+//  gateway.user cree la fila espejo. /api/treslog/me sigue sin rol, arriba.
 Route::prefix('treslog')
-    ->middleware(['gateway.auth', 'gateway.user'])
+    ->middleware(['gateway.auth', 'sso.role:'.config('sso.roles.customer').','.config('sso.roles.operations').','.config('sso.roles.admin'), 'gateway.user'])
     ->group(function () {
         $operaciones = ['sso.role:'.config('sso.roles.operations').','.config('sso.roles.admin')];
 
