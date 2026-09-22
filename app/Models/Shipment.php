@@ -6,6 +6,7 @@ use App\Helpers\TrackingGenerator;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
@@ -51,6 +52,11 @@ class Shipment extends Model
     public function stop(): HasOne
     {
         return $this->hasOne(RouteStop::class, 'shipment_id');
+    }
+
+    public function requests(): HasMany
+    {
+        return $this->hasMany(ShipmentRequest::class);
     }
 
     /**

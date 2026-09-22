@@ -16,6 +16,7 @@ use App\Http\Controllers\AddressController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\IncidentAdminController;
+use App\Http\Controllers\ShipmentRequestController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
 use App\Http\Controllers\Api\Driver\DashboardController;
@@ -133,6 +134,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [ShipmentController::class, 'update']);
         Route::patch('/{shipment}/driver', [ShipmentController::class, 'assignDriver']);
         Route::delete('/{id}', [ShipmentController::class, 'destroy']);
+
+        Route::get('/requests/list', [ShipmentRequestController::class, 'index']);
+        Route::patch('/requests/{shipmentRequest}', [ShipmentRequestController::class, 'updateStatus']);
     });
 });
 
@@ -188,7 +192,7 @@ Route::prefix('driver')->group(function () {
 
         Route::get('/shipments', [DriverShipmentController::class, 'index']);
         Route::get('/shipments/{shipment}', [DriverShipmentController::class, 'show']);
-        Route::post('/shipments/{shipment}/claim', [DriverShipmentController::class, 'claim']);
+        Route::post('/shipments/{shipment}/request', [DriverShipmentController::class, 'request']);
         Route::patch('/shipments/{shipment}/status', [DriverShipmentController::class, 'updateStatus']);
 
         Route::post('/stops/{stop}/confirm', [StopController::class, 'confirm']);
