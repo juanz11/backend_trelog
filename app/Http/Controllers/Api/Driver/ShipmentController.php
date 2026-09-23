@@ -36,15 +36,24 @@ class ShipmentController extends Controller
             ->get();
 
         $available = Shipment::with('client:id,name,email')
-            ->with(['requests' => fn ($query) => $query->where('driver_id', $driver->id)])
+            ->with(['requests' => fn ($query) => $query
+                ->whereIn('status', ['pending', 'approved'])
+                ->orderByDesc('created_at')
+            ])
             ->whereNull('driver_id')
             ->whereNotIn('status', self::CLOSED_STATUSES)
             ->orderByDesc('created_at')
             ->get();
 
+        $requests = ShipmentRequest::with(['shipment.client:id,name,email'])
+            ->where('driver_id', $driver->id)
+            ->orderByDesc('created_at')
+            ->get();
+
         return response()->json([
-            'assigned' => $assigned->map(fn ($s) => $this->present($s))->values(),
-            'available' => $available->map(fn ($s) => $this->present($s))->values(),
+            'assigned' => $assigned->map(fn ($s) => $this->present($s, $driver->id))->values(),
+            'available' => $available->map(fn ($s) => $this->present($s, $driver->id))->values(),
+            'requests' => $requests->map(fn ($r) => $this->presentRequest($r, true))->values(),
         ]);
     }
 
@@ -56,7 +65,7 @@ class ShipmentController extends Controller
             'Este envío está asignado a otro conductor.'
         );
 
-        return response()->json($this->present($shipment->load('client:id,name,email', 'stop')));
+        return response()->json($this->present($shipment->load('client:id,name,email', 'stop'), $request->user()->id));
     }
 
     /**
@@ -79,14 +88,19 @@ class ShipmentController extends Controller
             'message' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $existing = ShipmentRequest::where('shipment_id', $shipment->id)
-            ->where('driver_id', $driver->id)
+        $existingActive = ShipmentRequest::where('shipment_id', $shipment->id)
+            ->whereIn('status', ['pending', 'approved'])
             ->first();
 
-        if ($existing) {
+        if ($existingActive) {
+            if ($existingActive->driver_id !== $driver->id) {
+                return response()->json([
+                    'message' => 'Este envío ya tiene una solicitud activa de otro conductor.',
+                ], 409);
+            }
             return response()->json([
                 'message' => 'Ya existe una solicitud para este envío.',
-                'request' => $this->presentRequest($existing),
+                'request' => $this->presentRequest($existingActive),
             ], 409);
         }
 
@@ -116,10 +130,10 @@ class ShipmentController extends Controller
 
         $shipment = $this->dispatch->applyStatus($shipment, $data['status'], $data['notes'] ?? null);
 
-        return response()->json($this->present($shipment));
+        return response()->json($this->present($shipment, $driver->id));
     }
 
-    private function present(Shipment $shipment): array
+    private function present(Shipment $shipment, int $driverId): array
     {
         $request = $shipment->requests->first();
         return [
@@ -140,12 +154,13 @@ class ShipmentController extends Controller
             'created_at' => $shipment->created_at?->toIso8601String(),
             'stop_id' => $shipment->stop?->id,
             'request' => $request ? $this->presentRequest($request) : null,
+            'is_my_request' => $request !== null && $request->driver_id === $driverId,
         ];
     }
 
-    private function presentRequest(ShipmentRequest $shipmentRequest): array
+    private function presentRequest(ShipmentRequest $shipmentRequest, bool $withShipment = false): array
     {
-        return [
+        $data = [
             'id' => $shipmentRequest->id,
             'shipment_id' => $shipmentRequest->shipment_id,
             'driver_id' => $shipmentRequest->driver_id,
@@ -155,5 +170,21 @@ class ShipmentController extends Controller
             'reviewed_at' => $shipmentRequest->reviewed_at?->toIso8601String(),
             'created_at' => $shipmentRequest->created_at?->toIso8601String(),
         ];
+        if ($withShipment) {
+            $data['shipment'] = [
+                'id' => $shipmentRequest->shipment->id,
+                'tracking_number' => $shipmentRequest->shipment->tracking_number,
+                'origin' => $shipmentRequest->shipment->origin,
+                'destination' => $shipmentRequest->shipment->destination,
+                'recipient_name' => $shipmentRequest->shipment->recipient_name,
+                'recipient_phone' => $shipmentRequest->shipment->recipient_phone,
+                'service_type' => $shipmentRequest->shipment->service_type,
+                'pieces' => $shipmentRequest->shipment->pieces,
+                'weight' => $shipmentRequest->shipment->weight,
+                'status' => $shipmentRequest->shipment->status,
+                'client_name' => $shipmentRequest->shipment->client?->name,
+            ];
+        }
+        return $data;
     }
 }

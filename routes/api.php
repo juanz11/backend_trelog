@@ -128,15 +128,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Shipment Management Routes
     Route::prefix('shipments')->group(function () {
+        Route::get('/requests/list', [ShipmentRequestController::class, 'index']);
+        Route::patch('/requests/{shipmentRequest}', [ShipmentRequestController::class, 'updateStatus']);
+
         Route::get('/', [ShipmentController::class, 'index']);
         Route::post('/', [ShipmentController::class, 'store']);
         Route::get('/{id}', [ShipmentController::class, 'show']);
         Route::put('/{id}', [ShipmentController::class, 'update']);
         Route::patch('/{shipment}/driver', [ShipmentController::class, 'assignDriver']);
         Route::delete('/{id}', [ShipmentController::class, 'destroy']);
-
-        Route::get('/requests/list', [ShipmentRequestController::class, 'index']);
-        Route::patch('/requests/{shipmentRequest}', [ShipmentRequestController::class, 'updateStatus']);
     });
 });
 
