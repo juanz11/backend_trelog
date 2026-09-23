@@ -167,6 +167,11 @@ class CoberturaDeGuardasDeRolTest extends TestCase
     {
         $incidente = Incident::forceCreate(['driver_id' => $u->id, 'code' => 'INC-1', 'title' => 'Prueba']);
         $quote     = Quote::forceCreate(['origin' => 'A', 'destination' => 'B', 'client_name' => 'C', 'client_email' => 'c@x.test']);
+        // La solicitud tiene que EXISTIR: el binding implicito corre en el grupo
+        // `api` (SubstituteBindings), antes que la guarda de rol, y sin fila la
+        // respuesta seria 404 y la prueba no diria nada del rol.
+        $envio     = \App\Models\Shipment::forceCreate(['origin' => 'A', 'destination' => 'B']);
+        $solicitud = \App\Models\ShipmentRequest::forceCreate(['shipment_id' => $envio->id, 'driver_id' => $u->id, 'status' => 'pending']);
 
         return [
             ['GET', '/api/treslog/alerts'],
@@ -181,6 +186,10 @@ class CoberturaDeGuardasDeRolTest extends TestCase
             ['GET', '/api/treslog/quotes'],
             ['POST', '/api/treslog/quotes'],
             ['PATCH', "/api/treslog/quotes/{$quote->id}/status"],
+            // Solicitudes de recoleccion (equipo TR3SLOG, 2026-09-22): quien
+            // aprueba o rechaza es operaciones, no el cliente ni el conductor.
+            ['GET', '/api/treslog/shipments/requests/list'],
+            ['PATCH', "/api/treslog/shipments/requests/{$solicitud->id}"],
             ['PUT', '/api/treslog/shipments/1'],
             ['DELETE', '/api/treslog/shipments/1'],
         ];

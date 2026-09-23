@@ -5,6 +5,7 @@ namespace Tests\Feature\Sso;
 use App\Models\DriverProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Client\Request as PeticionHttp;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -40,6 +41,25 @@ class AltaDeConductorPorElSsoTest extends TestCase
         ]);
     }
 
+    /**
+     * El alta de un conductor con lo que el formulario exige desde el 2026-09-22
+     * (equipo TR3SLOG): cedula, licencia con vencimiento y foto. Va como
+     * multipart porque `photo` es un archivo: `postJson` no puede subirlo.
+     * Estas pruebas son sobre el camino del SSO, no sobre la validacion, asi que
+     * lo obligatorio se manda siempre y cada caso solo dice lo suyo.
+     */
+    private function alta(array $datos): \Illuminate\Testing\TestResponse
+    {
+        return $this->comoOperaciones()->post('/api/treslog/drivers', array_merge([
+            'id_document_number' => 'V-12345678',
+            'license_number' => 'LIC-9001',
+            'license_expires_at' => '2030-01-31',
+            // `->image()` necesita GD y el contenedor no la trae: un archivo con
+            // su mime declarado alcanza para la regla `image`.
+            'photo' => UploadedFile::fake()->create('conductor.jpg', 10, 'image/jpeg'),
+        ], $datos), ['Accept' => 'application/json']);
+    }
+
     private function ssoConPersona(array $persona = ['id' => '55', 'email' => 'ana@ejemplo.com', 'name' => 'Ana Perez', 'is_active' => true, 'roles' => ['treslog:customer']], bool $creada = false): void
     {
         Http::fake([
@@ -52,7 +72,7 @@ class AltaDeConductorPorElSsoTest extends TestCase
     {
         $this->ssoConPersona();
 
-        $r = $this->comoOperaciones()->postJson('/api/treslog/drivers', [
+        $r = $this->alta([
             'email' => 'Ana@Ejemplo.com', 'vehicle' => 'Van 12', 'hub' => 'Norte', 'phone' => '+58 424',
         ]);
 
@@ -78,7 +98,7 @@ class AltaDeConductorPorElSsoTest extends TestCase
     {
         $this->ssoConPersona(['id' => '77', 'email' => 'nuevo@ejemplo.com', 'name' => 'Nuevo Conductor', 'is_active' => true, 'roles' => []], creada: true);
 
-        $r = $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'nuevo@ejemplo.com', 'name' => 'Nuevo Conductor', 'vehicle' => 'Moto 3']);
+        $r = $this->alta(['email' => 'nuevo@ejemplo.com', 'name' => 'Nuevo Conductor', 'vehicle' => 'Moto 3']);
 
         $r->assertStatus(201)->assertJsonPath('invited', true)->assertJsonPath('email', 'nuevo@ejemplo.com');
         Http::assertSent(fn (PeticionHttp $p) => $p->url() === self::SSO.'/api/v1/apps/users' && $p['first_name'] === 'Nuevo Conductor');
@@ -94,7 +114,7 @@ class AltaDeConductorPorElSsoTest extends TestCase
             self::SSO.'/api/v1/apps/users' => Http::response(['error' => 'validation_failed', 'message' => 'Clerk rechazo', 'errors' => ['email' => ['Ya hay una invitacion en curso']]], 422),
         ]);
 
-        $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'nadie@ejemplo.com'])->assertStatus(502);
+        $this->alta(['email' => 'nadie@ejemplo.com'])->assertStatus(502);
 
         $this->assertSame(1, User::count());
         $this->assertSame(0, DriverProfile::count());
@@ -105,7 +125,7 @@ class AltaDeConductorPorElSsoTest extends TestCase
         $this->ssoConPersona();
         $local = User::factory()->create(['email' => 'ana@ejemplo.com', 'name' => 'Ana (local)']);
 
-        $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'ana@ejemplo.com'])->assertStatus(201);
+        $this->alta(['email' => 'ana@ejemplo.com'])->assertStatus(201);
 
         $this->assertSame(2, User::count());
         $this->assertSame('55', $local->fresh()->sso_user_id);
@@ -119,7 +139,7 @@ class AltaDeConductorPorElSsoTest extends TestCase
             self::SSO.'/api/v1/apps/users' => Http::response('', 503),
         ]);
 
-        $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'ana@ejemplo.com'])
+        $this->alta(['email' => 'ana@ejemplo.com'])
             ->assertStatus(502)->assertJsonPath('success', false);
 
         $this->assertSame(1, User::count());
@@ -129,7 +149,7 @@ class AltaDeConductorPorElSsoTest extends TestCase
     {
         $this->ssoConPersona();
 
-        $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'ana@ejemplo.com', 'password' => 'Secreta1!'])->assertStatus(201);
+        $this->alta(['email' => 'ana@ejemplo.com', 'password' => 'Secreta1!'])->assertStatus(201);
 
         $this->assertNotNull(User::where('sso_user_id', '55')->first());
         $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('users', 'password'));
@@ -138,7 +158,7 @@ class AltaDeConductorPorElSsoTest extends TestCase
     public function test_el_listado_de_conductores_es_quien_tiene_perfil_de_conductor(): void
     {
         $this->ssoConPersona();
-        $this->comoOperaciones()->postJson('/api/treslog/drivers', ['email' => 'ana@ejemplo.com', 'vehicle' => 'Van 12'])->assertStatus(201);
+        $this->alta(['email' => 'ana@ejemplo.com', 'vehicle' => 'Van 12'])->assertStatus(201);
         User::factory()->create(['email' => 'cliente@ejemplo.com']);
 
         $lista = $this->comoOperaciones()->getJson('/api/treslog/drivers')->assertOk()->json();

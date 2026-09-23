@@ -32,12 +32,17 @@ Route::get('/dashboard', [DashboardController::class, 'index']);
 Route::get('/routes', [RouteController::class, 'index']);
 Route::get('/routes/{route}', [RouteController::class, 'show']);
 
-// Envios del conductor (equipo TR3SLOG, 2026-09-16): listar, ver, reclamar y
+// Envios del conductor (equipo TR3SLOG, 2026-09-16): listar, ver, SOLICITAR y
 // cambiar estado. Viven ACA y no en api.php para que el camino del SSO los
 // tenga igual que el viejo, sin que nadie tenga que acordarse.
+//
+// `claim` -> `request` (equipo TR3SLOG, 2026-09-22): el conductor ya no se queda
+// el envio directamente, lo SOLICITA y operaciones aprueba o rechaza. El metodo
+// `claim()` ya no existe en el controlador; dejar la ruta vieja apuntando a el
+// seria un 500 el dia que la app vieja la llame.
 Route::get('/shipments', [DriverShipmentController::class, 'index']);
 Route::get('/shipments/{shipment}', [DriverShipmentController::class, 'show']);
-Route::post('/shipments/{shipment}/claim', [DriverShipmentController::class, 'claim']);
+Route::post('/shipments/{shipment}/request', [DriverShipmentController::class, 'request']);
 Route::patch('/shipments/{shipment}/status', [DriverShipmentController::class, 'updateStatus']);
 
 Route::post('/stops/{stop}/confirm', [StopController::class, 'confirm']);

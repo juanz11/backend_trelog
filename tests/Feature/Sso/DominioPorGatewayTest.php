@@ -185,4 +185,30 @@ class DominioPorGatewayTest extends TestCase
         // /me responde a cualquiera con identidad (es lo que la web usa para decir «sin acceso»).
         $this->withHeaders($this->delGateway('', '8081'))->getJson('/api/treslog/me')->assertOk();
     }
+
+    /**
+     * El orden de las rutas de solicitudes (equipo TR3SLOG, 2026-09-22): si
+     * `shipments/requests/list` quedara DESPUES de `shipments/{id}`, la palabra
+     * «requests» entraria como id de envio y el listado nunca se alcanzaria. Lo
+     * que se prueba es a QUE controlador resuelve, no la respuesta.
+     */
+    public function test_las_solicitudes_de_recoleccion_no_se_las_come_la_ruta_de_un_envio(): void
+    {
+        $lista = \Illuminate\Support\Facades\Route::getRoutes()->match(
+            \Illuminate\Http\Request::create('/api/treslog/shipments/requests/list', 'GET')
+        );
+        $this->assertStringContainsString('ShipmentRequestController@index', $lista->getActionName());
+
+        $revision = \Illuminate\Support\Facades\Route::getRoutes()->match(
+            \Illuminate\Http\Request::create('/api/treslog/shipments/requests/7', 'PATCH')
+        );
+        $this->assertStringContainsString('ShipmentRequestController@updateStatus', $revision->getActionName());
+
+        // Y la del conductor: `claim` murio, `request` es la que existe.
+        $solicitar = \Illuminate\Support\Facades\Route::getRoutes()->match(
+            \Illuminate\Http\Request::create('/api/treslog/driver/shipments/3/request', 'POST')
+        );
+        $this->assertStringContainsString('Driver\\ShipmentController@request', $solicitar->getActionName());
+        $this->assertContains('sso.role:treslog:driver', $solicitar->gatherMiddleware());
+    }
 }

@@ -7,6 +7,7 @@ use App\Http\Controllers\DriverController;
 use App\Http\Controllers\IncidentAdminController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\ShipmentController;
+use App\Http\Controllers\ShipmentRequestController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\UserController;
 
@@ -77,6 +78,12 @@ Route::middleware($operaciones)->group(function () {
     // Cambiar y borrar envios: ShipmentPolicy::update/delete son de
     // operaciones/admin, sin pertenencia.
     Route::prefix('shipments')->group(function () {
+        // Solicitudes de recoleccion (equipo TR3SLOG, 2026-09-22): el conductor
+        // pide un envio y operaciones aprueba o rechaza. Van ANTES de `/{id}`:
+        // registrada al reves, `requests` entraria como un id de envio.
+        Route::get('/requests/list', [ShipmentRequestController::class, 'index']);
+        Route::patch('/requests/{shipmentRequest}', [ShipmentRequestController::class, 'updateStatus']);
+
         Route::put('/{id}', [ShipmentController::class, 'update']);
         // Despacho (equipo TR3SLOG, 2026-09-18): asignar/quitar conductor. Es de
         // la consola: va en el grupo de operaciones, y ademas ShipmentPolicy::assignDriver.
