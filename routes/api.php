@@ -136,6 +136,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{id}', [ShipmentController::class, 'destroy']);
 
         Route::get('/requests/list', [ShipmentRequestController::class, 'index']);
+        Route::get('/requests/pending-count', [ShipmentRequestController::class, 'pendingCount']);
         Route::patch('/requests/{shipmentRequest}', [ShipmentRequestController::class, 'updateStatus']);
     });
 });

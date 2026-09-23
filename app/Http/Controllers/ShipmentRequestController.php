@@ -29,6 +29,13 @@ class ShipmentRequestController extends Controller
         return response()->json($query->get());
     }
 
+    public function pendingCount(Request $request): JsonResponse
+    {
+        return response()->json([
+            'count' => ShipmentRequest::where('status', 'pending')->count(),
+        ]);
+    }
+
     public function updateStatus(Request $request, ShipmentRequest $shipmentRequest): JsonResponse
     {
         $data = $request->validate([
