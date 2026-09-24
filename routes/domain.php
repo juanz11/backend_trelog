@@ -82,6 +82,7 @@ Route::middleware($operaciones)->group(function () {
         // pide un envio y operaciones aprueba o rechaza. Van ANTES de `/{id}`:
         // registrada al reves, `requests` entraria como un id de envio.
         Route::get('/requests/list', [ShipmentRequestController::class, 'index']);
+        Route::get('/requests/pending-count', [ShipmentRequestController::class, 'pendingCount']);
         Route::patch('/requests/{shipmentRequest}', [ShipmentRequestController::class, 'updateStatus']);
 
         Route::put('/{id}', [ShipmentController::class, 'update']);

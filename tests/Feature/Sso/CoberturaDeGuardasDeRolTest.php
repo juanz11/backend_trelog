@@ -189,6 +189,7 @@ class CoberturaDeGuardasDeRolTest extends TestCase
             // Solicitudes de recoleccion (equipo TR3SLOG, 2026-09-22): quien
             // aprueba o rechaza es operaciones, no el cliente ni el conductor.
             ['GET', '/api/treslog/shipments/requests/list'],
+            ['GET', '/api/treslog/shipments/requests/pending-count'],
             ['PATCH', "/api/treslog/shipments/requests/{$solicitud->id}"],
             ['PUT', '/api/treslog/shipments/1'],
             ['DELETE', '/api/treslog/shipments/1'],
