@@ -26,13 +26,18 @@ class RoleSeeder extends Seeder
             ],
             [
                 'name' => 'admin',
-                'display_name' => 'Administrador',
-                'description' => 'Administrador del sistema con todos los permisos',
+                'display_name' => 'Administrador del sistema',
+                'description' => 'Acceso total: usuarios, roles, integraciones, funciones/despliegue, llaves API y mantenimiento.',
             ],
             [
                 'name' => 'operations',
                 'display_name' => 'Operaciones',
                 'description' => 'Equipo de operaciones que gestiona envíos y conductores',
+            ],
+            [
+                'name' => 'administrative',
+                'display_name' => 'Administrativo',
+                'description' => 'Personal administrativo que puede ver usuarios y bloquearlos',
             ],
             [
                 'name' => 'driver',

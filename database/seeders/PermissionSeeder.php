@@ -19,6 +19,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'users.create', 'display_name' => 'Crear Usuarios', 'description' => 'Puede crear nuevos usuarios', 'module' => 'users'],
             ['name' => 'users.edit', 'display_name' => 'Editar Usuarios', 'description' => 'Puede editar información de usuarios', 'module' => 'users'],
             ['name' => 'users.delete', 'display_name' => 'Eliminar Usuarios', 'description' => 'Puede eliminar usuarios', 'module' => 'users'],
+            ['name' => 'users.block', 'display_name' => 'Bloquear Usuarios', 'description' => 'Puede bloquear y desbloquear usuarios', 'module' => 'users'],
             
             // Roles & Permissions
             ['name' => 'roles.view', 'display_name' => 'Ver Roles', 'description' => 'Puede ver lista de roles', 'module' => 'roles'],

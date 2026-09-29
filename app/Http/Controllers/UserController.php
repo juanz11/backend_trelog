@@ -235,6 +235,58 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * Block / unblock a user (admin or users.block permission)
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $actor = $request->user();
+        if (! $actor->isAdmin() && ! $actor->hasPermission('users.block')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $user = User::with('roles')->find($id);
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $data = $request->validate([
+            'status' => ['required', 'in:active,pending,suspended'],
+        ]);
+
+        if ($user->id === $actor->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No puedes cambiar tu propio estado.',
+            ], 422);
+        }
+
+        if ($user->hasRole('admin') && ! $actor->hasRole('admin')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No puedes modificar a un administrador.',
+            ], 403);
+        }
+
+        $user->status = $data['status'];
+        $user->save();
+
+        if ($data['status'] === 'suspended') {
+            $user->tokens()->delete();
+        }
+
+        return response()->json([
+            'success' => true,
+            'user' => $user->load('roles'),
+        ]);
+    }
+
     public function clients(Request $request)
     {
         if (! $request->user()->hasAnyRole(['admin', 'operations']) && ! $request->user()->hasPermission('drivers.manage')) {

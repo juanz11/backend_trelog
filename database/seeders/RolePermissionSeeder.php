@@ -44,6 +44,10 @@ class RolePermissionSeeder extends Seeder
                 'reports.view_ops',
                 'audit.view_limited',
             ],
+            'administrative' => [
+                'users.view',
+                'users.block',
+            ],
             'dispatcher' => [
                 'shipments.create',
                 'shipments.view',

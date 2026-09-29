@@ -90,6 +90,16 @@ class AuthController extends Controller
         }
 
         $user = Auth::user();
+
+        if ($user->status === 'suspended') {
+            Auth::logout();
+            return response()->json([
+                'success' => false,
+                'message' => 'account_suspended',
+                'error' => 'Account suspended',
+            ], 403);
+        }
+
         $token = $user->createToken('auth-token')->plainTextToken;
         
         return response()->json([
