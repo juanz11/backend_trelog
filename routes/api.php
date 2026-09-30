@@ -16,6 +16,7 @@ use App\Http\Controllers\AddressController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\IncidentAdminController;
+use App\Http\Controllers\AuditFileController;
 use App\Http\Controllers\ShipmentRequestController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
@@ -61,6 +62,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/incidents', [IncidentAdminController::class, 'index']);
     Route::post('/incidents', [IncidentAdminController::class, 'store']);
     Route::patch('/incidents/{incident}/status', [IncidentAdminController::class, 'updateStatus']);
+
+    // Audit complementary files
+    Route::prefix('audit-files')->group(function () {
+        Route::get('/', [AuditFileController::class, 'index']);
+        Route::post('/', [AuditFileController::class, 'store']);
+        Route::delete('/{auditFile}', [AuditFileController::class, 'destroy']);
+    });
 
     // Address Management Routes
     Route::prefix('addresses')->group(function () {
