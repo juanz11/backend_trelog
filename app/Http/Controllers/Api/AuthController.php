@@ -51,7 +51,9 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'user' => $user,
+            'success' => true,
+            'message' => 'Usuario registrado correctamente.',
+            'user' => $user->load('roles'),
             'token' => $token,
         ], 201);
     }
@@ -74,7 +76,9 @@ class AuthController extends Controller
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'success' => true,
+            'message' => 'Inicio de sesión exitoso.',
+            'user' => $user->load('roles'),
             'token' => $token,
         ]);
     }
@@ -88,7 +92,10 @@ class AuthController extends Controller
 
     public function user(Request $request): JsonResponse
     {
-        return response()->json($request->user());
+        return response()->json([
+            'success' => true,
+            'user' => $request->user()->load('roles'),
+        ]);
     }
 
     public function forgot(Request $request): JsonResponse
