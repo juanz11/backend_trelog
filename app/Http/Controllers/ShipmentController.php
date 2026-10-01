@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Incident;
 use App\Models\Shipment;
+use App\Models\ShipmentPackage;
 use App\Models\User;
 use App\Services\ShipmentDispatchService;
 use Illuminate\Http\JsonResponse;
@@ -58,9 +59,13 @@ class ShipmentController extends Controller
             'recipient_phone' => 'nullable|string|max:255',
             'service_type' => 'nullable|string|max:255',
             'packages' => 'nullable|array',
+            'packages.*.type' => 'nullable|string|in:package,box,envelope,pallet,other',
             'packages.*.pieces' => 'nullable|string|max:255',
             'packages.*.weight' => 'nullable|numeric|min:0.01',
             'packages.*.weight_unit' => 'nullable|string|in:kg,lb',
+            'packages.*.length_cm' => 'nullable|numeric|min:0',
+            'packages.*.width_cm' => 'nullable|numeric|min:0',
+            'packages.*.height_cm' => 'nullable|numeric|min:0',
             'packages.*.dimensions' => 'nullable|string|max:255',
             'packages.*.declared_value' => 'nullable|string|max:255',
             'packages.*.content' => 'nullable|string',
@@ -75,7 +80,11 @@ class ShipmentController extends Controller
         $data['status'] = $data['status'] ?? 'pending';
         $data['user_id'] = $request->user()->id;
 
+        $packages = $data['packages'] ?? [];
+        unset($data['packages']);
+
         $shipment = Shipment::create($data);
+        $this->syncPackages($shipment, is_array($packages) ? $packages : []);
 
         return response()->json($shipment, 201);
     }
@@ -112,9 +121,13 @@ class ShipmentController extends Controller
             'recipient_phone' => 'nullable|string|max:255',
             'service_type' => 'nullable|string|max:255',
             'packages' => 'nullable|array',
+            'packages.*.type' => 'nullable|string|in:package,box,envelope,pallet,other',
             'packages.*.pieces' => 'nullable|string|max:255',
             'packages.*.weight' => 'nullable|numeric|min:0.01',
             'packages.*.weight_unit' => 'nullable|string|in:kg,lb',
+            'packages.*.length_cm' => 'nullable|numeric|min:0',
+            'packages.*.width_cm' => 'nullable|numeric|min:0',
+            'packages.*.height_cm' => 'nullable|numeric|min:0',
             'packages.*.dimensions' => 'nullable|string|max:255',
             'packages.*.declared_value' => 'nullable|string|max:255',
             'packages.*.content' => 'nullable|string',
@@ -127,10 +140,15 @@ class ShipmentController extends Controller
         ]);
 
         $status = $data['status'] ?? null;
-        unset($data['status']);
+        $packages = array_key_exists('packages', $data) ? $data['packages'] : null;
+        unset($data['status'], $data['packages']);
 
         if ($data) {
             $shipment->update($data);
+        }
+
+        if (is_array($packages)) {
+            $this->syncPackages($shipment, $packages);
         }
 
         // A status change has to reach the driver route/stop as well, so it is
@@ -187,6 +205,58 @@ class ShipmentController extends Controller
         $shipment->delete();
 
         return response()->json(['message' => 'Envío eliminado.']);
+    }
+
+    /**
+     * Persist the shipment's packages in the normalized shipment_packages
+     * table and keep the packages JSON column in sync for display readers.
+     */
+    private function syncPackages(Shipment $shipment, array $packages): void
+    {
+        $shipment->packageItems()->delete();
+
+        $normalized = [];
+
+        foreach ($packages as $pkg) {
+            if (! is_array($pkg)) {
+                continue;
+            }
+
+            $length = isset($pkg['length_cm']) && is_numeric($pkg['length_cm']) ? (float) $pkg['length_cm'] : null;
+            $width = isset($pkg['width_cm']) && is_numeric($pkg['width_cm']) ? (float) $pkg['width_cm'] : null;
+            $height = isset($pkg['height_cm']) && is_numeric($pkg['height_cm']) ? (float) $pkg['height_cm'] : null;
+
+            // Fallback: parse a "LxWxH cm" display string when numeric fields are absent.
+            if ((! $length || ! $width) && ! empty($pkg['dimensions'])
+                && preg_match('/(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:[x×]\s*(\d+(?:\.\d+)?))?/i', $pkg['dimensions'], $m)) {
+                $length = $length ?: (float) $m[1];
+                $width = $width ?: (float) $m[2];
+                $height = $height ?: (isset($m[3]) && $m[3] !== '' ? (float) $m[3] : null);
+            }
+
+            $dimValues = array_filter([$length, $width, $height], fn ($v) => $v !== null);
+            $row = [
+                'type' => $pkg['type'] ?? 'package',
+                'pieces' => max(1, (int) ($pkg['pieces'] ?? 1)),
+                'weight' => isset($pkg['weight']) && is_numeric($pkg['weight']) ? (float) $pkg['weight'] : null,
+                'weight_unit' => $pkg['weight_unit'] ?? 'kg',
+                'length_cm' => $length,
+                'width_cm' => $width,
+                'height_cm' => $height,
+                'volume_m3' => ShipmentPackage::volumeM3($length, $width, $height),
+                'declared_value' => isset($pkg['declared_value']) && is_numeric($pkg['declared_value']) ? (float) $pkg['declared_value'] : null,
+                'content' => $pkg['content'] ?? null,
+            ];
+
+            $shipment->packageItems()->create($row);
+
+            $normalized[] = $row + [
+                'dimensions' => $pkg['dimensions'] ?? ($dimValues ? implode('x', $dimValues) . ' cm' : null),
+                'declared_value' => $pkg['declared_value'] ?? $row['declared_value'],
+            ];
+        }
+
+        $shipment->update(['packages' => $normalized]);
     }
 
     private function hasOpenIncident(Shipment $shipment): bool

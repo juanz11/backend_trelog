@@ -59,6 +59,11 @@ class Shipment extends Model
         return $this->hasMany(ShipmentRequest::class);
     }
 
+    public function packageItems(): HasMany
+    {
+        return $this->hasMany(ShipmentPackage::class);
+    }
+
     /**
      * Boot the model and auto-generate tracking number if not set
      */
