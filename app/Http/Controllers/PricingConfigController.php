@@ -10,10 +10,6 @@ class PricingConfigController extends Controller
 {
     public function show(Request $request): JsonResponse
     {
-        if (! $request->user()->hasAnyRole(['admin', 'operations'])) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         return response()->json(PricingConfig::current());
     }
 
@@ -30,6 +26,9 @@ class PricingConfigController extends Controller
             'service_rates' => 'nullable|array',
             'service_rates.*.base' => 'nullable|numeric|min:0',
             'service_rates.*.per_lb' => 'nullable|numeric|min:0',
+            'surcharges' => 'nullable|array',
+            'surcharges.*.type' => 'nullable|string|in:percent,fixed',
+            'surcharges.*.value' => 'nullable|numeric|min:0',
         ]);
 
         $config = PricingConfig::current();

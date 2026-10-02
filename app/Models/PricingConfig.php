@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['dim_divisor', 'service_limits', 'service_rates'])]
+#[Fillable(['dim_divisor', 'service_limits', 'service_rates', 'surcharges'])]
 class PricingConfig extends Model
 {
     public const DEFAULTS = [
@@ -24,6 +24,11 @@ class PricingConfig extends Model
             'Aéreo' => ['base' => 12, 'per_lb' => 1.60],
             'Última milla' => ['base' => 4, 'per_lb' => 0.90],
         ],
+        'surcharges' => [
+            'standard' => ['type' => 'percent', 'value' => 0],
+            'express' => ['type' => 'percent', 'value' => 15],
+            'same_day' => ['type' => 'percent', 'value' => 30],
+        ],
     ];
 
     protected function casts(): array
@@ -32,11 +37,23 @@ class PricingConfig extends Model
             'dim_divisor' => 'float',
             'service_limits' => 'array',
             'service_rates' => 'array',
+            'surcharges' => 'array',
         ];
     }
 
     public static function current(): self
     {
-        return self::first() ?? self::create(self::DEFAULTS);
+        $config = self::first();
+        if (! $config) {
+            return self::create(self::DEFAULTS);
+        }
+
+        foreach (self::DEFAULTS as $key => $value) {
+            if ($config->{$key} === null) {
+                $config->{$key} = $value;
+            }
+        }
+
+        return $config;
     }
 }

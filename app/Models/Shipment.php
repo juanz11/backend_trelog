@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'recipient_email',
     'recipient_phone',
     'service_type',
+    'delivery_mode',
     'weight',
     'dimensions',
     'pieces',

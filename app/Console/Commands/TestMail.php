@@ -3,15 +3,15 @@
 namespace App\Console\Commands;
 
 use App\Mail\UserInvitationMail;
-use Illuminate\Console\Attributes\Description;
-use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 
-#[Signature('app:test-mail')]
-#[Description('Test mail sending')]
 class TestMail extends Command
 {
+    protected $signature = 'app:test-mail';
+
+    protected $description = 'Test mail sending';
+
     /**
      * Execute the console command.
      */
