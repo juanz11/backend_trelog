@@ -27,6 +27,7 @@ class IncidentController extends Controller
             'ship' => ['nullable', 'string', 'max:255'],
             'severity' => ['required', 'string', 'in:Low,Medium,High,Critical'],
             'description' => ['nullable', 'string'],
+            'photo' => ['nullable', 'image', 'max:5120'],
         ]);
 
         $incident = Incident::create([
@@ -38,6 +39,9 @@ class IncidentController extends Controller
             'severity' => $data['severity'],
             'status' => 'Open',
             'description' => $data['description'] ?? null,
+            'photo_path' => $request->hasFile('photo')
+                ? $request->file('photo')->store('incident-photos', 'public')
+                : null,
         ]);
 
         return response()->json($incident, 201);
