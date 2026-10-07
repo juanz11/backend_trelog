@@ -73,11 +73,15 @@ class IncidentAdminController extends Controller
             'numericId' => $incident->id,
             'ship' => $incident->ship ?? '—',
             'type' => $incident->title ?? $incident->category ?? '—',
+            'category' => $incident->category,
+            'description' => $incident->description,
             'sev' => $sev,
             'when' => $created ? $created->format('d M · H:i') : '—',
+            'created_at' => $created?->toIso8601String(),
             'owner' => $incident->driver?->name ?? '—',
             'st' => $st,
             'cost' => $cost,
+            'photo_url' => $incident->photo_url,
         ];
     }
 }
