@@ -100,7 +100,7 @@ class UserController extends Controller
         ]);
 
         // Attach multiple roles
-        $user->roles()->attach($request->roles);
+        $user->assignRole($request->roles ?? []);
 
         return response()->json([
             'success' => true,
@@ -166,7 +166,7 @@ class UserController extends Controller
         }
 
         // Only admins can change roles
-        if ($request->has('roles') && !$request->user()->isAdmin()) {
+        if ($request->has('roles') && !$request->user()->hasRole('admin')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only admins can change roles',
@@ -188,10 +188,10 @@ class UserController extends Controller
         if ($request->has('password')) {
             $user->password = Hash::make($request->password);
         }
-        if ($request->has('roles') && $request->user()->isAdmin()) {
-            $user->roles()->sync($request->roles);
+        if ($request->has('roles') && $request->user()->hasRole('admin')) {
+            $user->syncRoles($request->roles);
         }
-        if ($request->has('status') && $request->user()->isAdmin()) {
+        if ($request->has('status') && $request->user()->hasRole('admin')) {
             $user->status = $request->status;
         }
 
@@ -241,12 +241,6 @@ class UserController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $actor = $request->user();
-        if (! $actor->isAdmin() && ! $actor->hasPermission('users.block')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 403);
-        }
 
         $user = User::with('roles')->find($id);
         if (! $user) {
@@ -289,10 +283,6 @@ class UserController extends Controller
 
     public function clients(Request $request)
     {
-        if (! $request->user()->hasAnyRole(['admin', 'operations']) && ! $request->user()->hasPermission('drivers.manage')) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $driverRole = Role::where('name', 'driver')->first();
         $customerRole = Role::where('name', 'customer')->first();
 

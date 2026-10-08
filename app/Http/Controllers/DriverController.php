@@ -13,10 +13,6 @@ class DriverController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        if (!$request->user()->hasAnyRole(['admin', 'operations']) && !$request->user()->hasPermission('drivers.manage')) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $drivers = User::whereHas('roles', function ($query) {
             $query->where('name', 'driver');
         })->with(['driverProfile.documents', 'driverProfile.vehicles.documents'])->get();
@@ -56,10 +52,6 @@ class DriverController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (! $request->user()->hasAnyRole(['admin', 'operations']) && ! $request->user()->hasPermission('drivers.manage')) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $baseRules = [
             'phone' => ['nullable', 'string', 'max:40'],
             'vehicle' => ['nullable', 'string', 'max:255'],
@@ -114,8 +106,8 @@ class DriverController extends Controller
             $user->save();
 
             $driverRole = Role::where('name', 'driver')->first();
-            if ($driverRole && ! $user->roles()->where('roles.id', $driverRole->id)->exists()) {
-                $user->roles()->attach($driverRole);
+            if ($driverRole) {
+                $user->assignRole($driverRole);
             }
         } else {
             $validated = $request->validate(array_merge($baseRules, [
@@ -133,7 +125,7 @@ class DriverController extends Controller
 
             $driverRole = Role::where('name', 'driver')->first();
             if ($driverRole) {
-                $user->roles()->attach($driverRole);
+                $user->assignRole($driverRole);
             }
         }
 

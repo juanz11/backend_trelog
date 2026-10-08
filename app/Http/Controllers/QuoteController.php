@@ -40,7 +40,7 @@ class QuoteController extends Controller
     {
         $user = $request->user();
 
-        if ($user && $user->hasAnyRole(['admin', 'operations'])) {
+        if ($user && $user->can('quotes.view')) {
             $count = Quote::where('status', 'pending')->count();
         } else {
             $count = Quote::where('client_email', $user->email)

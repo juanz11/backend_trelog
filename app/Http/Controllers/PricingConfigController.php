@@ -15,10 +15,6 @@ class PricingConfigController extends Controller
 
     public function update(Request $request): JsonResponse
     {
-        if (! $request->user()->hasAnyRole(['admin'])) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $data = $request->validate([
             'dim_divisor' => 'required|numeric|min:1',
             'service_limits' => 'nullable|array',

@@ -58,14 +58,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/alerts', [AlertController::class, 'index']);
-    Route::get('/drivers', [DriverController::class, 'index']);
-    Route::post('/drivers', [DriverController::class, 'store']);
-    Route::get('/incidents', [IncidentAdminController::class, 'index']);
-    Route::post('/incidents', [IncidentAdminController::class, 'store']);
-    Route::patch('/incidents/{incident}/status', [IncidentAdminController::class, 'updateStatus']);
+    Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.manage');
+    Route::post('/drivers', [DriverController::class, 'store'])->middleware('permission:drivers.manage');
+    Route::get('/incidents', [IncidentAdminController::class, 'index'])->middleware('permission:dispatch.manage');
+    Route::post('/incidents', [IncidentAdminController::class, 'store'])->middleware('permission:dispatch.manage');
+    Route::patch('/incidents/{incident}/status', [IncidentAdminController::class, 'updateStatus'])->middleware('permission:dispatch.manage');
 
     // Audit complementary files
-    Route::prefix('audit-files')->group(function () {
+    Route::prefix('audit-files')->middleware('permission:audit.view_limited')->group(function () {
         Route::get('/', [AuditFileController::class, 'index']);
         Route::post('/', [AuditFileController::class, 'store']);
         Route::delete('/{auditFile}', [AuditFileController::class, 'destroy']);
@@ -73,7 +73,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Pricing / calculation config
     Route::get('/pricing-config', [PricingConfigController::class, 'show']);
-    Route::put('/pricing-config', [PricingConfigController::class, 'update']);
+    Route::put('/pricing-config', [PricingConfigController::class, 'update'])->middleware('permission:pricing.edit');
 
     // Address Management Routes
     Route::prefix('addresses')->group(function () {
@@ -95,41 +95,41 @@ Route::middleware('auth:sanctum')->group(function () {
     // User Management Routes
     Route::prefix('users')->group(function () {
         Route::get('/', [UserController::class, 'index']);
-        Route::get('/clients', [UserController::class, 'clients']);
+        Route::get('/clients', [UserController::class, 'clients'])->middleware('permission:drivers.manage');
         Route::get('/{id}', [UserController::class, 'show']);
         Route::put('/{id}', [UserController::class, 'update']);
-        Route::patch('/{id}/status', [UserController::class, 'updateStatus']);
+        Route::patch('/{id}/status', [UserController::class, 'updateStatus'])->middleware('permission:users.block');
         Route::delete('/{id}', [UserController::class, 'destroy']);
     });
 
     // Role Management Routes
     Route::prefix('roles')->group(function () {
-        Route::get('/', [RoleController::class, 'index']);
-        Route::get('/{id}', [RoleController::class, 'show']);
-        Route::post('/', [RoleController::class, 'store']);
-        Route::put('/{id}', [RoleController::class, 'update']);
-        Route::delete('/{id}', [RoleController::class, 'destroy']);
-        Route::post('/{roleId}/permissions', [RoleController::class, 'addPermission']);
-        Route::delete('/{roleId}/permissions/{permissionId}', [RoleController::class, 'removePermission']);
+        Route::get('/', [RoleController::class, 'index'])->middleware('permission:roles.view');
+        Route::get('/{id}', [RoleController::class, 'show'])->middleware('permission:roles.view');
+        Route::post('/', [RoleController::class, 'store'])->middleware('permission:roles.create');
+        Route::put('/{id}', [RoleController::class, 'update'])->middleware('permission:roles.edit');
+        Route::delete('/{id}', [RoleController::class, 'destroy'])->middleware('permission:roles.delete');
+        Route::post('/{roleId}/permissions', [RoleController::class, 'addPermission'])->middleware('permission:roles.edit');
+        Route::delete('/{roleId}/permissions/{permissionId}', [RoleController::class, 'removePermission'])->middleware('permission:roles.edit');
     });
 
     // Permission Management Routes
     Route::prefix('permissions')->group(function () {
-        Route::get('/', [PermissionController::class, 'index']);
-        Route::get('/{id}', [PermissionController::class, 'show']);
-        Route::get('/module/{module}', [PermissionController::class, 'getByModule']);
-        Route::post('/', [PermissionController::class, 'store']);
-        Route::put('/{id}', [PermissionController::class, 'update']);
-        Route::delete('/{id}', [PermissionController::class, 'destroy']);
+        Route::get('/', [PermissionController::class, 'index'])->middleware('permission:permissions.view');
+        Route::get('/{id}', [PermissionController::class, 'show'])->middleware('permission:permissions.view');
+        Route::get('/module/{module}', [PermissionController::class, 'getByModule'])->middleware('permission:permissions.view');
+        Route::post('/', [PermissionController::class, 'store'])->middleware('permission:permissions.create');
+        Route::put('/{id}', [PermissionController::class, 'update'])->middleware('permission:permissions.edit');
+        Route::delete('/{id}', [PermissionController::class, 'destroy'])->middleware('permission:permissions.delete');
     });
 
     // Zone Management Routes
     Route::prefix('zones')->group(function () {
         Route::get('/', [ZoneController::class, 'index']);
         Route::get('/{id}', [ZoneController::class, 'show']);
-        Route::post('/', [ZoneController::class, 'store']);
-        Route::put('/{id}', [ZoneController::class, 'update']);
-        Route::delete('/{id}', [ZoneController::class, 'destroy']);
+        Route::post('/', [ZoneController::class, 'store'])->middleware('permission:zones.manage');
+        Route::put('/{id}', [ZoneController::class, 'update'])->middleware('permission:zones.manage');
+        Route::delete('/{id}', [ZoneController::class, 'destroy'])->middleware('permission:zones.manage');
     });
 
     // Quote Management Routes

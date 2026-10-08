@@ -33,7 +33,7 @@ class DriverAuthController extends Controller
 
         $driverRole = Role::where('name', 'driver')->first();
         if ($driverRole) {
-            $user->roles()->attach($driverRole);
+            $user->assignRole($driverRole);
         }
 
         $profile = new DriverProfile([

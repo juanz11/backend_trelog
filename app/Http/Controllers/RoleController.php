@@ -72,7 +72,7 @@ class RoleController extends Controller
 
         // Attach permissions if provided
         if ($request->has('permissions')) {
-            $role->permissions()->attach($request->permissions);
+            $role->givePermissionTo($request->permissions);
         }
 
         return response()->json([
@@ -119,7 +119,7 @@ class RoleController extends Controller
 
         // Sync permissions if provided
         if ($request->has('permissions')) {
-            $role->permissions()->sync($request->permissions);
+            $role->syncPermissions($request->permissions);
         }
 
         return response()->json([
@@ -145,8 +145,7 @@ class RoleController extends Controller
             ], 404);
         }
 
-        // Detach permissions before deleting
-        $role->permissions()->detach();
+        // Pivot rows are removed via cascade on role_has_permissions/model_has_roles
         $role->delete();
 
         return response()->json([
@@ -184,7 +183,7 @@ class RoleController extends Controller
             ], 422);
         }
 
-        $role->permissions()->attach($request->permission_id);
+        $role->givePermissionTo($request->permission_id);
 
         return response()->json([
             'success' => true,
@@ -209,7 +208,7 @@ class RoleController extends Controller
             ], 404);
         }
 
-        $role->permissions()->detach($permissionId);
+        $role->revokePermissionTo($permissionId);
 
         return response()->json([
             'success' => true,

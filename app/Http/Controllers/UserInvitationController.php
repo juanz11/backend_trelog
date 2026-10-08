@@ -258,7 +258,7 @@ class UserInvitationController extends Controller
 
         $customerRole = Role::where('name', 'customer')->first();
         if ($customerRole) {
-            $user->roles()->attach($customerRole);
+            $user->assignRole($customerRole);
         }
 
         // Mark invitation as accepted

@@ -39,10 +39,14 @@ class RolePermissionSeeder extends Seeder
                 'shipments.edit',
                 'shipments.delete',
                 'quotes.view',
+                'quotes.edit',
                 'dispatch.manage',
                 'drivers.manage',
                 'reports.view_ops',
                 'audit.view_limited',
+                'support.view',
+                'support.edit',
+                'zones.manage',
             ],
             'administrative' => [
                 'users.view',
@@ -90,12 +94,17 @@ class RolePermissionSeeder extends Seeder
                 'shipments.edit',
                 'shipments.delete',
                 'quotes.view',
+                'quotes.edit',
+                'quotes.delete',
                 'dispatch.manage',
                 'drivers.manage',
                 'reports.view_full',
                 'pricing.view',
                 'pricing.edit',
                 'audit.view',
+                'support.view',
+                'support.edit',
+                'zones.manage',
             ],
         ];
 
@@ -106,7 +115,7 @@ class RolePermissionSeeder extends Seeder
             foreach ($permissionNames as $permissionName) {
                 $permission = Permission::where('name', $permissionName)->first();
                 if ($permission) {
-                    $role->permissions()->syncWithoutDetaching([$permission->id]);
+                    $role->givePermissionTo($permission);
                 }
             }
         }

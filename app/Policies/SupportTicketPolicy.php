@@ -9,12 +9,12 @@ class SupportTicketPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->hasPermission('support.view');
+        return $user->can('support.view');
     }
 
     public function view(User $user, SupportTicket $ticket): bool
     {
-        return $user->isAdmin() || $user->id === $ticket->user_id;
+        return $user->can('support.view') || $user->id === $ticket->user_id;
     }
 
     public function create(User $user): bool
@@ -24,7 +24,7 @@ class SupportTicketPolicy
 
     public function update(User $user, SupportTicket $ticket): bool
     {
-        return $user->isAdmin() || $user->hasPermission('support.edit');
+        return $user->can('support.edit');
     }
 
     public function delete(User $user, SupportTicket $ticket): bool

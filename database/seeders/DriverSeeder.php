@@ -38,12 +38,9 @@ class DriverSeeder extends Seeder
             ]
         );
 
-        if ($driverRole && ! $driver->roles()->where('roles.id', $driverRole->id)->exists()) {
-            $driver->roles()->attach($driverRole);
-        }
-
-        if ($driverRole && ! $newDriver->roles()->where('roles.id', $driverRole->id)->exists()) {
-            $newDriver->roles()->attach($driverRole);
+        if ($driverRole) {
+            $driver->assignRole($driverRole);
+            $newDriver->assignRole($driverRole);
         }
 
         DriverProfile::updateOrCreate(

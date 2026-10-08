@@ -11,10 +11,6 @@ class AuditFileController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        if (! $request->user()->hasAnyRole(['admin', 'operations'])) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $files = AuditFile::with('user:id,name,email')->orderByDesc('created_at')->get();
 
         return response()->json($files);
@@ -22,10 +18,6 @@ class AuditFileController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (! $request->user()->hasAnyRole(['admin', 'operations'])) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $data = $request->validate([
             'title' => 'required|string|max:255',
             'reference' => 'nullable|string|max:255',
@@ -53,10 +45,6 @@ class AuditFileController extends Controller
 
     public function destroy(Request $request, AuditFile $auditFile): JsonResponse
     {
-        if (! $request->user()->hasAnyRole(['admin', 'operations'])) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         if ($auditFile->file_path) {
             Storage::disk('public')->delete($auditFile->file_path);
         }

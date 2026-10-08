@@ -14,7 +14,7 @@ class AuthServiceProvider extends ServiceProvider
     {
         Gate::before(function ($user, $ability) {
             // Grant admins full access to all authorization checks.
-            return $user?->isAdmin() ? true : null;
+            return $user?->hasRole('admin') ? true : null;
         });
     }
 }

@@ -23,7 +23,7 @@ class ShipmentController extends Controller
         $user = $request->user();
         $query = Shipment::query();
 
-        if ($user->hasAnyRole(['admin', 'operations'])) {
+        if ($user->can('shipments.view')) {
             // admin/operations: see all shipments
         } else {
             $query->where('user_id', $user->id);

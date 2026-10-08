@@ -14,7 +14,7 @@ class ShipmentPolicy
 
     public function view(User $user, Shipment $shipment): bool
     {
-        return $user->hasAnyRole(['admin', 'operations']) || $shipment->user_id === $user->id;
+        return $user->can('shipments.view') || $shipment->user_id === $user->id;
     }
 
     public function create(User $user): bool
@@ -24,17 +24,17 @@ class ShipmentPolicy
 
     public function update(User $user, Shipment $shipment): bool
     {
-        return $user->hasAnyRole(['admin', 'operations']) || $user->hasPermission('shipments.edit');
+        return $user->can('shipments.edit');
     }
 
     public function delete(User $user, Shipment $shipment): bool
     {
-        return $user->hasAnyRole(['admin', 'operations']) || $user->hasPermission('shipments.delete');
+        return $user->can('shipments.delete');
     }
 
     public function assignDriver(User $user, Shipment $shipment): bool
     {
-        return $user->hasAnyRole(['admin', 'operations']) || $user->hasPermission('dispatch.manage');
+        return $user->can('dispatch.manage');
     }
 
     public function restore(User $user, Shipment $shipment): bool

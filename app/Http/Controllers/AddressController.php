@@ -191,7 +191,7 @@ class AddressController extends Controller
 
     private function authorizeOwner(Request $request, Address $address): void
     {
-        if ($address->user_id !== $request->user()->id && ! $request->user()->isAdmin()) {
+        if ($address->user_id !== $request->user()->id && ! $request->user()->hasRole('admin')) {
             abort(403, 'No autorizado.');
         }
     }

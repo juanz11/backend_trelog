@@ -12,10 +12,6 @@ class IncidentAdminController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        if (!$request->user()->hasAnyRole(['admin', 'operations']) && !$request->user()->hasPermission('dispatch.manage')) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $incidents = Incident::with('driver')->orderByDesc('created_at')->get();
 
         return response()->json($incidents->map(fn ($incident) => $this->mapIncident($incident)));
@@ -23,10 +19,6 @@ class IncidentAdminController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (!$request->user()->hasAnyRole(['admin', 'operations']) && !$request->user()->hasPermission('dispatch.manage')) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $data = $request->validate([
             'ship' => 'nullable|string|max:255',
             'title' => 'required|string|max:255',
@@ -47,10 +39,6 @@ class IncidentAdminController extends Controller
 
     public function updateStatus(Request $request, Incident $incident): JsonResponse
     {
-        if (!$request->user()->hasAnyRole(['admin', 'operations']) && !$request->user()->hasPermission('dispatch.manage')) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $data = $request->validate([
             'status' => 'required|in:open,investigating,resolved,closed',
         ]);

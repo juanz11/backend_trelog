@@ -23,7 +23,7 @@ class MigrateUserRolesSeeder extends Seeder
                 
                 if ($role) {
                     // Attach the role to the user
-                    $user->roles()->attach($role->id);
+                    $user->assignRole($role);
                     $this->command->info("Migrated user {$user->email} with role {$user->role}");
                 } else {
                     $this->command->warn("Role '{$user->role}' not found for user {$user->email}");

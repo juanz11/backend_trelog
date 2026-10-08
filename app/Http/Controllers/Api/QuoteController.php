@@ -57,7 +57,7 @@ class QuoteController extends Controller
     {
         $user = $request->user();
 
-        if ($user->hasAnyRole(['admin', 'operations'])) {
+        if ($user->can('quotes.view')) {
             $quotes = Quote::orderByDesc('created_at')->paginate(50);
         } else {
             $quotes = Quote::where('client_email', $user->email)

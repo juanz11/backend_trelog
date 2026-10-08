@@ -42,7 +42,7 @@ class AuthController extends Controller
         $role = Role::where('name', $roleName)->first();
 
         if ($role) {
-            $user->roles()->attach($role);
+            $user->assignRole($role);
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;

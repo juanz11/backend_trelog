@@ -34,6 +34,8 @@ class PermissionSeeder extends Seeder
             // Quotes
             ['name' => 'quotes.view', 'display_name' => 'Ver Cotizaciones', 'description' => 'Puede ver cotizaciones', 'module' => 'quotes'],
             ['name' => 'quotes.create', 'display_name' => 'Crear Cotizaciones', 'description' => 'Puede crear cotizaciones', 'module' => 'quotes'],
+            ['name' => 'quotes.edit', 'display_name' => 'Editar Cotizaciones', 'description' => 'Puede editar cotizaciones', 'module' => 'quotes'],
+            ['name' => 'quotes.delete', 'display_name' => 'Eliminar Cotizaciones', 'description' => 'Puede eliminar cotizaciones', 'module' => 'quotes'],
 
             // Shipments
             ['name' => 'shipments.create', 'display_name' => 'Crear Envíos', 'description' => 'Puede crear nuevos envíos', 'module' => 'shipments'],
@@ -60,6 +62,13 @@ class PermissionSeeder extends Seeder
             // Audit
             ['name' => 'audit.view', 'display_name' => 'Ver Registros de Auditoría', 'description' => 'Puede ver registros de auditoría', 'module' => 'audit'],
             ['name' => 'audit.view_limited', 'display_name' => 'Ver Registros de Auditoría (Limitado)', 'description' => 'Puede ver registros limitados de auditoría', 'module' => 'audit'],
+
+            // Support
+            ['name' => 'support.view', 'display_name' => 'Ver Tickets de Soporte', 'description' => 'Puede ver tickets de soporte', 'module' => 'support'],
+            ['name' => 'support.edit', 'display_name' => 'Gestionar Tickets de Soporte', 'description' => 'Puede actualizar tickets de soporte', 'module' => 'support'],
+
+            // Zones
+            ['name' => 'zones.manage', 'display_name' => 'Gestionar Zonas', 'description' => 'Puede crear, editar y eliminar zonas', 'module' => 'zones'],
         ];
 
         foreach ($permissions as $permission) {
