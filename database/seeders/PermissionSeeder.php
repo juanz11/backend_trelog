@@ -69,6 +69,18 @@ class PermissionSeeder extends Seeder
 
             // Zones
             ['name' => 'zones.manage', 'display_name' => 'Gestionar Zonas', 'description' => 'Puede crear, editar y eliminar zonas', 'module' => 'zones'],
+
+            // Incidents
+            ['name' => 'incidents.view', 'display_name' => 'Ver Incidencias', 'description' => 'Puede ver casos de incidencias', 'module' => 'incidents'],
+            ['name' => 'incidents.edit', 'display_name' => 'Gestionar Incidencias', 'description' => 'Puede crear y actualizar incidencias', 'module' => 'incidents'],
+
+            // Finance / Billing
+            ['name' => 'finance.view', 'display_name' => 'Ver Finanzas', 'description' => 'Puede ver facturación y pagos', 'module' => 'finance'],
+            ['name' => 'finance.edit', 'display_name' => 'Gestionar Finanzas', 'description' => 'Puede editar facturas y pagos', 'module' => 'finance'],
+
+            // Hub / Warehouse
+            ['name' => 'hub.view', 'display_name' => 'Ver Hub', 'description' => 'Puede ver operaciones de almacén', 'module' => 'hub'],
+            ['name' => 'hub.manage', 'display_name' => 'Gestionar Hub', 'description' => 'Puede gestionar almacén y cross-dock', 'module' => 'hub'],
         ];
 
         foreach ($permissions as $permission) {

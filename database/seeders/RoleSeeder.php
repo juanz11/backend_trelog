@@ -44,6 +44,36 @@ class RoleSeeder extends Seeder
                 'display_name' => 'Conductor',
                 'description' => 'Conductor que puede gestionar envíos asignados',
             ],
+            [
+                'name' => 'executive_client',
+                'display_name' => 'Cliente Ejecutivo (B2B / Contrato)',
+                'description' => 'Cliente B2B con acceso a cotizaciones, tarifas y envíos corporativos',
+            ],
+            [
+                'name' => 'customer_support',
+                'display_name' => 'Customer Support / Atención al Cliente',
+                'description' => 'Gestiona incidencias y tickets de atención al cliente',
+            ],
+            [
+                'name' => 'ops_supervisor',
+                'display_name' => 'Operations Supervisor',
+                'description' => 'Supervisa operaciones, envíos, conductores y despacho',
+            ],
+            [
+                'name' => 'hub_operation',
+                'display_name' => 'Hub Operation (Almacén / Cross-Dock)',
+                'description' => 'Opera almacén y cross-dock: recibe, clasifica y despacha carga',
+            ],
+            [
+                'name' => 'hub_supervisor',
+                'display_name' => 'Hub Supervisor',
+                'description' => 'Supervisa operaciones de hub, almacén y cross-dock',
+            ],
+            [
+                'name' => 'finance',
+                'display_name' => 'Finanzas / Facturación',
+                'description' => 'Gestiona facturación, pagos y reportes financieros',
+            ],
         ];
 
         foreach ($roles as $role) {

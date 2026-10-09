@@ -60,9 +60,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/alerts', [AlertController::class, 'index']);
     Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.manage');
     Route::post('/drivers', [DriverController::class, 'store'])->middleware('permission:drivers.manage');
-    Route::get('/incidents', [IncidentAdminController::class, 'index'])->middleware('permission:dispatch.manage');
-    Route::post('/incidents', [IncidentAdminController::class, 'store'])->middleware('permission:dispatch.manage');
-    Route::patch('/incidents/{incident}/status', [IncidentAdminController::class, 'updateStatus'])->middleware('permission:dispatch.manage');
+    Route::get('/incidents', [IncidentAdminController::class, 'index'])->middleware('permission:incidents.view');
+    Route::post('/incidents', [IncidentAdminController::class, 'store'])->middleware('permission:incidents.edit');
+    Route::patch('/incidents/{incident}/status', [IncidentAdminController::class, 'updateStatus'])->middleware('permission:incidents.edit');
 
     // Audit complementary files
     Route::prefix('audit-files')->middleware('permission:audit.view_limited')->group(function () {
