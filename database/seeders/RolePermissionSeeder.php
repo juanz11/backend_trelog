@@ -33,6 +33,11 @@ class RolePermissionSeeder extends Seeder
             'driver' => [
                 'shipments.view_assigned',
             ],
+            'executive_client' => [
+                'shipments.create',
+                'shipments.view_own',
+                'quotes.view',
+            ],
             'operations' => [
                 'shipments.create',
                 'shipments.view',
