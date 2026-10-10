@@ -20,6 +20,7 @@ return [
 
     'allowed_origins_patterns' => [
         '/^http:\/\/localhost:\d+$/',
+        '/^https?:\/\/127\.0\.0\.1:\d+$/',
         '/^https?:\/\/.*\.tr3slog\.com$/',
         '/^https?:\/\/(.*\.)?termocontroljb\.com$/',
         '/^https?:\/\/(.*\.)?tr3slog\.julls\.net$/',

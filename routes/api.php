@@ -18,6 +18,7 @@ use App\Http\Controllers\DriverController;
 use App\Http\Controllers\IncidentAdminController;
 use App\Http\Controllers\AuditFileController;
 use App\Http\Controllers\PricingConfigController;
+use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ShipmentRequestController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
@@ -70,6 +71,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [AuditFileController::class, 'store']);
         Route::delete('/{auditFile}', [AuditFileController::class, 'destroy']);
     });
+
+    // Finance portal
+    Route::get('/finance/overview', [FinanceController::class, 'overview'])->middleware('permission:finance.view');
 
     // Pricing / calculation config
     Route::get('/pricing-config', [PricingConfigController::class, 'show']);

@@ -25,7 +25,13 @@ class IncidentAdminController extends Controller
             'category' => 'nullable|string|max:255',
             'severity' => 'nullable|string|in:low,medium,high,critical',
             'description' => 'nullable|string',
+            'photo' => 'nullable|image|max:5120',
         ]);
+
+        $data['photo_path'] = $request->hasFile('photo')
+            ? $request->file('photo')->store('incident-photos', 'public')
+            : null;
+        unset($data['photo']);
 
         $data['severity'] = $data['severity'] ?? 'medium';
         $data['status'] = 'open';
