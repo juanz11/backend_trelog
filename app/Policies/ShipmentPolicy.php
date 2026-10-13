@@ -14,7 +14,7 @@ class ShipmentPolicy
 
     public function view(User $user, Shipment $shipment): bool
     {
-        return $user->can('shipments.view') || $shipment->user_id === $user->id;
+        return $user->hasAnyRole(['admin', 'operations']) || $shipment->user_id === $user->id;
     }
 
     public function create(User $user): bool
@@ -24,17 +24,22 @@ class ShipmentPolicy
 
     public function update(User $user, Shipment $shipment): bool
     {
-        return $user->can('shipments.edit');
+        // `shipments.edit` lo tenian exactamente operations y admin (§D.3): el
+        // `|| hasPermission()` no agregaba a nadie.
+        return $user->hasAnyRole(['admin', 'operations']);
     }
 
     public function delete(User $user, Shipment $shipment): bool
     {
-        return $user->can('shipments.delete');
+        return $user->hasAnyRole(['admin', 'operations']);
     }
 
     public function assignDriver(User $user, Shipment $shipment): bool
     {
-        return $user->can('dispatch.manage');
+        // Llego de main con `|| hasPermission('dispatch.manage')`: ese metodo se
+        // borro en el Lote 8 (§D.3, no hay permisos finos por el SSO) y ningun
+        // rol lo tenia. Despachar es de la consola: operations o admin.
+        return $user->hasAnyRole(['admin', 'operations']);
     }
 
     public function restore(User $user, Shipment $shipment): bool

@@ -12,6 +12,11 @@ class IncidentAdminController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        // `dispatch.manage` lo tenian exactamente operations y admin (§D.3).
+        if (!$request->user()->hasAnyRole(['admin', 'operations'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
         $incidents = Incident::with('driver')->orderByDesc('created_at')->get();
 
         return response()->json($incidents->map(fn ($incident) => $this->mapIncident($incident)));
@@ -19,6 +24,11 @@ class IncidentAdminController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        // `dispatch.manage` lo tenian exactamente operations y admin (§D.3).
+        if (!$request->user()->hasAnyRole(['admin', 'operations'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
         $data = $request->validate([
             'ship' => 'nullable|string|max:255',
             'title' => 'required|string|max:255',
@@ -39,6 +49,11 @@ class IncidentAdminController extends Controller
 
     public function updateStatus(Request $request, Incident $incident): JsonResponse
     {
+        // `dispatch.manage` lo tenian exactamente operations y admin (§D.3).
+        if (!$request->user()->hasAnyRole(['admin', 'operations'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
         $data = $request->validate([
             'status' => 'required|in:open,investigating,resolved,closed',
         ]);
@@ -61,15 +76,11 @@ class IncidentAdminController extends Controller
             'numericId' => $incident->id,
             'ship' => $incident->ship ?? '—',
             'type' => $incident->title ?? $incident->category ?? '—',
-            'category' => $incident->category,
-            'description' => $incident->description,
             'sev' => $sev,
             'when' => $created ? $created->format('d M · H:i') : '—',
-            'created_at' => $created?->toIso8601String(),
             'owner' => $incident->driver?->name ?? '—',
             'st' => $st,
             'cost' => $cost,
-            'photo_url' => $incident->photo_url,
         ];
     }
 }

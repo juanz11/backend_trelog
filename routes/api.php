@@ -1,221 +1,118 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UserInvitationController;
 use App\Http\Controllers\ContactController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\ZoneController;
-use App\Http\Controllers\QuoteController;
-use App\Http\Controllers\ShipmentController;
-use App\Http\Controllers\AlertController;
-use App\Http\Controllers\AddressController;
-use App\Http\Controllers\SupportController;
-use App\Http\Controllers\DriverController;
-use App\Http\Controllers\IncidentAdminController;
-use App\Http\Controllers\AuditFileController;
-use App\Http\Controllers\PricingConfigController;
-use App\Http\Controllers\ShipmentRequestController;
-use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
-use App\Http\Controllers\Api\Driver\DashboardController;
-use App\Http\Controllers\Api\Driver\DriverAuthController;
-use App\Http\Controllers\Api\Driver\IncidentController;
-use App\Http\Controllers\Api\Driver\PayrollController;
-use App\Http\Controllers\Api\Driver\RouteController;
-use App\Http\Controllers\Api\Driver\ShipmentController as DriverShipmentController;
-use App\Http\Controllers\Api\Driver\StopController;
+use App\Http\Controllers\Sso\MeController;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes
+| API de TR3SLOG — TODO entra por el API Gateway del SSO
 |--------------------------------------------------------------------------
 |
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
+| Desde el Lote 9 de integracion-sso (2026-09-16) este backend NO autentica:
+| no hay `/login`, ni `/register`, ni Sanctum, ni contraseñas en `users`, ni
+| tablas `roles`/`permissions`. La identidad la valida el gateway contra
+| Passport y la entrega en cabeceras X-User-* (config/sso.php); los roles son
+| los que el SSO emite en X-User-Roles para ESTA peticion, hidratados por
+| `gateway.user` en la instancia de `$request->user()` (User.php).
+|
+| Cada prefijo de abajo es un `location` del gateway con `auth_request`, salvo
+| `treslog/public`, que es un `location` sin identidad y con cupo por IP.
+| Registrar una ruta fuera de estos prefijos es registrar una ruta que el
+| gateway no puede alcanzar: 401 para siempre.
+|
+| Lo que se retiro y por que esta en openspec/changes/integracion-sso/4-tasks.md,
+| Lote 9. Los invariantes (ninguna ruta sin `gateway.auth` fuera de public,
+| ningun `auth:sanctum`, ningun `Hash::check`) los cuida
+| tests/Feature/Sso/InvariantesEstructuralesTest.php y Lote9RetiroTest.php.
 |
 */
 
-// Public routes
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/verify-reset-token', [AuthController::class, 'verifyResetToken']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-
-// User registration (public)
-Route::post('/users', [UserController::class, 'store']);
-
-// Public contact form
-Route::post('/contact', [ContactController::class, 'store']);
-
-// Protected routes
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', [AuthController::class, 'me']);
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/alerts', [AlertController::class, 'index']);
-    Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.manage');
-    Route::post('/drivers', [DriverController::class, 'store'])->middleware('permission:drivers.manage');
-    Route::get('/incidents', [IncidentAdminController::class, 'index'])->middleware('permission:incidents.view');
-    Route::post('/incidents', [IncidentAdminController::class, 'store'])->middleware('permission:incidents.edit');
-    Route::patch('/incidents/{incident}/status', [IncidentAdminController::class, 'updateStatus'])->middleware('permission:incidents.edit');
-
-    // Audit complementary files
-    Route::prefix('audit-files')->middleware('permission:audit.view_limited')->group(function () {
-        Route::get('/', [AuditFileController::class, 'index']);
-        Route::post('/', [AuditFileController::class, 'store']);
-        Route::delete('/{auditFile}', [AuditFileController::class, 'destroy']);
+// -----------------------------------------------------------------------
+//  ¿Quien soy? — sin `sso.role` a proposito
+// -----------------------------------------------------------------------
+//  Es la unica ruta del prefijo `treslog` que no exige un rol: un cliente, un
+//  conductor y una cuenta de operaciones tienen que poder preguntar quienes
+//  son, y exigir un rol concreto obligaria a la web a adivinar cual pedir
+//  antes de saber quien entro. La autorizacion de lo que HACE la sigue
+//  decidiendo `sso.role` en cada ruta de dominio. `gateway.user` no se puede
+//  omitir: sin el, `$request->user()` es null.
+//
+//  Si la identidad del SSO no tiene fila espejo en `users`, `gateway.user` la
+//  da de alta (auto-provision, Lote 8) o responde 403 `forbidden` con
+//  `request_id` cuando el correo ya existe sin ancla (lo vincula un
+//  administrador con `sso:espejo`). Para la persona eso no es «no tenes
+//  permiso»: la web lo muestra con ese texto y el `request_id`, y no reintenta.
+Route::prefix('treslog')
+    ->middleware(['gateway.auth', 'gateway.user'])
+    ->group(function () {
+        Route::get('/me', MeController::class);
     });
-
-    // Pricing / calculation config
-    Route::get('/pricing-config', [PricingConfigController::class, 'show']);
-    Route::put('/pricing-config', [PricingConfigController::class, 'update'])->middleware('permission:pricing.edit');
-
-    // Address Management Routes
-    Route::prefix('addresses')->group(function () {
-        Route::get('/', [AddressController::class, 'index']);
-        Route::post('/', [AddressController::class, 'store']);
-        Route::get('/{address}', [AddressController::class, 'show']);
-        Route::put('/{address}', [AddressController::class, 'update']);
-        Route::delete('/{address}', [AddressController::class, 'destroy']);
-    });
-
-    // Support Tickets Routes
-    Route::prefix('support')->group(function () {
-        Route::post('/', [SupportController::class, 'store']);
-        Route::get('/', [SupportController::class, 'index']);
-        Route::get('/{ticket}', [SupportController::class, 'show']);
-        Route::put('/{ticket}', [SupportController::class, 'update']);
-    });
-
-    // User Management Routes
-    Route::prefix('users')->group(function () {
-        Route::get('/', [UserController::class, 'index']);
-        Route::get('/clients', [UserController::class, 'clients'])->middleware('permission:drivers.manage');
-        Route::get('/{id}', [UserController::class, 'show']);
-        Route::put('/{id}', [UserController::class, 'update']);
-        Route::patch('/{id}/status', [UserController::class, 'updateStatus'])->middleware('permission:users.block');
-        Route::delete('/{id}', [UserController::class, 'destroy']);
-    });
-
-    // Role Management Routes
-    Route::prefix('roles')->group(function () {
-        Route::get('/', [RoleController::class, 'index'])->middleware('permission:roles.view');
-        Route::get('/{id}', [RoleController::class, 'show'])->middleware('permission:roles.view');
-        Route::post('/', [RoleController::class, 'store'])->middleware('permission:roles.create');
-        Route::put('/{id}', [RoleController::class, 'update'])->middleware('permission:roles.edit');
-        Route::delete('/{id}', [RoleController::class, 'destroy'])->middleware('permission:roles.delete');
-        Route::post('/{roleId}/permissions', [RoleController::class, 'addPermission'])->middleware('permission:roles.edit');
-        Route::delete('/{roleId}/permissions/{permissionId}', [RoleController::class, 'removePermission'])->middleware('permission:roles.edit');
-    });
-
-    // Permission Management Routes
-    Route::prefix('permissions')->group(function () {
-        Route::get('/', [PermissionController::class, 'index'])->middleware('permission:permissions.view');
-        Route::get('/{id}', [PermissionController::class, 'show'])->middleware('permission:permissions.view');
-        Route::get('/module/{module}', [PermissionController::class, 'getByModule'])->middleware('permission:permissions.view');
-        Route::post('/', [PermissionController::class, 'store'])->middleware('permission:permissions.create');
-        Route::put('/{id}', [PermissionController::class, 'update'])->middleware('permission:permissions.edit');
-        Route::delete('/{id}', [PermissionController::class, 'destroy'])->middleware('permission:permissions.delete');
-    });
-
-    // Zone Management Routes
-    Route::prefix('zones')->group(function () {
-        Route::get('/', [ZoneController::class, 'index']);
-        Route::get('/{id}', [ZoneController::class, 'show']);
-        Route::post('/', [ZoneController::class, 'store'])->middleware('permission:zones.manage');
-        Route::put('/{id}', [ZoneController::class, 'update'])->middleware('permission:zones.manage');
-        Route::delete('/{id}', [ZoneController::class, 'destroy'])->middleware('permission:zones.manage');
-    });
-
-    // Quote Management Routes
-    Route::prefix('quotes')->group(function () {
-        Route::get('/', [QuoteController::class, 'index']);
-        Route::post('/', [QuoteController::class, 'store']);
-        Route::get('/pending-count', [QuoteController::class, 'pendingCount']);
-        Route::patch('/{quote}/status', [QuoteController::class, 'updateStatus']);
-    });
-
-    // Shipment Management Routes
-    Route::prefix('shipments')->group(function () {
-        Route::get('/requests/list', [ShipmentRequestController::class, 'index']);
-        Route::get('/requests/pending-count', [ShipmentRequestController::class, 'pendingCount']);
-        Route::patch('/requests/{shipmentRequest}', [ShipmentRequestController::class, 'updateStatus']);
-
-        Route::get('/', [ShipmentController::class, 'index']);
-        Route::post('/', [ShipmentController::class, 'store']);
-        Route::get('/{id}', [ShipmentController::class, 'show']);
-        Route::put('/{id}', [ShipmentController::class, 'update']);
-        Route::patch('/{shipment}/driver', [ShipmentController::class, 'assignDriver']);
-        Route::delete('/{id}', [ShipmentController::class, 'destroy']);
-    });
-});
-
-// User Invitation Routes (without auth for now)
-Route::prefix('invitations')->group(function () {
-    Route::post('/send', [UserInvitationController::class, 'sendInvitation']);
-    Route::post('/bulk', [UserInvitationController::class, 'sendBulkInvitations']);
-    Route::post('/verify', [UserInvitationController::class, 'verifyToken']);
-    Route::post('/accept', [UserInvitationController::class, 'acceptInvitation']);
-    Route::get('/pending', [UserInvitationController::class, 'getPendingInvitations']);
-    Route::post('/resend', [UserInvitationController::class, 'resendInvitation']);
-});
 
 // -----------------------------------------------------------------------
-// Flutter App Routes (Api namespace - customer facing)
+//  Consola de administracion: solo `treslog:admin`
 // -----------------------------------------------------------------------
-Route::prefix('app')->group(function () {
-    Route::post('/register', [ApiAuthController::class, 'register']);
-    Route::post('/login', [ApiAuthController::class, 'login']);
-    Route::post('/forgot-password', [ApiAuthController::class, 'forgot']);
-    Route::post('/reset-password', [ApiAuthController::class, 'reset']);
-
-    Route::post('/quotes', [ApiQuoteController::class, 'store']);
-    Route::get('/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track']);
-
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/user', [ApiAuthController::class, 'user']);
-        Route::post('/logout', [ApiAuthController::class, 'logout']);
-
-        Route::get('/quotes', [ApiQuoteController::class, 'index']);
-        Route::get('/quotes/pending-count', [ApiQuoteController::class, 'pendingCount']);
-        Route::get('/quotes/{quote}', [ApiQuoteController::class, 'show']);
-        Route::post('/quotes/{quote}/viewed', [ApiQuoteController::class, 'markViewed']);
-        Route::patch('/quotes/{quote}/status', [ApiQuoteController::class, 'updateStatus']);
+//  El nombre del rol NO se escribe suelto: sale de config('sso.roles'). Un rol
+//  sin el prefijo `treslog:` no da error en ningun lado —el SSO simplemente no
+//  lo emite nunca— y con la config, el test estructural lo agarra.
+Route::prefix('treslog')
+    ->middleware(['gateway.auth', 'sso.role:'.config('sso.roles.admin')])
+    ->group(function () {
+        require __DIR__.'/admin-only.php';
     });
-});
 
 // -----------------------------------------------------------------------
-// Driver app (tr3slog_driver_app)
+//  La app de conductores: `treslog:driver`
 // -----------------------------------------------------------------------
-Route::prefix('driver')->group(function () {
-    Route::post('/register', [DriverAuthController::class, 'register']);
-    Route::post('/login', [DriverAuthController::class, 'login']);
-
-    Route::middleware(['auth:sanctum', 'driver'])->group(function () {
-        Route::get('/me', [DriverAuthController::class, 'me']);
-        Route::post('/logout', [DriverAuthController::class, 'logout']);
-
-        Route::get('/dashboard', [DashboardController::class, 'index']);
-
-        Route::get('/routes', [RouteController::class, 'index']);
-        Route::get('/routes/{route}', [RouteController::class, 'show']);
-
-        Route::get('/shipments', [DriverShipmentController::class, 'index']);
-        Route::get('/shipments/{shipment}', [DriverShipmentController::class, 'show']);
-        Route::post('/shipments/{shipment}/request', [DriverShipmentController::class, 'request']);
-        Route::patch('/shipments/{shipment}/status', [DriverShipmentController::class, 'updateStatus']);
-
-        Route::post('/stops/{stop}/confirm', [StopController::class, 'confirm']);
-        Route::post('/stops/{stop}/fail', [StopController::class, 'fail']);
-
-        Route::get('/incidents', [IncidentController::class, 'index']);
-        Route::post('/incidents', [IncidentController::class, 'store']);
-
-        Route::get('/payroll', [PayrollController::class, 'index']);
+Route::prefix('treslog/driver')
+    ->middleware(['gateway.auth', 'sso.role:'.config('sso.roles.driver'), 'gateway.user'])
+    ->group(function () {
+        require __DIR__.'/domain-driver.php';
     });
-});
+
+// -----------------------------------------------------------------------
+//  El dominio de la web (clientes y consola de operaciones)
+// -----------------------------------------------------------------------
+//  `gateway.user` traduce la identidad a la fila de `users` de la que cuelgan
+//  las nueve FKs del dominio y ahi mismo hidrata los roles del SSO en la
+//  instancia: de eso viven `hasAnyRole()`/`isAdmin()` en controladores y
+//  Policies.
+//
+//  `$operaciones` es la guarda de rol de la consola (choferes, incidentes,
+//  padron, cotizaciones, cambiar/borrar envios): `treslog:operations` O
+//  `treslog:admin`, con el 403 del contrato. Se define aca y la lee domain.php.
+//  El montaje entero exige ALGUN rol de la web de TR3SLOG (cliente, operaciones
+//  o admin; 2026-09-19). Tener un token del SSO es ser de la plataforma, no ser
+//  de TR3SLOG: el 17/9 una persona sin ningun rol entro a las rutas de cliente
+//  (direcciones, envios, tickets) porque solo se pedia identidad. El rol de
+//  cliente lo concede el SSO al registrarse desde TR3SLOG o al autorizarla por
+//  primera vez (registro abierto); sin el, 403 `forbidden` antes de que
+//  gateway.user cree la fila espejo. /api/treslog/me sigue sin rol, arriba.
+Route::prefix('treslog')
+    ->middleware(['gateway.auth', 'sso.role:'.config('sso.roles.customer').','.config('sso.roles.operations').','.config('sso.roles.admin'), 'gateway.user'])
+    ->group(function () {
+        $operaciones = ['sso.role:'.config('sso.roles.operations').','.config('sso.roles.admin')];
+
+        require __DIR__.'/domain.php';
+    });
+
+// -----------------------------------------------------------------------
+//  El camino PUBLICO por el gateway (D8.1, 2026-09-16)
+// -----------------------------------------------------------------------
+//  El equipo confirmo que contacto, cotizacion sin cuenta y tracking por codigo
+//  son producto, no descuido: cualquiera cotiza y le llega por correo; el
+//  tracking es «como UPS». El gateway les da un `location /api/treslog/public/`
+//  SIN auth_request, con un cupo por IP (el gateway corre en este mismo host y
+//  esta como proxy confiable, asi que la IP es la real). Nada mas entra por
+//  aca: cada ruta se agrega a mano.
+Route::prefix('treslog/public')
+    ->middleware('throttle:30,1')
+    ->group(function () {
+        Route::post('/contact', [ContactController::class, 'store']);
+        Route::post('/app/quotes', [ApiQuoteController::class, 'store']);
+        // El tracking lleva un cupo mas corto propio (10/min por IP, ademas del
+        // general): el codigo es secuencial y esta es la unica ruta que se puede
+        // recorrer. Nadie consulta diez envios por minuto a mano.
+        Route::get('/app/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track'])->middleware('throttle:tracking');
+    });

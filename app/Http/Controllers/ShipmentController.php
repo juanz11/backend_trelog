@@ -175,7 +175,10 @@ class ShipmentController extends Controller
 
         $driver = null;
         if (! empty($data['driver_id'])) {
-            $driver = User::whereHas('roles', fn ($query) => $query->where('name', 'driver'))
+            // Un conductor es quien tiene fila en driver_profiles (Lote 9): llego de
+            // main con `whereHas('roles', driver)`, y `roles()` ya no existe. Se
+            // acepta el id local o el codigo DR-000001.
+            $driver = User::whereHas('driverProfile')
                 ->where(function ($query) use ($data) {
                     $query->where('id', $data['driver_id'])
                         ->orWhereHas('driverProfile', fn ($profile) => $profile->where('driver_id', $data['driver_id']));
@@ -183,7 +186,7 @@ class ShipmentController extends Controller
                 ->first();
 
             if (! $driver) {
-                return response()->json(['message' => 'El conductor seleccionado no existe o no tiene el rol driver.'], 422);
+                return response()->json(['message' => 'El conductor seleccionado no existe o no tiene perfil de conductor.'], 422);
             }
         }
 

@@ -1,0 +1,361 @@
+<title>Auditoría TR3SLOG</title>
+<style>
+  :root {
+    --tinta:#0f172a; --tinta2:#475569; --tenue:#94a3b8;
+    --fondo:#f6f7f9; --sup:#ffffff; --borde:#e2e8f0;
+    --rojo:#b91c1c; --rojo-f:#fef2f2; --rojo-b:#fecaca;
+    --ambar:#a16207; --ambar-f:#fffbeb; --ambar-b:#fde68a;
+    --gris:#475569; --gris-f:#f1f5f9;
+    --verde:#15803d;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --tinta:#e2e8f0; --tinta2:#94a3b8; --tenue:#64748b;
+      --fondo:#0b1120; --sup:#111827; --borde:#1f2937;
+      --rojo:#fca5a5; --rojo-f:#1f1315; --rojo-b:#4c1d1d;
+      --ambar:#fcd34d; --ambar-f:#1c1810; --ambar-b:#4d3c12;
+      --gris:#cbd5e1; --gris-f:#1a2233; --verde:#4ade80;
+    }
+  }
+  :root[data-theme="dark"] {
+    --tinta:#e2e8f0; --tinta2:#94a3b8; --tenue:#64748b;
+    --fondo:#0b1120; --sup:#111827; --borde:#1f2937;
+    --rojo:#fca5a5; --rojo-f:#1f1315; --rojo-b:#4c1d1d;
+    --ambar:#fcd34d; --ambar-f:#1c1810; --ambar-b:#4d3c12;
+    --gris:#cbd5e1; --gris-f:#1a2233; --verde:#4ade80;
+  }
+  * { box-sizing:border-box; }
+  body { background:var(--fondo); color:var(--tinta);
+    font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    margin:0; padding:32px 20px 80px; }
+  .wrap { max-width:920px; margin:0 auto; }
+  h1 { font-size:27px; margin:0 0 6px; letter-spacing:-.02em; text-wrap:balance; }
+  .sub { color:var(--tinta2); margin:0 0 28px; }
+  h2 { font-size:19px; margin:40px 0 14px; letter-spacing:-.01em; }
+  code { font-family:var(--mono); font-size:.9em; }
+
+  .urgente { background:var(--rojo-f); border:1px solid var(--rojo-b);
+    border-left:4px solid var(--rojo); border-radius:10px; padding:20px 22px; margin-bottom:14px; }
+  .urgente h3 { margin:0 0 10px; font-size:17px; color:var(--rojo); }
+  .urgente p { margin:0 0 10px; }
+  .urgente p:last-child { margin-bottom:0; }
+  .cadena { font-family:var(--mono); font-size:12.5px; background:var(--sup);
+    border:1px solid var(--borde); border-radius:8px; padding:12px 14px;
+    white-space:pre; overflow-x:auto; margin:12px 0; }
+
+  .marcador { display:flex; gap:12px; flex-wrap:wrap; margin:22px 0 8px; }
+  .caja { flex:1 1 150px; background:var(--sup); border:1px solid var(--borde);
+    border-radius:10px; padding:14px 16px; }
+  .caja .num { font-size:30px; font-weight:800; letter-spacing:-.03em;
+    font-variant-numeric:tabular-nums; line-height:1.1; }
+  .caja .lab { font-size:12.5px; color:var(--tinta2); margin-top:2px; }
+  .n-rp .num { color:var(--rojo); } .n-bp .num { color:var(--ambar); }
+
+  details.h { background:var(--sup); border:1px solid var(--borde);
+    border-radius:10px; margin-bottom:9px; overflow:hidden; }
+  details.h[open] { border-color:var(--tenue); }
+  details.h summary { cursor:pointer; padding:13px 16px; display:flex;
+    gap:11px; align-items:flex-start; list-style:none; }
+  details.h summary::-webkit-details-marker { display:none; }
+  summary:hover { background:var(--gris-f); }
+  summary:focus-visible { outline:2px solid var(--tenue); outline-offset:-2px; }
+  .n { font-family:var(--mono); font-size:12px; color:var(--tenue);
+    min-width:20px; padding-top:3px; font-variant-numeric:tabular-nums; }
+  .t { flex:1; font-weight:600; font-size:14.5px; text-wrap:pretty; }
+  .pill { font-size:10.5px; font-weight:700; letter-spacing:.05em;
+    text-transform:uppercase; padding:3px 8px; border-radius:999px;
+    white-space:nowrap; margin-top:1px; }
+  .p-rp { background:var(--rojo-f); color:var(--rojo); border:1px solid var(--rojo-b); }
+  .p-bp { background:var(--ambar-f); color:var(--ambar); border:1px solid var(--ambar-b); }
+  .p-co { background:var(--gris-f); color:var(--gris); border:1px solid var(--borde); }
+
+  .cuerpo { padding:4px 16px 18px 47px; border-top:1px solid var(--borde); }
+  .meta { font-size:12px; color:var(--tenue); margin:12px 0 16px; }
+  .bloque { margin-bottom:15px; }
+  .bloque h4 { font-size:11px; text-transform:uppercase; letter-spacing:.07em;
+    color:var(--tenue); margin:0 0 6px; font-weight:700; }
+  .bloque p { margin:0; font-size:14px; }
+  .cons { color:var(--rojo); }
+  blockquote { margin:0; padding-left:12px; border-left:2px solid var(--borde);
+    color:var(--tinta2); font-size:13.5px; }
+  .cuerpo pre { font-family:var(--mono); font-size:11.5px; background:var(--gris-f);
+    padding:9px 11px; border-radius:6px; overflow-x:auto; margin:0;
+    color:var(--tinta2); white-space:pre-wrap; word-break:break-all; }
+
+  ul.lista { margin:0; padding-left:20px; }
+  ul.lista li { margin-bottom:7px; }
+  .ok { color:var(--verde); font-weight:600; }
+  footer { margin-top:44px; padding-top:18px; border-top:1px solid var(--borde);
+    color:var(--tenue); font-size:12.5px; }
+</style>
+
+<div class="wrap">
+  <h1>Auditoría del plan de TR3SLOG</h1>
+  <p class="sub">Cuatro jueces contra el código real, y cada hallazgo refutado por dos escépticos. Corrió mientras dormías.</p>
+
+  <div class="urgente">
+    <h3>Esto no es del plan: está vivo hoy</h3>
+    <p><code>POST /api/forgot-password</code> devuelve el enlace de reseteo <strong>en el cuerpo de la respuesta</strong> cuando falla el envío de correo. Y <code>/api/reset-password</code> sólo pide el token — no el email.</p>
+    <div class="cadena">POST /api/forgot-password   (pública)  →  si el mail falla, devuelve el token
+POST /api/reset-password    (pública)  →  sólo pide el token, NO el email
+                                        →  contraseña cambiada</div>
+    <p>Toma de cuenta de <strong>cualquier usuario, admin incluido</strong>, desde internet, sin credenciales. El mail fallando no es exótico: una app password de Gmail vencida alcanza.</p>
+    <p>El código lo dice solo: <code>// Include link for development/testing</code>, en <code>AuthController.php:181</code>. Es código de desarrollo que quedó en el camino de producción.</p>
+    <p><strong>Ninguno de los cuatro artefactos del plan lo había encontrado.</strong> Lo trajo el juez de seguridad.</p>
+  </div>
+
+  <div class="urgente">
+    <h3>Y esto también, en el otro repo</h3>
+    <p><code>.env.local</code> y <code>.env.production</code> están <strong>commiteados</strong> en <code>tr3slog-website</code>. Son las dos primeras líneas de <code>git ls-files</code>. Esa web integra Stripe.</p>
+    <p>No los abrí — el hallazgo es que existen ahí, no qué dicen adentro. Hay que sacarlos del historial y <strong>rotar lo que tengan</strong>: una vez commiteado, se considera comprometido aunque el repo sea privado.</p>
+  </div>
+
+  <h2>El plan: 14 hallazgos confirmados</h2>
+  <div class="marcador">
+    <div class="caja n-rp"><div class="num">9</div><div class="lab">rompen producción</div></div>
+    <div class="caja n-bp"><div class="num">2</div><div class="lab">bloquean el plan</div></div>
+    <div class="caja"><div class="num">3</div><div class="lab">corregibles</div></div>
+    <div class="caja"><div class="num">59<span style="font-size:16px;color:var(--tenue)">/60</span></div><div class="lab">agentes terminados</div></div>
+  </div>
+
+  <p style="color:var(--tinta2);margin:16px 0 24px">
+    <strong>El plan no se ejecuta como está.</strong> Dos hallazgos dejan a los conductores
+    sin poder entrar a la app que ya tienen instalada, y el Lote 1 —que el plan declara
+    «sin bloqueos»— tampoco arranca. Eso no invalida el trabajo: la estructura de 9 lotes y
+    el orden general se sostienen. Lo que falla son supuestos concretos, y cada uno tiene su
+    corrección escrita.
+  </p>
+
+  
+  <details class="h rp">
+    <summary>
+      <span class="n">1</span>
+      <span class="pill p-rp">Rompe producción</span>
+      <span class="t">El único control de seguridad real del diseño (aislamiento de red) es imposible durante toda la ventana de transición, y la spec lo da por cumplido</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">2-specs.md, Requirement &quot;Backend inalcanzable fuera del gateway&quot; (:89-99) + 1-proposal.md R5 (:200) y criterio de éxito (:294) &middot; lente <code>seguridad</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>&quot;El control real es de red: el backend no publica puerto al host. gateway_signature no es un secreto y no autentica nada&quot; (1-proposal.md:200) · &quot;[ ] El backend no publica puerto al host: sólo el gateway lo alcanza&quot; (:294)</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>El gateway sólo define `location /api/treslog/` (adaptado de `default.conf.template:106`; el diseño §G:510-520 fija CUATRO cambios y &quot;todo lo demás se copia literal&quot;, sin bloque de passthrough). Las rutas viejas —`/api/register`, `/api/login`, `/api/driver/login`, `/api/app/*`, todo el bloque `auth:sanctum`— NO tienen location en el gateway: nginx les devuelve 404. Los clientes las consumen pegándole directo al backend (`tr3slog-website/src/api.js:1-3` → `http://localhost:8000/api`). O sea: mientras el plan mantenga vivo el camino viejo (pasos 5 a 8, y el paso 9 &quot;no tiene fecha&quot;, 1-proposal.md:183), el backend TIENE que estar publicado. Y publicado, `X-Auth-Gateway: myglobalhub-gateway` es una constante impresa en el repo (`default.conf.template:159`, `MSH/backend/config/sso.php:74`, y el propio diseño lo repite en :237-238).</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">Desde el momento en que se despliega el Lote 5, cualquiera en internet manda al backend `POST /api/treslog/driver/stops/1/confirm` con `X-Auth-Gateway: myglobalhub-gateway`, `X-User-Id: &lt;cualquiera&gt;`, `X-User-Roles: treslog:admin` y entra como quien quiera, con el rol que quiera. Suplantación total, sin token, sin pasar por el SSO. Los dos escenarios negativos que la spec sí escribe (`X-Auth-Gateway` ausente → 401; valor forjado distinto → 401) NO cubren el único caso que importa: el valor forjado CORRECTO. La divergencia 2 del diseño (§C.2, sello primero y no apagable) suena a endurecimiento y no cambia absolutamente nada contra este ataque.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/MSH/gateway/templates/default.conf.template:106,159 · /Volumes/External/sources/myglobalhub/MSH/backend/config/sso.php:57-74 · /Volumes/External/sources/myglobalhub/treslog/tr3slog-website/src/api.js:1-3 · /Volumes/External/sources/myglobalhub/treslog/backend_trelog/openspec/changes/integracion-sso/3-design.md:510-520</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>O el gateway gana un `location /api/` de passthrough para las rutas viejas (quinto cambio, no cuatro), o la ventana de transición se declara explícitamente como período SIN el control de red, con una mitigación real y con fecha (allowlist de IP de origen en el backend, mTLS gateway↔backend, o un secreto rotado que sí sea secreto). La spec debe agregar el escenario &quot;petición directa con X-Auth-Gateway correcto forjado&quot; y decir qué la detiene. Hoy no la detiene nada.</p></div>
+    </div>
+  </details>
+  <details class="h rp">
+    <summary>
+      <span class="n">2</span>
+      <span class="pill p-rp">Rompe producción</span>
+      <span class="t">La &quot;regla dura&quot; del Lote 8 (hasRole lanza si el modelo no fue hidratado) revienta las rutas sanctum que el mismo lote promete dejar vivas — el diseño dice haber verificado los call sites y se saltó tres</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">3-design.md §D.4 (:320-337) y 4-tasks.md tarea 8.5 (:147), 8.6 (:148) &middot; lente <code>seguridad</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>&quot;si esa propiedad no fue hidratada (un User traído de una query, de un job en cola, de tinker), los tres métodos lanzan excepción&quot; (3-design.md:327-328) + &quot;Verificado que hoy todos los call sites pasan el usuario autenticado&quot; (:334-337) · 4-tasks.md:141: &quot;El bloque auth:sanctum sigue montado en paralelo hasta el Lote 9: nadie pierde acceso&quot;</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>`ResolveDomainUser` (`gateway.user`) se monta SÓLO en el bloque `Route::prefix(&#x27;treslog&#x27;)` (3-design.md §E.2, 4-tasks.md:108). El usuario que resuelve Sanctum en el bloque viejo nunca queda hidratado. Y hay tres llamadas a `hasRole()` que el §D.4 no enumeró, todas en el camino viejo y todas sobre modelos que no vienen del gateway: `EnsureUserIsDriver.php:13` (`$request-&gt;user()?-&gt;hasRole(&#x27;driver&#x27;)`, montado en `routes/api.php:178` sobre TODO `/api/driver/*`), `DriverAuthController.php:89` (`$user` sacado con `User::where(&#x27;email&#x27;,...)-&gt;first()`), y `DriverController.php:67` (`$user` sacado con `User::findOrFail()`).</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">Al mergear el PR 8, TODA petición a `/api/driver/*` (la app instalada, la que por H3 no se puede redesplegar) muere con 500 en el middleware `driver`, antes de tocar un controlador. `POST /driver/login` muere con 500: ningún conductor puede volver a entrar. `POST /drivers` (que la web usa hoy, `api.js:97`) muere con 500. El paso 8 está calificado &quot;Riesgo para clientes: Ninguno&quot; (1-proposal.md:180) y el Lote 8 dice &quot;nadie pierde acceso&quot;: las dos afirmaciones son falsas. Y la tarea 8.6, que es la que debería atrapar esto, lista exactamente los call sites equivocados — repite los cuatro del §D.4 y omite los tres que rompen.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/treslog/backend_trelog/app/Http/Middleware/EnsureUserIsDriver.php:13 · app/Http/Controllers/Api/Driver/DriverAuthController.php:89 · app/Http/Controllers/DriverController.php:67 · routes/api.php:178 · openspec/changes/integracion-sso/3-design.md:334-337</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>La regla &quot;lanza si no está hidratado&quot; no puede convivir con el bloque sanctum. O `hasRole/hasAnyRole/isAdmin` siguen leyendo `role_user` mientras exista el bloque viejo y sólo se cambian en el PR 9 (misma rebanada que retira el bloque), o se introducen dos métodos distintos (`hasSsoRole()` para el camino nuevo, `hasRole()` legado intacto) y el PR 9 borra el segundo. Reescribir 8.6 enumerando los 3 call sites omitidos y agregar un test que ejerza `/api/driver/dashboard` y `POST /driver/login` por el camino sanctum DESPUÉS de aplicar 8.5.</p></div>
+    </div>
+  </details>
+  <details class="h rp">
+    <summary>
+      <span class="n">3</span>
+      <span class="pill p-rp">Rompe producción</span>
+      <span class="t">Un cuarto agujero explotable que el plan no vio: POST /forgot-password devuelve el enlace de reseteo en el cuerpo de la respuesta cuando falla el envío de correo</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">1-proposal.md §1 (&quot;hoy hay agujeros abiertos. Verificados leyendo el repo&quot;, :20-33) — enumera tres, y el diseño agrega N3; ninguno es éste &middot; lente <code>seguridad</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>§1 presenta el inventario de agujeros como cerrado y verificado: &quot;Los puntos 1-3 son explotables hoy&quot; (:38). El diseño agrega N3 y declara &quot;Cuatro cosas que ni la exploración ni la propuesta detectaron&quot; (3-design.md:18). Este camino no aparece en ninguno de los cuatro artefactos.</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>`AuthController::forgotPassword` genera `$resetToken`, lo persiste en `users.reset_token` con una hora de validez, y si `Mail::to(...)-&gt;send(...)` lanza, el `catch` responde 200 incluyendo `&#x27;reset_link&#x27; =&gt; $resetLink` — la URL con el token y el email. `AuthController::resetPassword` (`routes/api.php:44`, público) sólo pide `token` y `password`: busca `User::where(&#x27;reset_token&#x27;, $request-&gt;token)`, sin exigir el email. `MAIL_MAILER=smtp` contra `smtp.gmail.com` (`.env.example:51-53`): una app password vencida, un rate limit de Gmail o un corte de red convierte esa rama en el camino normal. Además `:147-153` responde 404 &quot;Email not found&quot; cuando el email no existe: oráculo de enumeración, sin throttle.</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">Con el SMTP caído, `POST /api/forgot-password {&quot;email&quot;:&quot;admin@tr3slog&quot;}` devuelve el token y `POST /api/reset-password` cambia la contraseña: toma de cuenta de cualquier usuario, admin incluido, desde internet, sin credenciales. Es estrictamente más grave que el agujero #1 que la propuesta sí marcó (auto-registro como admin), y el plan lo deja vivo hasta el PR 9 — que &quot;no tiene fecha&quot; (1-proposal.md:183). El Lote 4 toca `AuthController::register` (tarea 4.3) y no toca `forgotPassword`, así que ni siquiera pasa cerca.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/treslog/backend_trelog/app/Http/Controllers/AuthController.php:156-183 (el `&#x27;reset_link&#x27; =&gt; $resetLink` está en :181, con el comentario &quot;// Include link for development/testing&quot;) y :247-268 · routes/api.php:42,44 · .env.example:51-53</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>Agregarlo a §1 como agujero 4 y a D5 como parche inmediato en `main`: borrar el `&#x27;reset_link&#x27;` del `catch` (:181), unificar la respuesta a un 200 genérico también cuando el email no existe (:147-153), y exigir `email` además de `token` en `resetPassword`. Tarea nueva en el Lote 4 al lado de 4.3, con su test.</p></div>
+    </div>
+  </details>
+  <details class="h rp">
+    <summary>
+      <span class="n">4</span>
+      <span class="pill p-rp">Rompe producción</span>
+      <span class="t">El Lote 8 tira 500 en TODA la ruta vieja de Sanctum: login y operación de los conductores instalados incluidos</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">4-tasks.md — Lote 8, tareas 8.5 y 8.8 (y 3-design.md §D.4) &middot; lente <code>despliegue</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>4-tasks.md:141: «El bloque `auth:sanctum` sigue montado en paralelo hasta el Lote 9: nadie pierde acceso». 4-tasks.md:147 (8.5): «si el modelo no fue hidratado (job en cola, `tinker`, query directa), los tres métodos **lanzan**, no devuelven `false`». 3-design.md:334-337: «Verificado que hoy **todos** los call sites pasan el usuario autenticado (... `DriverController.php:16,47`; `IncidentAdminController.php:15,26,50`; `UserController.php:169,191,194,240` ...). O sea que la regla no rompe nada hoy».</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>La lista de call sites del diseño está incompleta y omite justamente los que corren sobre el camino viejo. Un grep de `hasRole|hasAnyRole|isAdmin` sobre `app/` devuelve cuatro más que el diseño nunca enumera: (1) `AuthServiceProvider.php:17` — un `Gate::before` que llama `$user?-&gt;isAdmin()` en CADA `$this-&gt;authorize(...)` de toda la app; (2) `EnsureUserIsDriver.php:13` — corre en CADA petición a `/api/driver/*`, que es el único camino de la app instalada (`routes/api.php:178`); (3) `DriverAuthController.php:89` — `$user-&gt;hasRole(&#x27;driver&#x27;)` sobre un `User::where(&#x27;email&#x27;,...)-&gt;first()`, o sea el LOGIN de la app de conductores; (4) `DriverController.php:67` — `$user-&gt;hasRole(&#x27;driver&#x27;)` sobre un `User::with(&#x27;driverProfile&#x27;)-&gt;findOrFail(...)`, un usuario que por construcción NUNCA puede estar hidratado (es el usuario objetivo, no el que hace la petición). Bajo Sanctum, `$request-&gt;user()` sale de la relación del PAT: jamás pasó por `ResolveDomainUser`, así que NO está hidratado.</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">El día que se mergea el Lote 8 —que NO está bloqueado por D6 ni por nada (4-tasks.md:38)— cada conductor con la app instalada recibe 500 en `/driver/login`, `/driver/dashboard`, `/driver/routes`, `/driver/payroll` y en la confirmación de paradas. No es degradación: es el backend caído para todos los que están en la calle, y ocurre en el lote que el propio documento describe como «nadie pierde acceso». La web cae igual en todo lo que pase por una Policy (el `Gate::before` lanza antes de evaluar nada). Y `DriverController.php:67` queda roto de forma PERMANENTE, también después del Lote 9: `POST /drivers` (que la web llama, `src/api.js:97`) tira 500 para siempre.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>app/Providers/AuthServiceProvider.php:17; app/Http/Middleware/EnsureUserIsDriver.php:13; routes/api.php:178; app/Http/Controllers/Api/Driver/DriverAuthController.php:89; app/Http/Controllers/DriverController.php:65-67; app/Models/User.php:47-66; 4-tasks.md:141,147,150</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>La regla «lanza si no está hidratado» no puede convivir con el bloque `auth:sanctum` montado. O el Lote 8 devuelve `false` mientras exista el camino viejo y recién lanza en el Lote 9, o `hasRole/hasAnyRole/isAdmin` distinguen el origen del usuario (hidratado → cabeceras; autenticado por Sanctum → `role_user`) hasta el retiro. Además hay que reescribir la lista de call sites de 3-design.md §D.4 con los cuatro omitidos, y `DriverController.php:67` y `DriverAuthController.php:89` necesitan una respuesta propia porque operan sobre usuarios que nunca estarán hidratados.</p></div>
+    </div>
+  </details>
+  <details class="h rp">
+    <summary>
+      <span class="n">5</span>
+      <span class="pill p-rp">Rompe producción</span>
+      <span class="t">El Lote 7 deja a la web con un token que ningún endpoint de dominio acepta, y ningún lote repunta nunca `src/api.js`</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">4-tasks.md — Lote 7 completo (7.1, 7.2, 7.4) y su encabezado &middot; lente <code>despliegue</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>4-tasks.md:129: «Bajo riesgo: la web se redespliega en minutos, no hay binarios instalados». 7.1 retira las llamadas a `POST /login`/`/register`/etc. y las reemplaza por PKCE. 7.4: «`company` y el resto siguen al backend de TR3SLOG». La tabla de unidades (4-tasks.md:37) no le pone ningún bloqueo: «Base: PR 4 (no depende de 5/6)».</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>Después de 7.1 el navegador guarda un token del SSO (`App.jsx:64` lo mete en `tr3slog-token`) y `src/api.js:11` lo manda como `Authorization: Bearer` a 22 endpoints de dominio: `/quotes`, `/shipments`, `/drivers`, `/incidents`, `/addresses`, `/support`, `/users/clients`, `/users/{id}` (api.js:75-153). Todos siguen montados bajo `auth:sanctum` (routes/api.php:53-135) hasta el Lote 9. Sanctum busca ese string en `personal_access_tokens` y no lo encuentra: 401 en todo. El montaje de esas rutas en el gateway recién llega en el Lote 8 (4-tasks.md:143), DESPUÉS del 7. Y un grep de `api.js|API_URL|NEXT_PUBLIC` sobre los cuatro artefactos devuelve una sola línea, y es una nota de prosa (1-proposal.md:187): NINGÚN lote repunta la base de la web a `/api/treslog/...`. Encima `GET /api/v1/user` (7.2) no está en producción: el contrato dice «rama `feat/sso-api-gateway`, local» y aclara que «El VPS tiene hoy el prefijo viejo y `POST /api/logout`».</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">Desplegar el Lote 7 tal como está escrito deja la web logueada y con TODO el panel en 401: cotizaciones, envíos, direcciones, tickets, alta de conductores. Y la tarea 7.4 es literalmente irrealizable: dice que `company` «sigue al backend de TR3SLOG», pero después de 7.1 el cliente ya no tiene ninguna credencial que ese backend sepa validar. El lote que el plan clasifica como «bajo riesgo» y sin bloqueos es el que apaga la aplicación web entera.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>tr3slog-website/src/api.js:11,75-153; tr3slog-website/src/App.jsx:64; routes/api.php:53,120-134; 4-tasks.md:37,129,131,132,134,143; SSO/Docs/contrato_api_v1_msh.md:340,353-355</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>El Lote 7 tiene que incluir el repunte de `src/api.js` a `/api/treslog/...` a través del gateway, y por lo tanto no puede ir antes del Lote 8 ni antes de que exista un gateway en producción. Mientras `/api/v1` no esté en el VPS, el Lote 7 hereda el bloqueo de R9 igual que el 6 y el 9 — hoy no lo tiene.</p></div>
+    </div>
+  </details>
+  <details class="h rp">
+    <summary>
+      <span class="n">6</span>
+      <span class="pill p-rp">Rompe producción</span>
+      <span class="t">El Lote 8 mata el bloque auth:sanctum que el plan promete mantener vivo hasta el Lote 9</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">4-tasks.md, Lote 8 tarea 8.5 (+ 3-design.md §D.4) &middot; lente <code>ejecutable</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>«hasRole()/hasAnyRole()/isAdmin() ... si el modelo no fue hidratado (job en cola, tinker, query directa), los tres métodos lanzan, no devuelven false» y §D.4: «Verificado que hoy todos los call sites pasan el usuario autenticado (...) O sea que la regla no rompe nada hoy y protege de mañana»</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>Hay tres clases de call sites que NO reciben un usuario hidratado por ResolveDomainUser: (a) Gate::before llama $user?-&gt;isAdmin() en TODA autorización, y el provider está registrado, así que toda petición del bloque auth:sanctum que dispare authorize() pasa por ahí; (b) EnsureUserIsDriver corre en cada petición vieja del conductor con $request-&gt;user() hidratado por Sanctum, no por el gateway; (c) DriverController::store y DriverAuthController::login llaman hasRole(&#x27;driver&#x27;) sobre modelos traídos por User::findOrFail() / User::where(...)-&gt;first(). El grep completo devuelve ~20 call sites de hasRole/hasAnyRole/isAdmin, no los 8 que enumera §D.4.</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">El día que se mergea el PR 8, cada petición del camino viejo que llame authorize() (quotes, shipments, support, users) o pase por el middleware &#x27;driver&#x27; lanza excepción y devuelve 500. Es exactamente el camino que el plan declara intocable hasta el PR 9 («nadie pierde acceso»): los conductores en la calle con la build vieja pierden el backend entero, y el PR 9 no se puede disparar porque su precondición es que el camino viejo siga funcionando.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/treslog/backend_trelog/app/Providers/AuthServiceProvider.php:15-18 y bootstrap/providers.php:8 (Gate::before registrado); app/Http/Middleware/EnsureUserIsDriver.php:13; app/Http/Controllers/DriverController.php:67 ($user = User::with(&#x27;driverProfile&#x27;)-&gt;findOrFail(...) y luego $user-&gt;hasRole(&#x27;driver&#x27;)); app/Http/Controllers/Api/Driver/DriverAuthController.php:89</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>O bien 8.5 devuelve false + Log::warning en vez de lanzar mientras el bloque auth:sanctum siga montado, o bien la regla de lanzar se difiere al Lote 9 (mismo PR que retira el bloque viejo). Y §D.4 tiene que enumerar los ~20 call sites reales, incluido Gate::before, no 8.</p></div>
+    </div>
+  </details>
+  <details class="h rp">
+    <summary>
+      <span class="n">7</span>
+      <span class="pill p-rp">Rompe producción</span>
+      <span class="t">La tarea 9.5 borra rutas que la 8.1 nunca migró y que la 7.4 exige que sobrevivan</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">4-tasks.md, tareas 8.1, 9.5 y 7.4 &middot; lente <code>ejecutable</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>8.1: «Extraer el resto de rutas de dominio (quotes, shipments, drivers, incidents, addresses, support, payroll, dispatch) a routes/domain.php»; 9.5: «Retirar el bloque Route::middleware(&#x27;auth:sanctum&#x27;)-&gt;group() completo»; 7.4: «company y el resto siguen al backend de TR3SLOG»</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>El bloque auth:sanctum contiene además /alerts, todo users/* (index, clients, show, update, destroy) y roles/permissions/zones, que 8.1 no lista. En cambio 8.1 nombra dos grupos que no están ahí: &#x27;payroll&#x27; es ruta de conductor (ya migrada en el Lote 5) y &#x27;dispatch&#x27; no existe como ruta en todo el archivo — es sólo el permiso dispatch.manage.</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">Al ejecutar 9.5 desaparecen endpoints que la web sigue llamando y que la propia tarea 7.4 dio por vivos: el guardado de perfil (company, business_name, zone, payment_method) y el listado de clientes pasan a 404 sin reemplazo en ningún lote. Y es el único paso no reversible del plan.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/treslog/backend_trelog/routes/api.php:56 (/alerts), :81-87 (users/*), :90-117 (roles, permissions, zones), :193 (payroll de conductor); /Volumes/External/sources/myglobalhub/treslog/tr3slog-website/src/api.js:42 (updateUser → PUT /users/{id}) y :93 (getClients → GET /users/clients)</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>8.1 debe listar los grupos reales del bloque (alerts, users, addresses, support, quotes, shipments, drivers, incidents) y decidir explícitamente el destino de roles/permissions/zones/invitations bajo el gateway; borrar &#x27;payroll&#x27; y &#x27;dispatch&#x27; de la lista. 9.5 sólo puede correr sobre un bloque cuyas rutas tengan las dos definiciones.</p></div>
+    </div>
+  </details>
+  <details class="h rp">
+    <summary>
+      <span class="n">8</span>
+      <span class="pill p-rp">Rompe producción</span>
+      <span class="t">El Lote 7 deja la web logueada y sin ningún endpoint de dominio</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">4-tasks.md, Lote 7 (7.1-7.5) y 1-proposal.md §8 («PR 7 · se puede desplegar solo: Sí») &middot; lente <code>ejecutable</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>«Bajo riesgo: la web se redespliega en minutos» y el Lote 8 «El bloque auth:sanctum sigue montado en paralelo hasta el Lote 9: nadie pierde acceso»</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>src/api.js define UNA sola API_URL y manda Authorization: Bearer &lt;token&gt; en 21 llamadas de dominio contra rutas protegidas por auth:sanctum. Después de 7.1 el token deja de ser un personal access token de Sanctum y pasa a ser un access token del SSO: el guard de Sanctum no lo encuentra en personal_access_tokens y responde 401. Ninguna tarea del Lote 7 ni del Lote 8 cambia API_URL a la URL del gateway (/api/treslog).</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">Desplegar el PR 7 solo, como dice la propuesta, deja la web con login exitoso y 401 en cotizaciones, envíos, conductores, incidentes, direcciones y soporte. Y el PR 8 tampoco lo arregla: monta las rutas nuevas en el backend pero nadie repunta el cliente.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/treslog/tr3slog-website/src/api.js:1-15 (API_URL única + headers(token)) y :75-165 (quotes, drivers, incidents, shipments, addresses, support con ese mismo token); /Volumes/External/sources/myglobalhub/treslog/backend_trelog/routes/api.php:53</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>El Lote 7 tiene que incluir el cambio de base URL a la del gateway y la verificación de que cada llamada de dominio va a /api/treslog/..., o bien 7.1 se difiere hasta que el Lote 8 esté desplegado y el corte de la web sea uno solo.</p></div>
+    </div>
+  </details>
+  <details class="h rp">
+    <summary>
+      <span class="n">9</span>
+      <span class="pill p-rp">Rompe producción</span>
+      <span class="t">El Lote 5 pierde el middleware &#x27;driver&#x27; y ningún artefacto lo menciona</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">4-tasks.md, tareas 5.1, 5.2 y 5.3 (+ 3-design.md §E.2) &middot; lente <code>ejecutable</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>«bloque nuevo Route::prefix(&#x27;treslog&#x27;)-&gt;middleware([&#x27;gateway.auth&#x27;,&#x27;gateway.user&#x27;])» y 5.3 «Verificar que StopController.php:57 y RouteController.php:24 siguen comparando contra $request-&gt;user()-&gt;id»</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>El bloque viejo es Route::middleware([&#x27;auth:sanctum&#x27;, &#x27;driver&#x27;]): el alias &#x27;driver&#x27; es EnsureUserIsDriver, que exige hasRole(&#x27;driver&#x27;). Es la única guarda que impide que un cliente entre a la app de conductores. Un grep de EnsureUserIsDriver sobre los cuatro .md no devuelve nada.</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">El montaje nuevo pierde la guarda: cualquier identidad del SSO con fila espejo alcanza /api/treslog/driver/dashboard, /routes, /payroll y POST /incidents. Y la alternativa tampoco está resuelta: si alguien conserva el alias, después de 8.5 hasRole(&#x27;driver&#x27;) consulta roles del SSO y &#x27;driver&#x27; es un rol sin prefijo que nunca viaja en X-User-Roles, así que serían 403 para TODOS los conductores. El plan no elige ninguna de las dos, y el test 5.4 (dueño 200 / otro conductor 403) no distingue ninguno de los dos casos.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/treslog/backend_trelog/routes/api.php:178; app/Http/Middleware/EnsureUserIsDriver.php:13; bootstrap/app.php:19-21 (alias &#x27;driver&#x27;)</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>Añadir una tarea explícita en el Lote 5: reemplazar el alias &#x27;driver&#x27; por sso.role:treslog:conductor en el bloque nuevo, y un test de que un treslog:cliente recibe 403 en /api/treslog/driver/*.</p></div>
+    </div>
+  </details>
+  <details class="h bp">
+    <summary>
+      <span class="n">10</span>
+      <span class="pill p-bp">Bloquea el plan</span>
+      <span class="t">N1 es falso para el admin: Gate::before le concede todo, así que la tarea 1.4 congela un 403 que no existe</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">3-design.md §Hallazgos nuevos N1 y §D.5; 4-tasks.md tarea 1.4 &middot; lente <code>ejecutable</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>«cinco endpoints de dominio responden 403 a todo el mundo, incluido el admin» y 1.4: «congelar el 403 actual de un admin en PATCH /quotes/{quote}/status, PATCH /app/quotes/{quote}/status, GET /support, GET /support/{ticket}, PUT /support/{ticket}»</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>AuthServiceProvider registra Gate::before(fn($user) =&gt; $user?-&gt;isAdmin() ? true : null) y el provider está en bootstrap/providers.php. Un before callback que devuelve true cortocircuita CUALQUIER ability antes de llegar a la Policy, así que un admin recibe 200 en los cinco endpoints; hasPermission(&#x27;quotes.edit&#x27;) ni se evalúa. El 403 real sólo lo ven operations y customer.</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">Las cinco pruebas de la tarea 1.4 fallan el primer día, y el Lote 1 es el gate bloqueante de A5/A6/A7 (R1 de la propuesta). Peor: D7 se levanta sobre un diagnóstico falso — el acceso del admin a soporte y a cotizaciones existe hoy, así que la migración no está «congelando lo que hay», y si en el Lote 8 se borra isAdmin()/Gate::before sin darse cuenta, el admin PIERDE acceso a soporte en silencio, que es el modo de falla que §D.3 dice querer evitar.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/treslog/backend_trelog/app/Providers/AuthServiceProvider.php:15-18; bootstrap/providers.php:8; app/Http/Controllers/QuoteController.php:58 ($this-&gt;authorize(&#x27;update&#x27;, $quote)); app/Http/Controllers/SupportController.php:46,55,62; app/Policies/QuotePolicy.php:25-28</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>N1 debe decir «403 para todos menos el admin, por Gate::before». 1.4 debe congelar 200 para admin y 403 para operations/customer, y agregar una tarea en el Lote 8 sobre qué pasa con Gate::before cuando isAdmin() deja de leer role_user.</p></div>
+    </div>
+  </details>
+  <details class="h bp">
+    <summary>
+      <span class="n">11</span>
+      <span class="pill p-bp">Bloquea el plan</span>
+      <span class="t">El Lote 1, declarado «sin bloqueos», no puede correr: los modelos no tienen HasFactory y faltan dos factories que sus propias pruebas necesitan</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">4-tasks.md, tarea 1.1 (+ 3-design.md §F.1 punto 1) &middot; lente <code>ejecutable</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>«Crear las 8 factories de dominio que faltan en database/factories/: AddressFactory, ShipmentFactory, SupportTicketFactory, RouteFactory, IncidentFactory, PayrollPeriodFactory, DriverAlertFactory, DriverProfileFactory (hoy sólo existe UserFactory)»</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>Tres cosas: (1) ninguno de los nueve modelos de dominio usa el trait HasFactory — sólo User y UserInvitation — así que Shipment::factory() lanza BadMethodCallException y ninguna tarea agrega el trait; (2) no existe App\Models\Route: el modelo se llama DeliveryRoute, así que RouteFactory no resuelve modelo por convención; (3) faltan RouteStopFactory (la tarea 1.2 prueba POST /stops/{stop}/confirm y /fail) y QuoteFactory (las tareas 1.4 y 1.5 prueban PATCH /quotes/{quote}/status y GET /quotes).</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">El PR 1 es la red de seguridad de todo el plan y no arranca como está escrito: la primera línea de test explota. Son 10 factories, no 8, más un cambio en 9 modelos que nadie presupuestó.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/treslog/backend_trelog/app/Models/User.php:21 y app/Models/UserInvitation.php:12 son los únicos HasFactory del directorio; app/Models/DeliveryRoute.php:9; app/Models/RouteStop.php:8; app/Models/Quote.php:22; routes/api.php:187-188 y :124</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>1.1 pasa a: agregar &#x27;use HasFactory&#x27; a los 9 modelos de dominio + crear 10 factories, con DeliveryRouteFactory (no RouteFactory), RouteStopFactory y QuoteFactory incluidas.</p></div>
+    </div>
+  </details>
+  <details class="h co">
+    <summary>
+      <span class="n">12</span>
+      <span class="pill p-co">Corregible</span>
+      <span class="t">El alta pide `kind=&#x27;frontend&#x27;` y todo el desarrollo corre en localhost: el canal para eso es `frontend-dev`</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">4-tasks.md Lote 2, tarea 2.2 (:60) y Lote 7, tarea 7.5 (:135) · 1-proposal.md §2 A1 (:48-49) &middot; lente <code>contrato</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>4-tasks.md:60: «cliente OAuth publico PKCE, vinculo `application_clients` con `kind=&#x27;frontend&#x27;`», y :135: «Checklist manual: un login end-to-end completa el flujo PKCE contra el gateway local».</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>El enum tiene TRES canales, no dos. `ApplicationClientKind::FrontendDev` existe exactamente para este caso: mismo perfil, mismo slug, mismos roles `&lt;slug&gt;:...`, pero con `redirect_uris` apuntando a localhost, «para no tener que registrar `http://localhost:...` en el cliente de PRODUCCION... una superficie que queda abierta para siempre, en todas las aplicaciones». `sso:app-client` avisa por pantalla si se le pasa un redirect local a `--kind=frontend`. El plan no lo vio porque `alta_de_aplicacion.md:104` sigue diciendo «los dos canales posibles».</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">Todo el desarrollo del plan (Lotes 2 a 8) corre contra el gateway local en el puerto 8003 y la web Next en localhost, asi que el cliente `frontend` de PRODUCCION de `treslog` nace con `http://localhost:...` entre sus `redirect_uris` y se queda asi. Es una superficie permanente de redireccion del authorization code en el cliente productivo, replicada por cada aplicacion que siga este plan como plantilla.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/SSO/app/Enums/ApplicationClientKind.php:29-46,49-52; /Volumes/External/sources/myglobalhub/SSO/app/Console/Commands/AppClientCommand.php:26-31 (los tres canales), :132-139 (el aviso por redirect local en el canal de produccion); /Volumes/External/sources/myglobalhub/SSO/Docs/alta_de_aplicacion.md:104</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>El Lote 2 crea DOS clientes bajo el mismo perfil: `sso:app-client --app=treslog --kind=frontend --redirect=&lt;URI real de produccion&gt;` y `sso:app-client --app=treslog --kind=frontend-dev --redirect=http://localhost:...`. Ninguna URI local en el cliente productivo. La tarea 7.5 y el `SETUP_LOCAL.md` de la 2.6 usan el `client_id` del canal `frontend-dev`.</p></div>
+    </div>
+  </details>
+  <details class="h co">
+    <summary>
+      <span class="n">13</span>
+      <span class="pill p-co">Corregible</span>
+      <span class="t">La cadena de 9 PRs no existe: los PRs 6 y 7 viven en otros dos repositorios git</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">4-tasks.md, tabla «Unidades de trabajo sugeridas» y bloque de pronóstico &middot; lente <code>ejecutable</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>«Chain strategy: stacked-to-main», «6 | Build de la app de conductores | PR 6 | Base: PR 5» y «7 | Web: PKCE + AppShell + perfil partido | PR 7 | Base: PR 4»</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>backend_trelog, tr3slog-website y tr3slog_driver_app son tres repositorios independientes con tres remotos distintos; los dos frontends están en main, no en feat/sso-integration. Una rama del backend no puede ser base de un PR de otro repositorio.</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">El corte de entrega y el pronóstico de 3500-4500 líneas «repartidas en 9 PRs» no se pueden ejecutar como una cadena: son tres cadenas con tres ciclos de revisión y tres despliegues. Además el riesgo de presupuesto de 400 líneas se declara sólo para los lotes 1, 3, 8 y 9, y deja fuera justo los dos que implementan un cliente OAuth PKCE completo (Flutter: 3639 líneas de lib/ con auth_service.dart y login_screen.dart a reescribir; web: 21 llamadas + flujo de autorización).</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>backend_trelog/.git → github.com/juanz11/backend_trelog.git (rama feat/sso-integration); tr3slog-website/.git → github.com/juanz11/tr3slog-website.git (main); tr3slog_driver_app/.git → github.com/juanz11/tr3slog_driver_app.git (main)</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>Declarar tres cadenas (backend 1-5, 8, 9 · web 7 · Flutter 6), con la dependencia entre repos explícita, y sumar los lotes 6 y 7 al riesgo de presupuesto.</p></div>
+    </div>
+  </details>
+  <details class="h co">
+    <summary>
+      <span class="n">14</span>
+      <span class="pill p-co">Corregible</span>
+      <span class="t">La caracterización del conductor pide un 403 que 5 de las 8 rutas no producen</span>
+    </summary>
+    <div class="cuerpo">
+      <div class="meta">4-tasks.md, tarea 1.2 (+ 3-design.md §F.1 punto 2) &middot; lente <code>ejecutable</code></div>
+      <div class="bloque"><h4>El plan afirma</h4><blockquote>«GET /driver/dashboard, /routes, /routes/{route}, POST /stops/{stop}/confirm, /stops/{stop}/fail, GET /incidents, POST /incidents, GET /payroll — dueño 200, otro conductor 403 (StopController.php:57, RouteController.php:24)»</blockquote></div>
+      <div class="bloque"><h4>La realidad</h4><p>Sólo tres endpoints tienen un camino de 403: RouteController::show y las dos acciones de StopController, ambas con abort_if. Dashboard, RouteController::index, IncidentController::index/store y PayrollController::index filtran por driver_id = $request-&gt;user()-&gt;id: otro conductor recibe 200 con su propio conjunto (vacío), nunca 403.</p></div>
+      <div class="bloque"><h4>Qué pasa si se ejecuta así</h4><p class="cons">Cinco de los tests del lote bloqueante fallan tal como están especificados, y —peor para lo que el plan quiere proteger— la invariante real de esos cinco endpoints es «el filtro por driver_id devuelve exactamente lo mío», que es justo lo que la costura de identidad de §A puede romper y que ningún test enunciado cubre.</p></div>
+      <div class="bloque"><h4>Evidencia</h4><pre>/Volumes/External/sources/myglobalhub/treslog/backend_trelog/app/Http/Controllers/Api/Driver/RouteController.php:14 (index filtra) y :24 (abort_if); StopController.php:57; DashboardController.php:16; IncidentController.php:15,33; PayrollController.php:14</pre></div>
+      <div class="bloque"><h4>Corrección</h4><p>1.2 debe pedir, para los cinco endpoints con filtro: dueño ve sus N filas y el otro conductor ve 0 (200), y reservar el 403 para /routes/{route} y las dos acciones de /stops.</p></div>
+    </div>
+  </details>
+
+  <h2>Lo que quedó firme mientras dormías</h2>
+  <ul class="lista">
+    <li><span class="ok">SSO</span> — 273 tests en verde. La fuga de roles entre inquilinos, cerrada.</li>
+    <li><span class="ok">MSH</span> — <code>feat/sso-integration</code> pusheada. Sólo rama: sin PR, sin merge.</li>
+    <li><span class="ok">TR3SLOG</span> — plan completo de 9 lotes y 67 tareas, más esta auditoría.</li>
+  </ul>
+
+  <h2>Lo primero de mañana</h2>
+  <ul class="lista">
+    <li><strong>Tapar el <code>forgot-password</code>.</strong> Borrar la línea del <code>reset_link</code>. Es un renglón.</li>
+    <li><strong>Sacar los <code>.env</code> del repo de la web</strong> y rotar las claves de Stripe.</li>
+    <li><strong>Rehacer el Lote 1</strong> con los hallazgos 10, 11 y 14: hoy no arranca.</li>
+    <li><strong>Decidir sobre la ventana de transición</strong> (hallazgo 1). Es el que no tiene arreglo obvio y necesita tu criterio.</li>
+  </ul>
+
+  <footer>
+    Generado desde la salida de los jueces, no escrito a mano.<br>
+    Detalle completo en <code>openspec/changes/integracion-sso/5-auditoria.md</code>
+  </footer>
+</div>

@@ -13,14 +13,27 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // El gateway (nginx) corre en este mismo host y manda X-Forwarded-For /
+        // X-Real-IP. Sin esto, `throttle` cuenta todas las peticiones publicas como
+        // si vinieran de 127.0.0.1 y un cupo por IP seria un cupo global.
+        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
+
         $middleware->api(append: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
+        // Tres middlewares, y ninguno autentica (Lote 9): `gateway.auth` exige
+        // que la peticion venga del gateway con identidad, `sso.role` exige un
+        // rol `treslog:*` de los que el SSO emitio, `gateway.user` traduce la
+        // identidad a la fila espejo de `users`. Los alias `driver` y `admin`
+        // del camino viejo (Sanctum + role_user) murieron con ese camino.
+        //
+        // RequestContext no se agrega al grupo `api` a proposito: los grupos que
+        // lo necesitan lo montan ellos, y los errores propios igual llevan
+        // `request_id` (RequestContext::resolveFor() lo genera en el momento).
         $middleware->alias([
-            'driver' => \App\Http\Middleware\EnsureUserIsDriver::class,
-            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
-            'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'gateway.auth' => \App\Http\Middleware\AuthenticateFromGateway::class,
+            'gateway.user' => \App\Http\Middleware\ResolveDomainUser::class,
+            'sso.role'     => \App\Http\Middleware\RequireSsoRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

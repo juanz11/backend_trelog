@@ -3,19 +3,30 @@
 namespace App\Http\Controllers;
 
 use App\Models\DriverProfile;
-use App\Models\Role;
 use App\Models\User;
+use App\Services\Sso\SsoAppClient;
+use App\Support\Sso\Espejo;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
 class DriverController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $drivers = User::whereHas('roles', function ($query) {
-            $query->where('name', 'driver');
-        })->with(['driverProfile.documents', 'driverProfile.vehicles.documents'])->get();
+        // `drivers.manage` lo tenian exactamente operations y admin (§D.3).
+        if (!$request->user()->hasAnyRole(['admin', 'operations'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        // Un conductor es una persona con fila en `driver_profiles` (Lote 9): el
+        // rol `treslog:driver` lo da el SSO y es lo que le abre la app, pero el
+        // padron de la consola es local y nace en `store()`. Antes se listaba por
+        // `role_user`, que ya no existe: esa tabla se retiro con Sanctum y el RBAC
+        // local. La carga ansiosa de documentos y vehiculos es del equipo (22/9).
+        $drivers = User::whereHas('driverProfile')
+            ->with(['driverProfile.documents', 'driverProfile.vehicles.documents'])
+            ->get();
 
         $mapped = $drivers->map(function ($driver) {
             $profile = $driver->driverProfile;
@@ -50,8 +61,12 @@ class DriverController extends Controller
         return response()->json($mapped);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, SsoAppClient $sso): JsonResponse
     {
+        if (! $request->user()->hasAnyRole(['admin', 'operations'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
         $baseRules = [
             'phone' => ['nullable', 'string', 'max:40'],
             'vehicle' => ['nullable', 'string', 'max:255'],
@@ -78,56 +93,33 @@ class DriverController extends Controller
             'vehicles.*.files.*' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ];
 
-        if ($request->filled('user_id')) {
-            $validated = $request->validate(array_merge($baseRules, [
-                'user_id' => ['required', 'exists:users,id'],
-                'name' => ['nullable', 'string', 'max:255'],
-                'password' => ['nullable', 'string', 'regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/'],
-            ]));
+        // El conductor nuevo NO se crea con contraseña (Lote 8/9): el SSO encuentra
+        // a la persona (y la promueve a `treslog:driver`) o la invita por correo
+        // con ese rol (alta-usuarios-por-invitacion). Aca queda la fila espejo y
+        // el DriverProfile desde ya; la persona entra cuando acepte.
+        $validated = $request->validate(array_merge($baseRules, [
+            'email' => ['required', 'string', 'email', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
+        ]));
 
-            $user = User::with('driverProfile')->findOrFail($validated['user_id']);
+        try {
+            // El SSO encuentra a la persona o la INVITA por correo (Clerk) con el
+            // rol de conductor; en ambos casos devuelve su id.
+            $resultado = $sso->crearOEncontrar($validated['email'], $validated['name'] ?? null, (string) config('sso.roles.driver'));
+            $persona = $resultado['persona'];
+            $invitada = $resultado['creada'];
+        } catch (\Illuminate\Http\Client\RequestException|\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error('alta de conductor: el SSO no respondio', ['email' => $validated['email'], 'error' => $e->getMessage()]);
 
-            if ($user->hasRole('driver')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El usuario ya es conductor.',
-                ], 422);
-            }
-
-            if (! empty($validated['name'])) {
-                $user->name = $validated['name'];
-            }
-            if (! empty($validated['phone'])) {
-                $user->phone = $validated['phone'];
-            }
-            if (! empty($validated['password'])) {
-                $user->password = Hash::make($validated['password']);
-            }
-            $user->save();
-
-            $driverRole = Role::where('name', 'driver')->first();
-            if ($driverRole) {
-                $user->assignRole($driverRole);
-            }
-        } else {
-            $validated = $request->validate(array_merge($baseRules, [
-                'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-                'password' => ['required', 'string', 'regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/'],
-            ]));
-
-            $user = User::create([
-                'name' => $validated['name'],
-                'phone' => $validated['phone'] ?? null,
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-            ]);
-
-            $driverRole = Role::where('name', 'driver')->first();
-            if ($driverRole) {
-                $user->assignRole($driverRole);
-            }
+            return response()->json(['success' => false, 'message' => 'El SSO no respondio. Intentalo de nuevo en un momento.'], 502);
         }
+
+        $user = Espejo::asegurar($persona['id'], $persona['email'], $persona['name'] ?: ($validated['name'] ?? null));
+        if (! empty($validated['phone'])) {
+            $user->phone = $validated['phone'];
+            $user->save();
+        }
+        $user->load('driverProfile');
 
         $profile = $user->driverProfile;
         if (! $profile) {
@@ -206,6 +198,7 @@ class DriverController extends Controller
 
         return response()->json([
             'id' => $profile->driver_id,
+            'invited' => $invitada ?? false,
             'user_id' => $user->id,
             'n' => $profile->initials ?? $user->name,
             'name' => $user->name,

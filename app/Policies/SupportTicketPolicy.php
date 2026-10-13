@@ -9,12 +9,14 @@ class SupportTicketPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->can('support.view');
+        // @todo D7 — `support.view` no lo tenia NADIE (N1): el `||` era letra
+        // muerta. Queda admin, que es lo que hoy pasa (§D.5).
+        return $user->isAdmin();
     }
 
     public function view(User $user, SupportTicket $ticket): bool
     {
-        return $user->can('support.view') || $user->id === $ticket->user_id;
+        return $user->isAdmin() || $user->id === $ticket->user_id;
     }
 
     public function create(User $user): bool
@@ -24,7 +26,8 @@ class SupportTicketPolicy
 
     public function update(User $user, SupportTicket $ticket): bool
     {
-        return $user->can('support.edit');
+        // @todo D7 — `support.edit`, idem viewAny().
+        return $user->isAdmin();
     }
 
     public function delete(User $user, SupportTicket $ticket): bool

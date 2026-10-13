@@ -53,61 +53,20 @@ class QuoteController extends Controller
         return response()->json($quote, 201);
     }
 
-    public function index(Request $request): JsonResponse
-    {
-        $user = $request->user();
+    // index/pendingCount/show/updateStatus/markViewed SE FUERON en el Lote 9:
+    // vivian bajo `/app/*` con auth:sanctum para una app de clientes que nunca
+    // existio (D3). La cotizacion autenticada de la web es App\Http\Controllers\QuoteController.
 
-        if ($user->can('quotes.view')) {
-            $quotes = Quote::orderByDesc('created_at')->paginate(50);
-        } else {
-            $quotes = Quote::where('client_email', $user->email)
-                ->orderByDesc('created_at')
-                ->paginate(50);
-        }
-
-        return response()->json($quotes);
-    }
-
-    public function pendingCount(Request $request): JsonResponse
-    {
-        $this->authorize('viewAny', Quote::class);
-
-        $count = Quote::where('status', 'pending')->count();
-
-        return response()->json(['count' => $count]);
-    }
-
-    public function show(Request $request, Quote $quote): JsonResponse
-    {
-        $this->authorize('view', $quote);
-
-        return response()->json($quote);
-    }
-
-    public function updateStatus(Request $request, Quote $quote): JsonResponse
-    {
-        $this->authorize('update', $quote);
-
-        $data = $request->validate([
-            'status' => ['required', 'in:pending,processing,approved,rejected'],
-        ]);
-
-        $quote->update(['status' => $data['status']]);
-
-        return response()->json($quote);
-    }
-
-    public function markViewed(Request $request, Quote $quote): JsonResponse
-    {
-        $this->authorize('view', $quote);
-
-        if (! $quote->viewed_at) {
-            $quote->update(['viewed_at' => now()]);
-        }
-
-        return response()->json($quote);
-    }
-
+    /**
+     * Tracking publico por codigo, sin cuenta («como UPS», D8.1).
+     *
+     * Devuelve SOLO lo que la pantalla de seguimiento muestra: estado, tramo,
+     * servicio y fechas. Antes devolvia la fila entera (nombre, correo y
+     * detalle del cliente), y como el codigo es secuencial por dia y hub
+     * (TrackingGenerator), un cupo por IP no alcanza para frenar a quien
+     * recorra los codigos de un dia: era una fuga de datos personales publica
+     * (revision de jueces 2026-09-16, #4). Lo que no esta en esta lista no sale.
+     */
     public function track($trackingCode): JsonResponse
     {
         $quote = Quote::where('tracking_code', $trackingCode)->first();
@@ -116,6 +75,14 @@ class QuoteController extends Controller
             return response()->json(['message' => 'Cotización no encontrada.'], 404);
         }
 
-        return response()->json($quote);
+        return response()->json([
+            'tracking_code' => $quote->tracking_code,
+            'status' => $quote->status,
+            'origin' => $quote->origin,
+            'destination' => $quote->destination,
+            'service_type' => $quote->service_type,
+            'created_at' => $quote->created_at,
+            'updated_at' => $quote->updated_at,
+        ]);
     }
 }

@@ -4,9 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * El padron local de TR3SLOG: las filas espejo de `users`.
+ *
+ * Desde el Lote 9 esto NO crea personas ni cambia contraseñas ni roles: todo
+ * eso vive en el SSO. Lo que queda es leer el padron, editar los datos que son
+ * de TR3SLOG (empresa, telefono, direccion, estado) y borrar una fila espejo.
+ * `store()` se retiro: una persona nace en el SSO (registro o invitacion) y su
+ * fila espejo la crea `gateway.user` la primera vez que entra, o
+ * `DriverController::store` cuando Operaciones la da de alta como conductora.
+ */
 class UserController extends Controller
 {
     /**
@@ -16,7 +25,7 @@ class UserController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
-        $users = User::with('roles')->get();
+        $users = User::query()->get();
         
         // Remove duplicates based on email
         $uniqueUsers = [];
@@ -36,85 +45,11 @@ class UserController extends Controller
     }
 
     /**
-     * Create new user (admin only)
-     */
-    public function store(Request $request)
-    {
-        $this->authorize('create', User::class);
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users',
-            'roles' => 'required|array',
-            'roles.*' => 'exists:roles,id',
-            'status' => 'required|in:pending,active,suspended',
-            'password' => 'sometimes|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/',
-            'phone' => 'nullable|string',
-            'business_name' => 'nullable|string',
-            'street_address' => 'nullable|string',
-            'city' => 'nullable|string',
-            'zone' => 'nullable|string',
-            'payment_method' => 'nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            $errors = $validator->errors();
-            $message = 'Validation failed';
-            $messageEs = 'Error de validación';
-            
-            if ($errors->has('email')) {
-                $message = 'This email is already registered';
-                $messageEs = 'Este correo ya está registrado';
-            }
-            
-            if ($errors->has('name')) {
-                $message = 'Name is required';
-                $messageEs = 'El nombre es requerido';
-            }
-            
-            if ($errors->has('roles')) {
-                $message = 'Valid roles are required';
-                $messageEs = 'Se requieren roles válidos';
-            }
-            
-            return response()->json([
-                'success' => false,
-                'message' => $message,
-                'message_es' => $messageEs,
-                'errors' => $errors,
-            ], 422);
-        }
-
-        $password = $request->password ?? 'temp_password_123';
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($password),
-            'status' => $request->status,
-            'phone' => $request->phone,
-            'business_name' => $request->business_name,
-            'street_address' => $request->street_address,
-            'city' => $request->city,
-            'zone' => $request->zone,
-            'payment_method' => $request->payment_method,
-        ]);
-
-        // Attach multiple roles
-        $user->assignRole($request->roles ?? []);
-
-        return response()->json([
-            'success' => true,
-            'user' => $user->load('roles'),
-            'message' => 'User created successfully',
-        ], 201);
-    }
-
-    /**
      * Get specific user
      */
     public function show(Request $request, $id)
     {
-        $user = User::with('roles')->find($id);
+        $user = User::find($id);
 
         if (!$user) {
             return response()->json([
@@ -147,14 +82,13 @@ class UserController extends Controller
 
         $this->authorize('update', $user);
 
+        // `name` y `email` NO se editan aca: los gobierna el SSO y ResolveDomainUser
+        // los refresca en cada peticion (se pisaria lo que se escriba). Peor: un
+        // email cambiado a mano bloqueaba el alta automatica de OTRA persona con
+        // ese correo (revision de jueces 2026-09-16, menor). Si llegan, se ignoran.
         $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|string|email|max:255|unique:users,email,' . $id,
-            'password' => 'sometimes|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/',
             'company' => 'sometimes|nullable|string|max:255',
             'phone' => 'sometimes|nullable|string|max:255',
-            'roles' => 'sometimes|array',
-            'roles.*' => 'exists:roles,id',
             'status' => 'sometimes|in:active,pending,suspended',
         ]);
 
@@ -165,33 +99,17 @@ class UserController extends Controller
             ], 422);
         }
 
-        // Only admins can change roles
-        if ($request->has('roles') && !$request->user()->hasRole('admin')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Only admins can change roles',
-            ], 403);
-        }
+        // `password` y `roles` ya no se aceptan (Lote 9): la contraseña no
+        // existe y los roles se cambian en el SSO. Si llegan, se ignoran: un
+        // cliente viejo que los mande no rompe nada, pero tampoco cambia nada.
 
-        if ($request->has('name')) {
-            $user->name = $request->name;
-        }
-        if ($request->has('email')) {
-            $user->email = $request->email;
-        }
         if ($request->has('company')) {
             $user->company = $request->company;
         }
         if ($request->has('phone')) {
             $user->phone = $request->phone;
         }
-        if ($request->has('password')) {
-            $user->password = Hash::make($request->password);
-        }
-        if ($request->has('roles') && $request->user()->hasRole('admin')) {
-            $user->syncRoles($request->roles);
-        }
-        if ($request->has('status') && $request->user()->hasRole('admin')) {
+        if ($request->has('status') && $request->user()->isAdmin()) {
             $user->status = $request->status;
         }
 
@@ -199,7 +117,7 @@ class UserController extends Controller
 
         return response()->json([
             'success' => true,
-            'user' => $user->load('roles'),
+            'user' => $user,
         ]);
     }
 
@@ -242,7 +160,13 @@ class UserController extends Controller
     {
         $actor = $request->user();
 
-        $user = User::with('roles')->find($id);
+        // Sin `with('roles')` ni `hasRole()` sobre `$user` (merge con la rama del
+        // SSO): la relacion `roles()` se retiro con la tabla, y `hasRole()` en una
+        // instancia de `User::find()` —no hidratada por gateway.user— LANZA
+        // LogicException, porque los roles son de la peticion y no de la fila.
+        // El "es admin" del objetivo se lee de `sso_roles` (la foto que deja
+        // ResolveDomainUser); el del actor, de la instancia hidratada.
+        $user = User::find($id);
         if (! $user) {
             return response()->json([
                 'success' => false,
@@ -261,7 +185,8 @@ class UserController extends Controller
             ], 422);
         }
 
-        if ($user->hasRole('admin') && ! $actor->hasRole('admin')) {
+        if (in_array((string) config('sso.roles.admin'), $user->sso_roles ?? [], true)
+            && ! $actor->hasRole('admin')) {
             return response()->json([
                 'success' => false,
                 'message' => 'No puedes modificar a un administrador.',
@@ -271,36 +196,30 @@ class UserController extends Controller
         $user->status = $data['status'];
         $user->save();
 
-        if ($data['status'] === 'suspended') {
-            $user->tokens()->delete();
-        }
-
+        // Sin `$user->tokens()->delete()`: ya no hay tokens Sanctum que revocar.
+        // La suspension se aplica en `gateway.user` (ResolveDomainUser), que
+        // responde 403 a cada peticion mientras `status` siga en 'suspended'.
         return response()->json([
             'success' => true,
-            'user' => $user->load('roles'),
+            'user' => $user,
         ]);
     }
 
     public function clients(Request $request)
     {
-        $driverRole = Role::where('name', 'driver')->first();
-        $customerRole = Role::where('name', 'customer')->first();
-
-        $query = User::query();
-
-        if ($customerRole) {
-            $query->whereHas('roles', function ($q) use ($customerRole) {
-                $q->where('roles.id', $customerRole->id);
-            });
+        if (! $request->user()->hasAnyRole(['admin', 'operations'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
-        if ($driverRole) {
-            $query->whereDoesntHave('roles', function ($q) use ($driverRole) {
-                $q->where('roles.id', $driverRole->id);
-            });
-        }
-
-        $clients = $query->get(['id', 'name', 'email', 'phone']);
+        // Un cliente es alguien a quien el SSO le emitio `treslog:customer` la
+        // ultima vez que entro (`sso_roles`, la foto que deja ResolveDomainUser) y
+        // que no es conductor. Quien nunca entro no tiene foto y no aparece: no
+        // puede tener envios todavia. Antes se leia `role_user`, que ya no existe.
+        $clients = User::query()
+            ->whereJsonContains('sso_roles', (string) config('sso.roles.customer'))
+            ->whereDoesntHave('driverProfile')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'phone']);
 
         return response()->json($clients);
     }

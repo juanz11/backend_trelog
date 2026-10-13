@@ -130,7 +130,9 @@ class ShipmentDispatchService
     {
         $route = DeliveryRoute::where('driver_id', $driver->id)
             ->whereIn('status', ['In progress', 'Pending'])
-            ->orderByRaw('FIELD(status, "In progress", "Pending")')
+            // CASE y no FIELD(): FIELD es solo de MySQL y la suite corre en SQLite.
+            // Mismo orden: primero la ruta en curso, despues la pendiente.
+            ->orderByRaw("CASE status WHEN 'In progress' THEN 0 WHEN 'Pending' THEN 1 ELSE 2 END")
             ->latest()
             ->first();
 
