@@ -4,8 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
-
 class Incident extends Model
 {
     protected $fillable = [
@@ -18,7 +16,7 @@ class Incident extends Model
     public function getPhotoUrlAttribute(): ?string
     {
         return $this->photo_path
-            ? Storage::disk('public')->url($this->photo_path)
+            ? url('storage/' . $this->photo_path)
             : null;
     }
 

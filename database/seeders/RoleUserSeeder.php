@@ -37,6 +37,12 @@ class RoleUserSeeder extends Seeder
                 'password' => 'Tr3slog2024',
             ],
             [
+                'name' => 'Operaciones',
+                'email' => 'operations@tr3slog.demo',
+                'role' => 'operations',
+                'password' => 'Tr3slog2024',
+            ],
+            [
                 'name' => 'Hub Operation',
                 'email' => 'hub.op@tr3slog.demo',
                 'role' => 'hub_operation',
