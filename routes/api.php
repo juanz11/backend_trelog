@@ -29,6 +29,9 @@ use App\Http\Controllers\Api\Driver\PayrollController;
 use App\Http\Controllers\Api\Driver\RouteController;
 use App\Http\Controllers\Api\Driver\ShipmentController as DriverShipmentController;
 use App\Http\Controllers\Api\Driver\StopController;
+use App\Http\Controllers\Api\Driver\ManifestController as DriverManifestController;
+use App\Http\Controllers\ManifestController;
+use App\Http\Controllers\TransferRequestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -157,6 +160,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/{shipment}/driver', [ShipmentController::class, 'assignDriver']);
         Route::delete('/{id}', [ShipmentController::class, 'destroy']);
     });
+
+    // Manifest Management Routes (Gestión de Manifiestos)
+    Route::prefix('manifests')->group(function () {
+        Route::get('/', [ManifestController::class, 'index'])->middleware('permission:manifests.view');
+        Route::post('/', [ManifestController::class, 'store'])->middleware('permission:manifests.manage');
+        Route::get('/{manifest}', [ManifestController::class, 'show'])->middleware('permission:manifests.view');
+        Route::patch('/{manifest}/assignment', [ManifestController::class, 'assign'])->middleware('permission:manifests.manage');
+    });
+
+    // Transfer requests (traspasos) — mesa de tráfico
+    Route::prefix('transfer-requests')->group(function () {
+        Route::get('/', [TransferRequestController::class, 'index'])->middleware('permission:manifests.view');
+        Route::post('/{transferRequest}/resolve', [TransferRequestController::class, 'resolve'])->middleware('permission:manifests.manage');
+    });
 });
 
 // User Invitation Routes (without auth for now)
@@ -216,6 +233,20 @@ Route::prefix('driver')->group(function () {
 
         Route::post('/stops/{stop}/confirm', [StopController::class, 'confirm']);
         Route::post('/stops/{stop}/fail', [StopController::class, 'fail']);
+
+        // Manifiestos del chofer (ciclo completo + POD + traspasos)
+        Route::get('/manifests', [DriverManifestController::class, 'index']);
+        Route::get('/manifests/{manifest}', [DriverManifestController::class, 'show']);
+        Route::post('/manifests/{manifest}/assignment-response', [DriverManifestController::class, 'respondAssignment']);
+        Route::post('/manifests/{manifest}/start', [DriverManifestController::class, 'start']);
+        Route::post('/manifests/{manifest}/deliveries', [DriverManifestController::class, 'deliver']);
+        Route::post('/manifests/{manifest}/failures', [DriverManifestController::class, 'fail']);
+        Route::post('/manifests/{manifest}/transfer-requests', [DriverManifestController::class, 'requestTransfer']);
+        Route::post('/manifests/{manifest}/assistance-resolved', [DriverManifestController::class, 'resolveAssistance']);
+        Route::post('/manifests/{manifest}/finalize', [DriverManifestController::class, 'finalize']);
+        Route::get('/manifests/{manifest}/handover', [DriverManifestController::class, 'handoverStatus']);
+        Route::post('/manifests/{manifest}/handover/scan', [DriverManifestController::class, 'handoverScan']);
+        Route::post('/manifests/{manifest}/handover/close', [DriverManifestController::class, 'handoverClose']);
 
         Route::get('/incidents', [IncidentController::class, 'index']);
         Route::post('/incidents', [IncidentController::class, 'store']);

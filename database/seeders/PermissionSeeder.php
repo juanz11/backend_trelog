@@ -81,6 +81,10 @@ class PermissionSeeder extends Seeder
             // Hub / Warehouse
             ['name' => 'hub.view', 'display_name' => 'Ver Hub', 'description' => 'Puede ver operaciones de almacén', 'module' => 'hub'],
             ['name' => 'hub.manage', 'display_name' => 'Gestionar Hub', 'description' => 'Puede gestionar almacén y cross-dock', 'module' => 'hub'],
+
+            // Manifests
+            ['name' => 'manifests.view', 'display_name' => 'Ver Manifiestos', 'description' => 'Puede ver manifiestos y solicitudes de traspaso', 'module' => 'manifests'],
+            ['name' => 'manifests.manage', 'display_name' => 'Gestionar Manifiestos', 'description' => 'Puede crear, asignar y resolver traspasos de manifiestos', 'module' => 'manifests'],
         ];
 
         foreach ($permissions as $permission) {

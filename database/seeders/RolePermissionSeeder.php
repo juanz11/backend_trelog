@@ -55,6 +55,8 @@ class RolePermissionSeeder extends Seeder
                 'incidents.view',
                 'incidents.edit',
                 'hub.view',
+                'manifests.view',
+                'manifests.manage',
             ],
             'administrative' => [
                 'users.view',
@@ -68,6 +70,8 @@ class RolePermissionSeeder extends Seeder
                 'dispatch.manage',
                 'drivers.manage',
                 'reports.view_ops',
+                'manifests.view',
+                'manifests.manage',
             ],
             'manager' => [
                 'users.view',
@@ -83,6 +87,8 @@ class RolePermissionSeeder extends Seeder
                 'pricing.view',
                 'pricing.edit_limited',
                 'audit.view_limited',
+                'manifests.view',
+                'manifests.manage',
             ],
             'executive_client' => [
                 'shipments.create',
@@ -121,6 +127,8 @@ class RolePermissionSeeder extends Seeder
                 'zones.manage',
                 'incidents.view',
                 'incidents.edit',
+                'manifests.view',
+                'manifests.manage',
             ],
             'hub_operation' => [
                 'shipments.view',
@@ -184,6 +192,8 @@ class RolePermissionSeeder extends Seeder
                 'finance.edit',
                 'hub.view',
                 'hub.manage',
+                'manifests.view',
+                'manifests.manage',
             ],
         ];
 
