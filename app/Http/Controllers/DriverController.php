@@ -34,6 +34,7 @@ class DriverController extends Controller
                 'shift' => $profile?->shift ?? '—',
                 'doc' => $docState,
                 'st' => $available ? 'available' : 'offduty',
+                'verification_status' => $profile?->verification_status,
                 'documents' => $this->mapDocuments($profile?->documents),
                 'vehicles' => ($profile?->vehicles ?? collect())->map(function ($vehicle) {
                     return [
@@ -227,6 +228,55 @@ class DriverController extends Controller
                 ];
             })->values()->all(),
         ], 201);
+    }
+
+    public function update(Request $request, User $user): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'email' => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'vehicle' => ['nullable', 'string', 'max:255'],
+            'hub' => ['nullable', 'string', 'max:255'],
+            'shift' => ['nullable', 'string', 'max:255'],
+            'available' => ['sometimes', 'boolean'],
+        ]);
+
+        $user->fill(collect($validated)->only(['name', 'phone', 'email'])->all());
+        $user->save();
+
+        $profile = $user->driverProfile;
+        if ($profile) {
+            $profile->fill(collect($validated)->only(['vehicle', 'hub', 'shift', 'available'])->all());
+            $profile->save();
+        }
+
+        $profile?->load(['documents', 'vehicles.documents']);
+
+        return response()->json([
+            'id' => $profile?->driver_id ?? (string) $user->id,
+            'user_id' => $user->id,
+            'n' => $profile?->initials ?? $user->name,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone ?? '—',
+            'v' => $profile?->vehicle ?? '—',
+            'hub' => $profile?->hub ?? '—',
+            'shift' => $profile?->shift ?? '—',
+            'doc' => $this->documentState($profile),
+            'st' => ($profile?->available ?? false) ? 'available' : 'offduty',
+            'verification_status' => $profile?->verification_status,
+            'documents' => $this->mapDocuments($profile?->documents),
+            'vehicles' => ($profile?->vehicles ?? collect())->map(function ($vehicle) {
+                return [
+                    'id' => $vehicle->id,
+                    'label' => $vehicle->label,
+                    'plate' => $vehicle->plate,
+                    'cargo_capacity' => $vehicle->cargo_capacity,
+                    'documents' => $this->mapDocuments($vehicle->documents),
+                ];
+            })->values()->all(),
+        ]);
     }
 
     private function mapDocuments($documents): array

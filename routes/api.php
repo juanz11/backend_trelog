@@ -67,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/alerts', [AlertController::class, 'index']);
     Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.manage');
     Route::post('/drivers', [DriverController::class, 'store'])->middleware('permission:drivers.manage');
+    Route::patch('/drivers/{user}', [DriverController::class, 'update'])->middleware('permission:drivers.manage');
     Route::get('/documents/pending', [DocumentController::class, 'pending'])->middleware('permission:drivers.manage');
     Route::post('/documents/{document}/review', [DocumentController::class, 'review'])->middleware('permission:drivers.manage');
     Route::get('/incidents', [IncidentAdminController::class, 'index'])->middleware('permission:incidents.view');
