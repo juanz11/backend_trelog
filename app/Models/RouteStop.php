@@ -10,14 +10,22 @@ class RouteStop extends Model
     protected $fillable = [
         'route_id', 'shipment_id', 'n', 'name', 'addr', 'type', 'eta', 'state',
         'received_by', 'quantity', 'condition', 'notes', 'photo_path',
+        'signature_path',
     ];
 
-    protected $appends = ['photo_url'];
+    protected $appends = ['photo_url', 'signature_url'];
 
     public function getPhotoUrlAttribute(): ?string
     {
         return $this->photo_path
             ? url('storage/' . $this->photo_path)
+            : null;
+    }
+
+    public function getSignatureUrlAttribute(): ?string
+    {
+        return $this->signature_path
+            ? url('storage/' . $this->signature_path)
             : null;
     }
 

@@ -14,8 +14,9 @@ class DashboardController extends Controller
         $driver = $request->user();
 
         $activeRoute = DeliveryRoute::where('driver_id', $driver->id)
-            ->where('status', 'In progress')
+            ->whereIn('status', ['In progress', 'Pending'])
             ->with('stops')
+            ->orderByRaw('FIELD(status, "In progress", "Pending")')
             ->latest()
             ->first();
 

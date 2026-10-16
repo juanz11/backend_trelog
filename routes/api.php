@@ -15,6 +15,7 @@ use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\IncidentAdminController;
 use App\Http\Controllers\AuditFileController;
 use App\Http\Controllers\PricingConfigController;
@@ -24,6 +25,7 @@ use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
 use App\Http\Controllers\Api\Driver\DashboardController;
 use App\Http\Controllers\Api\Driver\DriverAuthController;
+use App\Http\Controllers\Api\Driver\IdentityController;
 use App\Http\Controllers\Api\Driver\IncidentController;
 use App\Http\Controllers\Api\Driver\PayrollController;
 use App\Http\Controllers\Api\Driver\RouteController;
@@ -65,6 +67,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/alerts', [AlertController::class, 'index']);
     Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.manage');
     Route::post('/drivers', [DriverController::class, 'store'])->middleware('permission:drivers.manage');
+    Route::get('/documents/pending', [DocumentController::class, 'pending'])->middleware('permission:drivers.manage');
+    Route::post('/documents/{document}/review', [DocumentController::class, 'review'])->middleware('permission:drivers.manage');
     Route::get('/incidents', [IncidentAdminController::class, 'index'])->middleware('permission:incidents.view');
     Route::post('/incidents', [IncidentAdminController::class, 'store'])->middleware('permission:incidents.edit');
     Route::patch('/incidents/{incident}/status', [IncidentAdminController::class, 'updateStatus'])->middleware('permission:incidents.edit');
@@ -232,6 +236,9 @@ Route::prefix('driver')->group(function () {
     Route::middleware(['auth:sanctum', 'driver'])->group(function () {
         Route::get('/me', [DriverAuthController::class, 'me']);
         Route::post('/logout', [DriverAuthController::class, 'logout']);
+
+        Route::get('/identity', [IdentityController::class, 'show']);
+        Route::post('/identity', [IdentityController::class, 'store']);
 
         Route::get('/dashboard', [DashboardController::class, 'index']);
 

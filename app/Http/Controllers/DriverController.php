@@ -61,9 +61,9 @@ class DriverController extends Controller
             'id_document_expires_at' => ['nullable', 'date'],
             'license_number' => ['required', 'string', 'max:100'],
             'license_expires_at' => ['required', 'date'],
-            'photo' => ['required', 'image', 'max:5120'],
-            'id_document_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'license_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'photo' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,heic,heif', 'max:5120'],
+            'id_document_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,heic,heif,pdf', 'max:5120'],
+            'license_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,heic,heif,pdf', 'max:5120'],
             'vehicles' => ['nullable', 'array'],
             'vehicles.*.label' => ['nullable', 'string', 'max:255'],
             'vehicles.*.plate' => ['required', 'string', 'max:50'],
@@ -75,7 +75,7 @@ class DriverController extends Controller
             'vehicles.*.inspection_expires_at' => ['nullable', 'date'],
             'vehicles.*.permit_number' => ['nullable', 'string', 'max:100'],
             'vehicles.*.permit_expires_at' => ['nullable', 'date'],
-            'vehicles.*.files.*' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'vehicles.*.files.*' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,heic,heif,pdf', 'max:5120'],
         ];
 
         if ($request->filled('user_id')) {
@@ -233,10 +233,13 @@ class DriverController extends Controller
     {
         return collect($documents ?? [])->map(function ($doc) {
             return [
+                'id' => $doc->id,
                 'type' => $doc->type,
                 'number' => $doc->number,
                 'expires_at' => $doc->expires_at?->toDateString(),
                 'file_path' => $doc->file_path,
+                'status' => $doc->status ?? 'pending',
+                'rejection_reason' => $doc->rejection_reason ?? null,
             ];
         })->values()->all();
     }
@@ -252,14 +255,19 @@ class DriverController extends Controller
 
         $state = 'ok';
         foreach ($docs as $doc) {
-            if (! $doc->expires_at) {
-                continue;
+            if ($doc->expires_at) {
+                if ($doc->expires_at->isPast()) {
+                    return 'expired';
+                }
+                if ($doc->expires_at->lt(now()->addDays(30))) {
+                    $state = 'soon';
+                }
             }
-            if ($doc->expires_at->isPast()) {
-                return 'expired';
+            if (($doc->status ?? 'pending') === \App\Models\Document::STATUS_REJECTED) {
+                return 'rejected';
             }
-            if ($doc->expires_at->lt(now()->addDays(30))) {
-                $state = 'soon';
+            if (($doc->status ?? 'pending') === \App\Models\Document::STATUS_PENDING && $state === 'ok') {
+                $state = 'pending';
             }
         }
 

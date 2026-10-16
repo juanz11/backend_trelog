@@ -20,12 +20,16 @@ class StopController extends Controller
             'condition' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
             'photo' => ['nullable', 'image', 'max:5120'],
+            'signature' => ['nullable', 'image', 'max:2048'],
         ]);
 
         if ($request->hasFile('photo')) {
             $data['photo_path'] = $request->file('photo')->store('pod-photos', 'public');
         }
-        unset($data['photo']);
+        if ($request->hasFile('signature')) {
+            $data['signature_path'] = $request->file('signature')->store('pod-signatures', 'public');
+        }
+        unset($data['photo'], $data['signature']);
 
         $stop->update(array_merge($data, ['state' => 'Done']));
         $this->syncShipmentStatus($stop, $stop->type === 'Pickup' ? 'in_transit' : 'delivered');
