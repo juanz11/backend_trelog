@@ -19,9 +19,15 @@ class StopController extends Controller
             'quantity' => ['nullable', 'integer'],
             'condition' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
+            'photo' => ['nullable', 'image', 'max:5120'],
         ]);
 
-        $stop->update(['state' => 'Done']);
+        if ($request->hasFile('photo')) {
+            $data['photo_path'] = $request->file('photo')->store('pod-photos', 'public');
+        }
+        unset($data['photo']);
+
+        $stop->update(array_merge($data, ['state' => 'Done']));
         $this->syncShipmentStatus($stop, $stop->type === 'Pickup' ? 'in_transit' : 'delivered');
 
         RouteAuditLog::create([

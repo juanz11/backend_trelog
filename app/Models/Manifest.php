@@ -31,6 +31,7 @@ class Manifest extends Model
         'code', 'status', 'driver_id', 'vehicle_id', 'origin_manifest_id',
         'created_by', 'assignment_rejection_reason', 'roadside_assistance_pending',
         'started_at', 'closed_at', 'handover_closed_at', 'handover_discrepancies',
+        'hub_received_at', 'hub_dispatched_at',
     ];
 
     protected function casts(): array
@@ -41,6 +42,8 @@ class Manifest extends Model
             'started_at' => 'datetime',
             'closed_at' => 'datetime',
             'handover_closed_at' => 'datetime',
+            'hub_received_at' => 'datetime',
+            'hub_dispatched_at' => 'datetime',
         ];
     }
 
@@ -82,6 +85,16 @@ class Manifest extends Model
     public function handoverScans(): HasMany
     {
         return $this->hasMany(ManifestHandoverScan::class)->orderBy('scanned_at');
+    }
+
+    public function hubScans(): HasMany
+    {
+        return $this->hasMany(ManifestHubScan::class)->orderBy('scanned_at');
+    }
+
+    public function adjustments(): HasMany
+    {
+        return $this->hasMany(ManifestAdjustment::class)->latest();
     }
 
     public function progress(): float

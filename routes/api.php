@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\Driver\StopController;
 use App\Http\Controllers\Api\Driver\ManifestController as DriverManifestController;
 use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\TransferRequestController;
+use App\Http\Controllers\Hub\ManifestController as HubManifestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -173,6 +174,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('transfer-requests')->group(function () {
         Route::get('/', [TransferRequestController::class, 'index'])->middleware('permission:manifests.view');
         Route::post('/{transferRequest}/resolve', [TransferRequestController::class, 'resolve'])->middleware('permission:manifests.manage');
+    });
+
+    // DCU-08 Hub y almacén: recepción/despacho contra manifiesto + ajustes
+    Route::prefix('hub')->group(function () {
+        Route::get('/manifests', [HubManifestController::class, 'index'])->middleware('permission:hub.view');
+        Route::get('/manifests/{manifest}', [HubManifestController::class, 'show'])->middleware('permission:hub.view');
+        Route::post('/manifests/{manifest}/scan', [HubManifestController::class, 'scan'])->middleware('permission:hub.manage');
+        Route::post('/manifests/{manifest}/receive', [HubManifestController::class, 'receive'])->middleware('permission:hub.manage');
+        Route::post('/manifests/{manifest}/dispatch', [HubManifestController::class, 'dispatchManifest'])->middleware('permission:hub.manage');
+        Route::post('/manifests/{manifest}/adjustments', [HubManifestController::class, 'storeAdjustment'])->middleware('permission:hub.manage');
+        Route::post('/adjustments/{adjustment}/resolve', [HubManifestController::class, 'resolveAdjustment'])->middleware('permission:hub.adjustments.approve');
     });
 });
 

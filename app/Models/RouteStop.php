@@ -7,7 +7,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RouteStop extends Model
 {
-    protected $fillable = ['route_id', 'shipment_id', 'n', 'name', 'addr', 'type', 'eta', 'state'];
+    protected $fillable = [
+        'route_id', 'shipment_id', 'n', 'name', 'addr', 'type', 'eta', 'state',
+        'received_by', 'quantity', 'condition', 'notes', 'photo_path',
+    ];
+
+    protected $appends = ['photo_url'];
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo_path
+            ? url('storage/' . $this->photo_path)
+            : null;
+    }
 
     public function route(): BelongsTo
     {

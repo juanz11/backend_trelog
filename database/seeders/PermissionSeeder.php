@@ -81,6 +81,7 @@ class PermissionSeeder extends Seeder
             // Hub / Warehouse
             ['name' => 'hub.view', 'display_name' => 'Ver Hub', 'description' => 'Puede ver operaciones de almacén', 'module' => 'hub'],
             ['name' => 'hub.manage', 'display_name' => 'Gestionar Hub', 'description' => 'Puede gestionar almacén y cross-dock', 'module' => 'hub'],
+            ['name' => 'hub.adjustments.approve', 'display_name' => 'Aprobar Ajustes de Hub', 'description' => 'Puede aprobar ajustes de inventario que desbloquean el despacho', 'module' => 'hub'],
 
             // Manifests
             ['name' => 'manifests.view', 'display_name' => 'Ver Manifiestos', 'description' => 'Puede ver manifiestos y solicitudes de traspaso', 'module' => 'manifests'],
