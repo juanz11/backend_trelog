@@ -128,6 +128,8 @@ class Manifest extends Model
             'fechaInicioRuta' => $this->started_at?->toISOString(),
             'fechaCierre' => $this->closed_at?->toISOString(),
             'asistenciaVialPendiente' => $this->roadside_assistance_pending,
+            'hubRecibidoAt' => $this->hub_received_at?->toISOString(),
+            'hubDespachadoAt' => $this->hub_dispatched_at?->toISOString(),
             'progreso' => $this->progress(),
             'detalles' => $this->details->map(fn (ManifestDetail $d) => [
                 'id' => $d->id,
