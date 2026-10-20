@@ -114,6 +114,16 @@ class ShipmentDispatchService
             'stops_count' => $stops->count(),
             'progress' => $stops->isEmpty() ? 0 : round($done / $stops->count(), 2),
         ]);
+
+        // Once the driver starts working on a stop, the route is underway.
+        $started = $stops->contains(
+            fn ($stop) => in_array($stop->state, ['Next', 'Done', 'Failed', 'Delayed'], true)
+        );
+        if ($started) {
+            DeliveryRoute::where('id', $routeId)
+                ->where('status', 'Pending')
+                ->update(['status' => 'In progress']);
+        }
     }
 
     public function stopStateFor(string $shipmentStatus): string

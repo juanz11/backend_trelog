@@ -123,6 +123,17 @@ class ShipmentController extends Controller
 
         abort_if($shipment->driver_id !== $driver->id, 403, 'Este envío no está asignado a ti.');
 
+        $route = $shipment->stop?->route;
+        $inProgressRoute = \App\Models\DeliveryRoute::where('driver_id', $driver->id)
+            ->where('status', 'In progress')
+            ->first();
+
+        if ($inProgressRoute && $route && $route->id !== $inProgressRoute->id) {
+            return response()->json([
+                'message' => 'Tienes otra ruta en curso. Finalízala antes de cambiar esta.',
+            ], 422);
+        }
+
         $data = $request->validate([
             'status' => ['required', 'string', 'in:' . implode(',', self::DRIVER_STATUSES)],
             'notes' => ['nullable', 'string'],

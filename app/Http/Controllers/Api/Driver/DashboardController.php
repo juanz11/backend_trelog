@@ -4,17 +4,35 @@ namespace App\Http\Controllers\Api\Driver;
 
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryRoute;
+use App\Models\Shipment;
+use App\Services\ShipmentDispatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, ShipmentDispatchService $dispatch): JsonResponse
     {
         $driver = $request->user();
+        $openStatuses = ['In progress', 'Pending'];
+
+        // Heal drift: an assigned shipment that is still open must live on an
+        // open route — otherwise it would never show up in the route progress.
+        $orphans = Shipment::where('driver_id', $driver->id)
+            ->whereNotIn('status', ShipmentDispatchService::CLOSED_STATUSES)
+            ->with('stop.route')
+            ->get()
+            ->filter(function ($shipment) use ($openStatuses) {
+                $route = $shipment->stop?->route;
+                return ! $route || ! in_array($route->status, $openStatuses, true);
+            });
+
+        foreach ($orphans as $shipment) {
+            $dispatch->syncStop($shipment, $driver);
+        }
 
         $activeRoute = DeliveryRoute::where('driver_id', $driver->id)
-            ->whereIn('status', ['In progress', 'Pending'])
+            ->whereIn('status', $openStatuses)
             ->with('stops')
             ->orderByRaw('FIELD(status, "In progress", "Pending")')
             ->latest()

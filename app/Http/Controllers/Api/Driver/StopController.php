@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api\Driver;
 use App\Http\Controllers\Controller;
 use App\Models\RouteAuditLog;
 use App\Models\RouteStop;
+use App\Services\ShipmentDispatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StopController extends Controller
 {
+    public function __construct(private ShipmentDispatchService $dispatch)
+    {
+    }
+
     public function confirm(Request $request, RouteStop $stop): JsonResponse
     {
         $this->authorizeStop($request, $stop);
@@ -33,6 +38,7 @@ class StopController extends Controller
 
         $stop->update(array_merge($data, ['state' => 'Done']));
         $this->syncShipmentStatus($stop, $stop->type === 'Pickup' ? 'in_transit' : 'delivered');
+        $this->dispatch->refreshRouteProgress($stop->route_id);
 
         RouteAuditLog::create([
             'route_id' => $stop->route_id,
@@ -54,6 +60,7 @@ class StopController extends Controller
 
         $stop->update(['state' => 'Failed']);
         $this->syncShipmentStatus($stop, 'incident');
+        $this->dispatch->refreshRouteProgress($stop->route_id);
 
         RouteAuditLog::create([
             'route_id' => $stop->route_id,
@@ -67,6 +74,16 @@ class StopController extends Controller
     private function authorizeStop(Request $request, RouteStop $stop): void
     {
         abort_if($stop->route->driver_id !== $request->user()->id, 403);
+
+        $inProgressRoute = \App\Models\DeliveryRoute::where('driver_id', $request->user()->id)
+            ->where('status', 'In progress')
+            ->first();
+
+        abort_if(
+            $inProgressRoute && $stop->route_id !== $inProgressRoute->id,
+            422,
+            'Tienes otra ruta en curso. Finalízala antes de trabajar esta parada.'
+        );
     }
 
     /**

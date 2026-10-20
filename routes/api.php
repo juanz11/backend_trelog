@@ -245,6 +245,8 @@ Route::prefix('driver')->group(function () {
 
         Route::get('/routes', [RouteController::class, 'index']);
         Route::get('/routes/{route}', [RouteController::class, 'show']);
+        Route::post('/routes/{route}/start', [RouteController::class, 'start']);
+        Route::post('/routes/{route}/complete', [RouteController::class, 'complete']);
 
         Route::get('/shipments', [DriverShipmentController::class, 'index']);
         Route::get('/shipments/{shipment}', [DriverShipmentController::class, 'show']);
