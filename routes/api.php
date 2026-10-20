@@ -65,6 +65,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/alerts', [AlertController::class, 'index']);
+    Route::get('/notifications', [AlertController::class, 'mine']);
+    Route::post('/notifications/{id}/read', [AlertController::class, 'markRead']);
     Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.manage');
     Route::post('/drivers', [DriverController::class, 'store'])->middleware('permission:drivers.manage');
     Route::patch('/drivers/{user}', [DriverController::class, 'update'])->middleware('permission:drivers.manage');
@@ -155,9 +157,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Shipment Management Routes
     Route::prefix('shipments')->group(function () {
-        Route::get('/requests/list', [ShipmentRequestController::class, 'index']);
-        Route::get('/requests/pending-count', [ShipmentRequestController::class, 'pendingCount']);
-        Route::patch('/requests/{shipmentRequest}', [ShipmentRequestController::class, 'updateStatus']);
+        Route::get('/requests/list', [ShipmentRequestController::class, 'index'])->middleware('permission:dispatch.manage');
+        Route::get('/requests/pending-count', [ShipmentRequestController::class, 'pendingCount'])->middleware('permission:dispatch.manage');
+        Route::patch('/requests/{shipmentRequest}', [ShipmentRequestController::class, 'updateStatus'])->middleware('permission:dispatch.manage');
 
         Route::get('/', [ShipmentController::class, 'index']);
         Route::post('/', [ShipmentController::class, 'store']);

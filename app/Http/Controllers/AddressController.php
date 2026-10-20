@@ -54,13 +54,14 @@ class AddressController extends Controller
     ];
 
     private const PHONE_PATTERNS = [
-        'PR' => '/^(\+?1\s?)?\(?\d{3}\)?\s?\d{3}\s?-?\d{4}$/',
-        'DO' => '/^(\+?1\s?)?\(?\d{3}\)?\s?\d{3}\s?-?\d{4}$/',
-        'US' => '/^(\+?1\s?)?\(?\d{3}\)?\s?\d{3}\s?-?\d{4}$/',
-        'JM' => '/^(\+?1\s?)?\(?\d{3}\)?\s?\d{3}\s?-?\d{4}$/',
+        'PR' => '/^(\+?1[\s.\-]?)?(\(?\d{3}\)?[\s.\-]?)?\d{3}[\s.\-]?\d{4}$/',
+        'DO' => '/^(\+?1[\s.\-]?)?(\(?\d{3}\)?[\s.\-]?)?\d{3}[\s.\-]?\d{4}$/',
+        'US' => '/^(\+?1[\s.\-]?)?(\(?\d{3}\)?[\s.\-]?)?\d{3}[\s.\-]?\d{4}$/',
+        'JM' => '/^(\+?1[\s.\-]?)?(\(?\d{3}\)?[\s.\-]?)?\d{3}[\s.\-]?\d{4}$/',
         'KR' => '/^(\+82\s?)?\d{2,3}[-.\s]?\d{3,4}[-.\s]?\d{4}$/',
         'JP' => '/^(\+81\s?)?\d{1,2}[-.\s]?\d{4}[-.\s]?\d{4}$/',
         'CN' => '/^(\+86\s?)?\d{11}$/',
+        'CR' => '/^(\(?\+?506\)?[\s.\-]?)?\d{4}[\s.\-]?\d{4}$/',
         'VE' => '/^(\+58\s?)?\d{3}\s?\d{7}$/',
         'UY' => '/^(\+598\s?)?\d{2,3}\s?\d{3}\s?\d{3}$/',
     ];
@@ -90,6 +91,7 @@ class AddressController extends Controller
             'zip_code' => ['required', 'string', 'max:20'],
             'contact_name' => 'nullable|string|max:255',
             'phone' => ['nullable', 'string', 'max:50'],
+            'phone_country' => 'nullable|string|max:2',
             'delivery_instructions' => 'nullable|string',
             'is_default' => 'nullable|boolean',
         ];
@@ -99,7 +101,8 @@ class AddressController extends Controller
             $zipPattern = self::ZIP_PATTERNS[$country] ?? '/^$/';
             $rules['zip_code'][] = 'regex:' . $zipPattern;
             if ($request->filled('phone')) {
-                $phonePattern = self::PHONE_PATTERNS[$country] ?? '/^[+\d\s\-()]{7,20}$/';
+                $phoneCountry = $request->input('phone_country') ?: $country;
+                $phonePattern = self::PHONE_PATTERNS[$phoneCountry] ?? '/^[+\d\s\-()]{7,20}$/';
                 $rules['phone'][] = 'regex:' . $phonePattern;
             }
         }
@@ -146,6 +149,7 @@ class AddressController extends Controller
             'zip_code' => ['sometimes', 'string', 'max:20'],
             'contact_name' => 'nullable|string|max:255',
             'phone' => ['nullable', 'string', 'max:50'],
+            'phone_country' => 'nullable|string|max:2',
             'delivery_instructions' => 'nullable|string',
             'is_default' => 'nullable|boolean',
         ];
@@ -155,7 +159,8 @@ class AddressController extends Controller
             $zipPattern = self::ZIP_PATTERNS[$country] ?? '/^$/';
             $rules['zip_code'][] = 'regex:' . $zipPattern;
             if ($request->filled('phone')) {
-                $phonePattern = self::PHONE_PATTERNS[$country] ?? '/^[+\d\s\-()]{7,20}$/';
+                $phoneCountry = $request->input('phone_country') ?: $country;
+                $phonePattern = self::PHONE_PATTERNS[$phoneCountry] ?? '/^[+\d\s\-()]{7,20}$/';
                 $rules['phone'][] = 'regex:' . $phonePattern;
             }
         }

@@ -140,7 +140,7 @@ class ShipmentDispatchService
     {
         $route = DeliveryRoute::where('driver_id', $driver->id)
             ->whereIn('status', ['In progress', 'Pending'])
-            ->orderByRaw('FIELD(status, "In progress", "Pending")')
+            ->orderByRaw("CASE status WHEN 'In progress' THEN 0 WHEN 'Pending' THEN 1 ELSE 2 END")
             ->latest()
             ->first();
 

@@ -31,7 +31,7 @@ class ShipmentController extends Controller
 
         $assigned = Shipment::with('client:id,name,email')
             ->where('driver_id', $driver->id)
-            ->orderByRaw('FIELD(status, "delivered") asc')
+            ->orderByRaw("CASE WHEN status = 'delivered' THEN 1 ELSE 0 END asc")
             ->orderByDesc('created_at')
             ->get();
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Incident;
 use App\Models\Shipment;
 use App\Models\ShipmentPackage;
+use App\Models\ShipmentRequest;
 use App\Models\User;
 use App\Services\ShipmentDispatchService;
 use Illuminate\Http\JsonResponse;
@@ -86,6 +87,18 @@ class ShipmentController extends Controller
 
         $shipment = Shipment::create($data);
         $this->syncPackages($shipment, is_array($packages) ? $packages : []);
+
+        // Same-day shipments open a priority request for the client so it
+        // lands in operations → Solicitudes (handled like the old driver flow).
+        if (($shipment->delivery_mode ?? null) === 'same_day') {
+            ShipmentRequest::create([
+                'type' => 'same_day',
+                'shipment_id' => $shipment->id,
+                'client_id' => $request->user()->id,
+                'status' => 'pending',
+                'message' => 'Envío de mismo día — atención prioritaria.',
+            ]);
+        }
 
         return response()->json($shipment, 201);
     }

@@ -8,8 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ShipmentRequest extends Model
 {
     protected $fillable = [
+        'type',
         'shipment_id',
         'driver_id',
+        'client_id',
         'status',
         'message',
         'review_notes',
@@ -34,6 +36,11 @@ class ShipmentRequest extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'client_id');
     }
 
     public function reviewer(): BelongsTo
