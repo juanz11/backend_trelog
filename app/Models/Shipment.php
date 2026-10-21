@@ -27,6 +27,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'packages',
     'status',
     'notes',
+    'payment_method',
+    'payment_method_id',
+    'payment_bank',
+    'payment_reference',
+    'charge_to_account',
 ])]
 class Shipment extends Model
 {

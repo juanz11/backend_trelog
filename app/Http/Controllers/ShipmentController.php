@@ -77,6 +77,11 @@ class ShipmentController extends Controller
             'pieces' => 'nullable|string|max:255',
             'status' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
+            'payment_method' => 'nullable|string|in:card,transfer,cash,paypal,affirm,klarna,apple_pay,google_pay',
+            'payment_method_id' => 'nullable|string|max:255',
+            'payment_bank' => 'nullable|string|max:255',
+            'payment_reference' => 'nullable|string|max:255',
+            'charge_to_account' => 'nullable|string|max:255',
         ]);
 
         $data['status'] = $data['status'] ?? 'pending';
