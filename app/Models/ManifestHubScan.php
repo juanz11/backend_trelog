@@ -9,9 +9,12 @@ class ManifestHubScan extends Model
 {
     public const PHASE_IN = 'in';
     public const PHASE_OUT = 'out';
+    public const PHASE_MOVE = 'move';
+    public const PHASE_INSPECT = 'inspect';
 
     protected $fillable = [
         'manifest_id', 'manifest_detail_id', 'tracking_code', 'phase',
+        'location', 'condition',
         'notes', 'evidence_path', 'scanned_by', 'scanned_at',
     ];
 

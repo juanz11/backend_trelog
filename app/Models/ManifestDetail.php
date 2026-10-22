@@ -16,7 +16,7 @@ class ManifestDetail extends Model
     public const VIA_MANUAL = 'MANUAL';
 
     protected $fillable = [
-        'manifest_id', 'shipment_id', 'sequence', 'tracking_code', 'status',
+        'manifest_id', 'shipment_id', 'sequence', 'tracking_code', 'status', 'location',
         'origin_detail_id', 'visited_at', 'failure_reason',
         'evidence_path', 'evidence_url', 'capture_via', 'lat', 'lng', 'gps_accuracy',
     ];

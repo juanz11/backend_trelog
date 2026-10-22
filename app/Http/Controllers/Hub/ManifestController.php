@@ -38,6 +38,8 @@ class ManifestController extends Controller
                 'id' => $s->id,
                 'tracking_code' => $s->tracking_code,
                 'fase' => $s->phase,
+                'ubicacion' => $s->location,
+                'condicion' => $s->condition,
                 'scanned_by' => $s->scanned_by,
                 'scanned_at' => $s->scanned_at?->toISOString(),
                 'notas' => $s->notes,
@@ -50,12 +52,18 @@ class ManifestController extends Controller
     {
         $data = $request->validate([
             'codigo' => ['required', 'string', 'max:100'],
-            'phase' => ['required', 'in:in,out'],
+            'phase' => ['required', 'in:in,out,move,inspect'],
+            'location' => ['nullable', 'string', 'max:100'],
+            'condition' => ['nullable', 'in:ok,damaged,opened'],
             'notes' => ['nullable', 'string', 'max:500'],
             'evidence' => ['nullable', 'image', 'max:8192'],
         ]);
 
-        $meta = ['notes' => $data['notes'] ?? null];
+        $meta = [
+            'notes' => $data['notes'] ?? null,
+            'location' => $data['location'] ?? null,
+            'condition' => $data['condition'] ?? null,
+        ];
         if ($request->hasFile('evidence')) {
             $meta['evidence_path'] = $request->file('evidence')->store('hub-evidence', 'public');
         }

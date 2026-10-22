@@ -37,26 +37,70 @@ class HubManifestService
     public function scan(Manifest $manifest, string $code, string $phase, ?User $scanner, array $meta = []): ManifestHubScan
     {
         $this->assertNotFinal($manifest);
-        if (! in_array($phase, [ManifestHubScan::PHASE_IN, ManifestHubScan::PHASE_OUT], true)) {
-            throw new ManifestException('FASE_INVALIDA', 'La fase debe ser in u out');
+        $phases = [
+            ManifestHubScan::PHASE_IN,
+            ManifestHubScan::PHASE_OUT,
+            ManifestHubScan::PHASE_MOVE,
+            ManifestHubScan::PHASE_INSPECT,
+        ];
+        if (! in_array($phase, $phases, true)) {
+            throw new ManifestException('FASE_INVALIDA', 'La fase debe ser in, out, move o inspect');
         }
-        if ($manifest->hub_dispatched_at && $phase === ManifestHubScan::PHASE_OUT) {
+        if ($manifest->hub_dispatched_at) {
             throw new ManifestException('HUB_DESPACHADO', 'El manifiesto ya fue despachado del hub');
         }
 
-        $detail = $manifest->details()
-            ->where('tracking_code', trim($code))
-            ->first();
+        $code = trim($code);
+        $detail = $manifest->details()->where('tracking_code', $code)->first();
 
-        return $manifest->hubScans()->create([
+        $location = isset($meta['location']) ? trim((string) $meta['location']) : null;
+        $condition = $meta['condition'] ?? null;
+
+        // Movimiento interno: requiere ubicación y la deja grabada en el detalle.
+        if ($phase === ManifestHubScan::PHASE_MOVE) {
+            if (! $location) {
+                throw new ManifestException('SIN_UBICACION', 'El movimiento interno requiere la ubicación destino');
+            }
+            $detail?->update(['location' => $location]);
+        }
+
+        // Inspección: requiere condición; dañado/abierto abre ajuste pendiente
+        // de aprobación del supervisor (bloquea el despacho, DCU-08).
+        if ($phase === ManifestHubScan::PHASE_INSPECT) {
+            if (! in_array($condition, ['ok', 'damaged', 'opened'], true)) {
+                throw new ManifestException('CONDICION_INVALIDA', 'La inspección requiere condición: ok, damaged u opened');
+            }
+            if ($condition !== 'ok') {
+                $this->storeAdjustment(
+                    $manifest,
+                    $code,
+                    $condition === 'damaged' ? ManifestAdjustment::TYPE_AVERIADO : ManifestAdjustment::TYPE_OTRO,
+                    $meta['notes'] ?: "Inspección: mercancía {$condition}",
+                    $scanner,
+                    $meta
+                );
+            }
+        }
+
+        $scan = $manifest->hubScans()->create([
             'manifest_detail_id' => $detail?->id,
-            'tracking_code' => trim($code),
+            'tracking_code' => $code,
             'phase' => $phase,
+            'location' => $location,
+            'condition' => $condition,
             'notes' => $meta['notes'] ?? null,
             'evidence_path' => $meta['evidence_path'] ?? null,
             'scanned_by' => $scanner?->id,
             'scanned_at' => now(),
         ]);
+
+        // La primera entrada también marca la recepción del manifiesto:
+        // escanear paquetes ES recibir — no exige un clic separado.
+        if ($phase === ManifestHubScan::PHASE_IN && ! $manifest->hub_received_at) {
+            $manifest->update(['hub_received_at' => $scan->scanned_at]);
+        }
+
+        return $scan;
     }
 
     /* ---------------------------------------------------------------- */
@@ -101,14 +145,16 @@ class HubManifestService
             'faltantesEntrada' => $faltantesEntrada->all(),
             'noEsperados' => $noEsperados->all(),
             'pendientesSalida' => $pendientesSalida->all(),
-            'ajustes' => $ajustes->map(fn (ManifestAdjustment $a) => [
+            'ajustes' => $ajustes->loadMissing(['registrar', 'resolver'])->map(fn (ManifestAdjustment $a) => [
                 'id' => $a->id,
                 'codigoSeguimiento' => $a->tracking_code,
                 'tipo' => $a->type,
                 'motivo' => $a->reason,
                 'estado' => $a->status,
                 'registradoPor' => $a->registered_by,
+                'registradoPorNombre' => $a->registrar?->name,
                 'resueltoPor' => $a->resolved_by,
+                'resueltoPorNombre' => $a->resolver?->name,
                 'motivoResolucion' => $a->resolution_reason,
                 'fechaResolucion' => $a->resolved_at?->toISOString(),
             ])->values(),
@@ -162,6 +208,9 @@ class HubManifestService
     public function storeAdjustment(Manifest $manifest, string $code, string $type, string $reason, ?User $user, array $meta = []): ManifestAdjustment
     {
         $this->assertNotFinal($manifest);
+        if ($manifest->hub_dispatched_at) {
+            throw new ManifestException('HUB_DESPACHADO', 'El manifiesto ya fue despachado del hub');
+        }
         if (! in_array($type, [
             ManifestAdjustment::TYPE_FALTANTE,
             ManifestAdjustment::TYPE_SOBRANTE,

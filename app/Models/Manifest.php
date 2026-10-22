@@ -138,6 +138,7 @@ class Manifest extends Model
                 'codigoSeguimiento' => $d->tracking_code,
                 'detalleOrigenId' => $d->origin_detail_id,
                 'estado' => $d->status,
+                'ubicacion' => $d->location,
                 'horaVisita' => $d->visited_at?->toISOString(),
                 'motivoFallo' => $d->failure_reason,
                 'evidenciaUrl' => $d->evidence_url ?: ($d->evidence_path ? Storage::url($d->evidence_path) : null),
