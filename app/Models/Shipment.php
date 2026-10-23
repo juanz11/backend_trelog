@@ -32,6 +32,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'payment_bank',
     'payment_reference',
     'charge_to_account',
+    'invoice_number',
+    'amount',
+    'invoiced_at',
 ])]
 class Shipment extends Model
 {
@@ -40,6 +43,8 @@ class Shipment extends Model
         return [
             'packages' => 'array',
             'assigned_at' => 'datetime',
+            'invoiced_at' => 'datetime',
+            'amount' => 'decimal:2',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];

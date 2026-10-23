@@ -105,6 +105,13 @@ class ShipmentController extends Controller
             ]);
         }
 
+        // Factura provisional: monto aleatorio hasta definir la tabla de tarifas.
+        $shipment->forceFill([
+            'amount' => mt_rand(2500, 30000) / 100,
+            'invoice_number' => sprintf('INV-%s-%06d', now()->format('y'), $shipment->id),
+            'invoiced_at' => now(),
+        ])->save();
+
         return response()->json($shipment, 201);
     }
 
@@ -114,7 +121,7 @@ class ShipmentController extends Controller
 
         $this->authorize('view', $shipment);
 
-        $shipment->load('driver.driverProfile');
+        $shipment->load('driver.driverProfile', 'client');
         $shipment->parsed_tracking = $shipment->getParsedTracking();
         $shipment->tracking_url = $shipment->getTrackingUrl();
 
