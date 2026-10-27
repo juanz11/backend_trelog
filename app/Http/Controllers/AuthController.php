@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
 
 class AuthController extends Controller
 {
@@ -281,6 +282,77 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Password reset successfully',
             'message_es' => 'Contraseña restablecida exitosamente',
+        ]);
+    }
+
+    /**
+     * Change password (authenticated). After 3 failed current-password
+     * attempts it triggers the forgot-password flow automatically.
+     */
+    public function changePassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'password' => 'required|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'message_es' => 'Error de validación',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = $request->user();
+        $cacheKey = 'pwd_attempts:' . $user->id;
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            $attempts = (int) Cache::get($cacheKey, 0) + 1;
+            Cache::put($cacheKey, $attempts, now()->addMinutes(15));
+
+            if ($attempts >= 3) {
+                Cache::forget($cacheKey);
+
+                $resetToken = bin2hex(random_bytes(32));
+                $user->reset_token = $resetToken;
+                $user->reset_token_expires = now()->addHours(1);
+                $user->save();
+
+                $resetLink = config('app.frontend_url') . '/reset?token=' . urlencode($resetToken) . '&email=' . urlencode($user->email);
+
+                try {
+                    Mail::to($user->email)->send(new PasswordResetMail($resetLink, $user->name));
+                } catch (\Exception $e) {
+                    \Log::error('Failed to send password reset email: ' . $e->getMessage());
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'too_many_attempts' => true,
+                    'message' => 'Too many failed attempts. A recovery link was sent to your email.',
+                    'message_es' => 'Demasiados intentos fallidos. Te enviamos un enlace de recuperación a tu correo.',
+                    'reset_link' => $resetLink,
+                ], 429);
+            }
+
+            return response()->json([
+                'success' => false,
+                'attempts_left' => 3 - $attempts,
+                'message' => 'Current password is incorrect',
+                'message_es' => 'La contraseña actual es incorrecta',
+            ], 422);
+        }
+
+        Cache::forget($cacheKey);
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password updated successfully',
+            'message_es' => 'Contraseña actualizada correctamente',
         ]);
     }
 }

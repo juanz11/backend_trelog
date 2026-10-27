@@ -64,6 +64,7 @@ Route::post('/contact', [ContactController::class, 'store']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::put('/user/password', [AuthController::class, 'changePassword']);
     Route::get('/alerts', [AlertController::class, 'index']);
     Route::get('/notifications', [AlertController::class, 'mine']);
     Route::post('/notifications/{id}/read', [AlertController::class, 'markRead']);
