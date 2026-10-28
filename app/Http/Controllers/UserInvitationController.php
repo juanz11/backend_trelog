@@ -76,10 +76,9 @@ class UserInvitationController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => $request->lang === 'en' 
-                    ? 'Invitation sent successfully' 
+                'message' => $request->lang === 'en'
+                    ? 'Invitation sent successfully'
                     : 'Invitación enviada exitosamente',
-                'token' => $token,
             ], 200);
 
         } catch (\Exception $e) {
@@ -88,11 +87,9 @@ class UserInvitationController extends Controller
             
             return response()->json([
                 'success' => false,
-                'message' => $request->lang === 'en' 
-                    ? 'Failed to send invitation' 
+                'message' => $request->lang === 'en'
+                    ? 'Failed to send invitation'
                     : 'Error al enviar la invitación',
-                'error' => $e->getMessage(),
-                'debug' => config('app.debug') ? $e->getTraceAsString() : null,
             ], 500);
         }
     }
@@ -139,7 +136,6 @@ class UserInvitationController extends Controller
                 $results[] = [
                     'email' => $invitation['email'],
                     'success' => true,
-                    'token' => $token,
                 ];
                 $successCount++;
 
@@ -147,7 +143,7 @@ class UserInvitationController extends Controller
                 $results[] = [
                     'email' => $invitation['email'],
                     'success' => false,
-                    'error' => $e->getMessage(),
+                    'error' => 'send_failed',
                 ];
                 $failureCount++;
             }

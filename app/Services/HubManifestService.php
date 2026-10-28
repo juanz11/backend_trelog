@@ -239,6 +239,9 @@ class HubManifestService
         if ($adjustment->status !== ManifestAdjustment::STATUS_PENDIENTE) {
             throw new ManifestException('AJUSTE_RESUELTO', 'El ajuste ya fue resuelto');
         }
+        if ($adjustment->registered_by && $adjustment->registered_by === $reviewer->id) {
+            throw new ManifestException('AJUSTE_PROPIO', 'No puedes resolver un ajuste que registraste tú');
+        }
 
         $adjustment->update([
             'status' => $approve

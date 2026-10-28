@@ -23,7 +23,6 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/',
-            'role' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -39,8 +38,8 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        $roleName = $request->role ?? 'customer';
-        $role = Role::where('name', $roleName)->first();
+        // El rol nunca viene del request: todo registro público es `customer`.
+        $role = Role::where('name', 'customer')->first();
 
         if ($role) {
             $user->assignRole($role);
@@ -74,19 +73,12 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'account_not_found',
-                'error' => 'Account not found',
-            ], 401);
-        }
-
-        if (!Auth::attempt($request->only('email', 'password'))) {
+        // Respuesta genérica: no revelar si la cuenta existe (enumeración).
+        if (!$user || !Auth::attempt($request->only('email', 'password'))) {
             return response()->json([
                 'success' => false,
                 'message' => 'invalid_credentials',
-                'error' => 'Invalid password',
+                'error' => 'Invalid credentials',
             ], 401);
         }
 
@@ -153,45 +145,36 @@ class AuthController extends Controller
             ], 422);
         }
 
+        $genericResponse = [
+            'success' => true,
+            'message' => 'If the email is registered, a reset link will be sent',
+            'message_es' => 'Si el correo está registrado, recibirás un enlace de recuperación',
+        ];
+
         $user = User::where('email', $request->email)->first();
 
+        // Respuesta genérica: no revelar si la cuenta existe.
         if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Email not found',
-                'message_es' => 'Correo no encontrado',
-            ], 404);
+            return response()->json($genericResponse);
         }
 
-        // Generate a simple reset token (in production, use Laravel's password reset functionality)
+        // El token viaja en el enlace; en la base se guarda solo el hash.
         $resetToken = bin2hex(random_bytes(32));
-        $user->reset_token = $resetToken;
+        $user->reset_token = hash('sha256', $resetToken);
         $user->reset_token_expires = now()->addHours(1);
         $user->save();
 
         // Generate reset link
         $resetLink = config('app.frontend_url') . '/reset?token=' . urlencode($resetToken) . '&email=' . urlencode($user->email);
-        
+
         try {
             // Send email with reset link
             Mail::to($user->email)->send(new PasswordResetMail($resetLink, $user->name));
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Password reset link sent to your email',
-                'message_es' => 'Enlace de recuperación enviado a tu correo',
-            ]);
         } catch (\Exception $e) {
-            // Log error but still return success (for development)
             \Log::error('Failed to send password reset email: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Password reset link sent to your email',
-                'message_es' => 'Enlace de recuperación enviado a tu correo',
-                'reset_link' => $resetLink, // Include link for development/testing
-            ]);
         }
+
+        return response()->json($genericResponse);
     }
 
     /**
@@ -211,7 +194,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = User::where('reset_token', $request->token)->first();
+        $user = User::where('reset_token', hash('sha256', $request->token))->first();
 
         if (!$user) {
             return response()->json([
@@ -255,7 +238,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = User::where('reset_token', $request->token)->first();
+        $user = User::where('reset_token', hash('sha256', $request->token))->first();
 
         if (!$user) {
             return response()->json([
@@ -277,6 +260,9 @@ class AuthController extends Controller
         $user->reset_token = null;
         $user->reset_token_expires = null;
         $user->save();
+
+        // Invalidar sesiones existentes tras el reseteo.
+        $user->tokens()->delete();
 
         return response()->json([
             'success' => true,
@@ -316,7 +302,7 @@ class AuthController extends Controller
                 Cache::forget($cacheKey);
 
                 $resetToken = bin2hex(random_bytes(32));
-                $user->reset_token = $resetToken;
+                $user->reset_token = hash('sha256', $resetToken);
                 $user->reset_token_expires = now()->addHours(1);
                 $user->save();
 
@@ -333,7 +319,6 @@ class AuthController extends Controller
                     'too_many_attempts' => true,
                     'message' => 'Too many failed attempts. A recovery link was sent to your email.',
                     'message_es' => 'Demasiados intentos fallidos. Te enviamos un enlace de recuperación a tu correo.',
-                    'reset_link' => $resetLink,
                 ], 429);
             }
 
@@ -348,6 +333,10 @@ class AuthController extends Controller
         Cache::forget($cacheKey);
         $user->password = Hash::make($request->password);
         $user->save();
+
+        // Revocar las demás sesiones: la contraseña vieja ya no sirve para nada.
+        $current = $user->currentAccessToken();
+        $user->tokens()->when($current, fn ($q) => $q->where('id', '!=', $current->id))->delete();
 
         return response()->json([
             'success' => true,

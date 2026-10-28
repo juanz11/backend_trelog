@@ -27,7 +27,7 @@ class IncidentController extends Controller
             'ship' => ['nullable', 'string', 'max:255'],
             'severity' => ['required', 'string', 'in:Low,Medium,High,Critical'],
             'description' => ['nullable', 'string'],
-            'photo' => ['nullable', 'image', 'max:5120'],
+            'photo' => ['nullable', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         $incident = Incident::create([

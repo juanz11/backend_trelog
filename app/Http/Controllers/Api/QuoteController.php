@@ -112,10 +112,16 @@ class QuoteController extends Controller
     {
         $quote = Quote::where('tracking_code', $trackingCode)->first();
 
-        if (! $quote) {
+        if ($quote) {
+            return response()->json($quote);
+        }
+
+        $shipment = \App\Models\Shipment::where('tracking_number', $trackingCode)->first();
+
+        if (! $shipment) {
             return response()->json(['message' => 'Cotización no encontrada.'], 404);
         }
 
-        return response()->json($quote);
+        return response()->json($shipment);
     }
 }

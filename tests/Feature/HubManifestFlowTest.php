@@ -67,9 +67,10 @@ class HubManifestFlowTest extends TestCase
             ])->assertCreated();
         }
 
-        // Despacho sin recepción marcada → bloqueado
+        // La primera entrada marca la recepción; despachar sin escaneos
+        // de salida queda bloqueado por diferencias (pendientes de salida).
         $this->postJson("/api/hub/manifests/{$m['id']}/dispatch")
-            ->assertStatus(422)->assertJsonPath('code', 'HUB_NO_RECIBIDO');
+            ->assertStatus(422)->assertJsonPath('code', 'DESPACHO_BLOQUEADO');
 
         $this->postJson("/api/hub/manifests/{$m['id']}/receive")->assertOk();
 

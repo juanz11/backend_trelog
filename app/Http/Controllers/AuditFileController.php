@@ -22,7 +22,7 @@ class AuditFileController extends Controller
             'title' => 'required|string|max:255',
             'reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
-            'file' => 'required|file|max:20480',
+            'file' => 'required|file|mimes:pdf,csv,txt,jpg,jpeg,png,webp,xls,xlsx,doc,docx,zip|max:20480',
         ]);
 
         $file = $request->file('file');

@@ -47,25 +47,22 @@ use App\Http\Controllers\Hub\ManifestController as HubManifestController;
 |
 */
 
-// Public routes
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/verify-reset-token', [AuthController::class, 'verifyResetToken']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-
-// User registration (public)
-Route::post('/users', [UserController::class, 'store']);
+// Public routes (throttled: credentials, reset and mail-sending endpoints)
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
+Route::post('/verify-reset-token', [AuthController::class, 'verifyResetToken'])->middleware('throttle:10,1');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 
 // Public contact form
-Route::post('/contact', [ContactController::class, 'store']);
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1');
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/user/password', [AuthController::class, 'changePassword']);
-    Route::get('/alerts', [AlertController::class, 'index']);
+    Route::get('/alerts', [AlertController::class, 'index'])->middleware('permission:reports.view_ops');
     Route::get('/notifications', [AlertController::class, 'mine']);
     Route::post('/notifications/{id}/read', [AlertController::class, 'markRead']);
     Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.manage');
@@ -110,6 +107,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // User Management Routes
     Route::prefix('users')->group(function () {
+        Route::post('/', [UserController::class, 'store'])->middleware('permission:users.create');
         Route::get('/', [UserController::class, 'index']);
         Route::get('/clients', [UserController::class, 'clients'])->middleware('permission:drivers.manage');
         Route::get('/{id}', [UserController::class, 'show']);
@@ -192,31 +190,36 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/manifests/{manifest}/receive', [HubManifestController::class, 'receive'])->middleware('permission:hub.manage');
         Route::post('/manifests/{manifest}/dispatch', [HubManifestController::class, 'dispatchManifest'])->middleware('permission:hub.manage');
         Route::post('/manifests/{manifest}/adjustments', [HubManifestController::class, 'storeAdjustment'])->middleware('permission:hub.manage');
-        Route::post('/adjustments/{adjustment}/resolve', [HubManifestController::class, 'resolveAdjustment'])->middleware('permission:hub.manage|hub.adjustments.approve');
+        Route::post('/adjustments/{adjustment}/resolve', [HubManifestController::class, 'resolveAdjustment'])->middleware('permission:hub.adjustments.approve');
     });
 });
 
-// User Invitation Routes (without auth for now)
+// User Invitation Routes — verify/accept are public (the invitee has no
+// account yet); the management endpoints require users.create so invite
+// tokens, pending invites and outbound mail are not publicly reachable.
 Route::prefix('invitations')->group(function () {
-    Route::post('/send', [UserInvitationController::class, 'sendInvitation']);
-    Route::post('/bulk', [UserInvitationController::class, 'sendBulkInvitations']);
-    Route::post('/verify', [UserInvitationController::class, 'verifyToken']);
-    Route::post('/accept', [UserInvitationController::class, 'acceptInvitation']);
-    Route::get('/pending', [UserInvitationController::class, 'getPendingInvitations']);
-    Route::post('/resend', [UserInvitationController::class, 'resendInvitation']);
+    Route::post('/verify', [UserInvitationController::class, 'verifyToken'])->middleware('throttle:20,1');
+    Route::post('/accept', [UserInvitationController::class, 'acceptInvitation'])->middleware('throttle:10,1');
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/send', [UserInvitationController::class, 'sendInvitation'])->middleware('permission:users.create');
+        Route::post('/bulk', [UserInvitationController::class, 'sendBulkInvitations'])->middleware('permission:users.create');
+        Route::get('/pending', [UserInvitationController::class, 'getPendingInvitations'])->middleware('permission:users.create');
+        Route::post('/resend', [UserInvitationController::class, 'resendInvitation'])->middleware('permission:users.create');
+    });
 });
 
 // -----------------------------------------------------------------------
 // Flutter App Routes (Api namespace - customer facing)
 // -----------------------------------------------------------------------
 Route::prefix('app')->group(function () {
-    Route::post('/register', [ApiAuthController::class, 'register']);
-    Route::post('/login', [ApiAuthController::class, 'login']);
-    Route::post('/forgot-password', [ApiAuthController::class, 'forgot']);
-    Route::post('/reset-password', [ApiAuthController::class, 'reset']);
+    Route::post('/register', [ApiAuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('/login', [ApiAuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/forgot-password', [ApiAuthController::class, 'forgot'])->middleware('throttle:5,1');
+    Route::post('/reset-password', [ApiAuthController::class, 'reset'])->middleware('throttle:5,1');
 
-    Route::post('/quotes', [ApiQuoteController::class, 'store']);
-    Route::get('/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track']);
+    Route::post('/quotes', [ApiQuoteController::class, 'store'])->middleware('throttle:20,1');
+    Route::get('/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track'])->middleware('throttle:60,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/user', [ApiAuthController::class, 'user']);

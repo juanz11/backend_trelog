@@ -104,7 +104,7 @@ class AuthController extends Controller
 
             DB::table('password_reset_tokens')->updateOrInsert(
                 ['email' => $data['email']],
-                ['token' => $token, 'created_at' => now()]
+                ['token' => hash('sha256', $token), 'created_at' => now()]
             );
 
             try {
@@ -129,7 +129,7 @@ class AuthController extends Controller
 
         $record = DB::table('password_reset_tokens')
             ->where('email', $data['email'])
-            ->where('token', $data['token'])
+            ->where('token', hash('sha256', $data['token']))
             ->first();
 
         if (! $record || Carbon::parse($record->created_at)->addMinutes(60)->isPast()) {

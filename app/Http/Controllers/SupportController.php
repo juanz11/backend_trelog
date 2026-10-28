@@ -43,11 +43,13 @@ class SupportController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $this->authorize('viewAny', SupportTicket::class);
+        $query = SupportTicket::with('user')->orderByDesc('created_at');
 
-        return response()->json(
-            SupportTicket::with('user')->orderByDesc('created_at')->get()
-        );
+        if (! $request->user()->can('support.view')) {
+            $query->where('user_id', $request->user()->id);
+        }
+
+        return response()->json($query->get());
     }
 
     public function show(Request $request, SupportTicket $ticket): JsonResponse

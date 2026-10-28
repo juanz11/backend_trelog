@@ -26,9 +26,9 @@ class IdentityController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'id_front' => ['required', 'image', 'max:5120'],
-            'id_back' => ['required', 'image', 'max:5120'],
-            'selfie' => ['required', 'image', 'max:5120'],
+            'id_front' => ['required', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'id_back' => ['required', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'selfie' => ['required', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'consent' => ['accepted'],
         ]);
 
