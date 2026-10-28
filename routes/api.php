@@ -174,6 +174,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [ManifestController::class, 'store'])->middleware('permission:manifests.manage');
         Route::get('/{manifest}', [ManifestController::class, 'show'])->middleware('permission:manifests.view');
         Route::patch('/{manifest}/assignment', [ManifestController::class, 'assign'])->middleware('permission:manifests.manage');
+        Route::put('/{manifest}/stops', [ManifestController::class, 'updateStops'])->middleware('permission:manifests.manage');
     });
 
     // Transfer requests (traspasos) — mesa de tráfico

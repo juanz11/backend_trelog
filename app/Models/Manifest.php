@@ -114,13 +114,24 @@ class Manifest extends Model
     /** Serialización alineada con el contrato del frontend/mock API. */
     public function toApi(): array
     {
-        $this->loadMissing(['details', 'transferRequests']);
+        $this->loadMissing(['details.shipment', 'transferRequests', 'driver', 'vehicle']);
 
         return [
             'id' => $this->id,
             'codigo' => $this->code,
             'estado' => $this->status,
             'choferId' => $this->driver_id,
+            'chofer' => $this->driver ? [
+                'id' => $this->driver->id,
+                'nombre' => $this->driver->name,
+                'telefono' => $this->driver->phone,
+                'email' => $this->driver->email,
+            ] : null,
+            'vehiculo' => $this->vehicle ? [
+                'id' => $this->vehicle->id,
+                'nombre' => $this->vehicle->name ?? trim(($this->vehicle->brand ?? '') . ' ' . ($this->vehicle->model ?? '')),
+                'placa' => $this->vehicle->plate ?? null,
+            ] : null,
             'vehiculoId' => $this->vehicle_id,
             'idManifiestoOrigen' => $this->origin_manifest_id,
             'creadoPor' => $this->created_by,
@@ -146,6 +157,15 @@ class Manifest extends Model
                 'lat' => $d->lat,
                 'lng' => $d->lng,
                 'gpsPrecision' => $d->gps_accuracy,
+                'pedido' => $d->shipment ? [
+                    'id' => $d->shipment->id,
+                    'destinatario' => $d->shipment->recipient_name,
+                    'destino' => $d->shipment->destination,
+                    'origen' => $d->shipment->origin,
+                    'telefono' => $d->shipment->recipient_phone,
+                    'email' => $d->shipment->recipient_email,
+                    'estado' => $d->shipment->status,
+                ] : null,
             ])->values(),
             'solicitudes' => $this->transferRequests->map(fn (ManifestTransferRequest $s) => [
                 'id' => $s->id,

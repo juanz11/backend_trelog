@@ -18,7 +18,8 @@ use Illuminate\Support\Facades\DB;
 class ManifestService
 {
     private const TRANSICIONES = [
-        'asignar' => [Manifest::STATUS_CREADO],
+        'asignar' => [Manifest::STATUS_CREADO, Manifest::STATUS_ASIGNADO],
+        'editar' => [Manifest::STATUS_CREADO, Manifest::STATUS_ASIGNADO],
         'rechazarAsignacion' => [Manifest::STATUS_ASIGNADO],
         'iniciarRuta' => [Manifest::STATUS_ASIGNADO],
         'solicitarTraspaso' => [Manifest::STATUS_EN_RUTA],
@@ -55,13 +56,73 @@ class ManifestService
     public function create(array $stops, ?User $creator, ?int $originId = null, ?string $code = null): Manifest
     {
         return DB::transaction(function () use ($stops, $creator, $originId, $code) {
+            // No permitir la misma guía en dos manifiestos abiertos a la vez.
+            $closed = [Manifest::STATUS_COMPLETADO, Manifest::STATUS_COMPLETADO_CON_INCIDENCIAS, Manifest::STATUS_TRANSFERIDO];
+            $trackings = array_map(fn ($s) => trim($s['tracking_code']), array_values($stops));
+            $busy = ManifestDetail::whereIn('tracking_code', $trackings)
+                ->whereHas('manifest', fn ($q) => $q->whereNotIn('status', $closed))
+                ->pluck('tracking_code')
+                ->all();
+
+            if ($busy) {
+                abort(422, json_encode([
+                    'message' => 'Una o más guías ya están asignadas a un manifiesto abierto.',
+                    'duplicadas' => array_values($busy),
+                ]));
+            }
+
+            if (! $code) {
+                $prefix = 'MAN-'.now()->format('ymd').'-';
+                $last = Manifest::where('code', 'like', $prefix.'%')
+                    ->pluck('code')
+                    ->map(fn ($c) => ctype_digit(substr($c, -4)) ? (int) substr($c, -4) : 0)
+                    ->max() ?? 0;
+                $code = $prefix.str_pad($last + 1, 4, '0', STR_PAD_LEFT);
+            }
+
             $manifest = Manifest::create([
-                'code' => $code ?: 'MAN-'.now()->format('ymd').'-'.strtoupper(bin2hex(random_bytes(2))),
+                'code' => $code,
                 'status' => Manifest::STATUS_CREADO,
                 'created_by' => $creator?->id,
                 'origin_manifest_id' => $originId,
             ]);
 
+            foreach (array_values($stops) as $i => $stop) {
+                $tracking = $stop['tracking_code'];
+                $manifest->details()->create([
+                    'sequence' => $i + 1,
+                    'tracking_code' => $tracking,
+                    'shipment_id' => $stop['shipment_id']
+                        ?? Shipment::where('tracking_number', $tracking)->value('id'),
+                    'origin_detail_id' => $stop['origin_detail_id'] ?? null,
+                ]);
+            }
+
+            return $manifest->fresh('details');
+        });
+    }
+
+    /** Reemplaza las paradas del manifiesto mientras no esté en ruta. */
+    public function updateStops(Manifest $manifest, array $stops): Manifest
+    {
+        $this->assertTransition($manifest, 'editar');
+
+        return DB::transaction(function () use ($manifest, $stops) {
+            $closed = [Manifest::STATUS_COMPLETADO, Manifest::STATUS_COMPLETADO_CON_INCIDENCIAS, Manifest::STATUS_TRANSFERIDO];
+            $trackings = array_map(fn ($s) => trim($s['tracking_code']), array_values($stops));
+            $busy = ManifestDetail::whereIn('tracking_code', $trackings)
+                ->whereHas('manifest', fn ($q) => $q->whereNotIn('status', $closed)->where('id', '!=', $manifest->id))
+                ->pluck('tracking_code')
+                ->all();
+
+            if ($busy) {
+                abort(422, json_encode([
+                    'message' => 'Una o más guías ya están asignadas a otro manifiesto abierto.',
+                    'duplicadas' => array_values($busy),
+                ]));
+            }
+
+            $manifest->details()->delete();
             foreach (array_values($stops) as $i => $stop) {
                 $tracking = $stop['tracking_code'];
                 $manifest->details()->create([

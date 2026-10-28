@@ -60,4 +60,18 @@ class ManifestController extends Controller
 
         return response()->json($updated->toApi());
     }
+
+    /** Reemplaza las paradas mientras el manifiesto esté editable. */
+    public function updateStops(Request $request, Manifest $manifest): JsonResponse
+    {
+        $data = $request->validate([
+            'stops' => ['required', 'array', 'min:1'],
+            'stops.*.tracking_code' => ['required', 'string', 'max:100'],
+            'stops.*.shipment_id' => ['nullable', 'integer', 'exists:shipments,id'],
+        ]);
+
+        $updated = $this->service->updateStops($manifest, $data['stops']);
+
+        return response()->json($updated->toApi());
+    }
 }
