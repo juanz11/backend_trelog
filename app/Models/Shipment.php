@@ -78,6 +78,11 @@ class Shipment extends Model
         return $this->hasOne(RouteStop::class, 'shipment_id');
     }
 
+    public function manifestDetail(): HasOne
+    {
+        return $this->hasOne(ManifestDetail::class, 'shipment_id');
+    }
+
     public function requests(): HasMany
     {
         return $this->hasMany(ShipmentRequest::class);

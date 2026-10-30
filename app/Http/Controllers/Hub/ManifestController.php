@@ -105,10 +105,15 @@ class ManifestController extends Controller
             'codigo' => ['required', 'string', 'max:100'],
             'type' => ['required', 'in:FALTANTE,SOBRANTE,AVERIADO,OTRO'],
             'reason' => ['required', 'string', 'max:500'],
+            'expected_value' => ['nullable', 'string', 'max:100'],
+            'actual_value' => ['nullable', 'string', 'max:100'],
             'evidence' => ['nullable', 'image', 'max:8192'],
         ]);
 
-        $meta = [];
+        $meta = [
+            'expected_value' => $data['expected_value'] ?? null,
+            'actual_value' => $data['actual_value'] ?? null,
+        ];
         if ($request->hasFile('evidence')) {
             $meta['evidence_path'] = $request->file('evidence')->store('hub-evidence', 'public');
         }

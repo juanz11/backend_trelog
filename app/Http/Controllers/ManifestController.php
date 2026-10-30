@@ -61,6 +61,25 @@ class ManifestController extends Controller
         return response()->json($updated->toApi());
     }
 
+    /** Listado de ajustes/diferencias para operations y finanzas. */
+    public function adjustments(Request $request): JsonResponse
+    {
+        $rows = \App\Models\ManifestAdjustment::with('manifest')->latest()->limit(300)->get()
+            ->map(fn ($a) => [
+                'id' => $a->id,
+                'codigo' => $a->tracking_code,
+                'manifiesto' => $a->manifest?->code,
+                'tipo' => $a->type,
+                'motivo' => $a->reason,
+                'esperado' => $a->expected_value,
+                'real' => $a->actual_value,
+                'estado' => $a->status,
+                'fecha' => $a->created_at?->toISOString(),
+            ]);
+
+        return response()->json($rows);
+    }
+
     /** Reemplaza las paradas mientras el manifiesto esté editable. */
     public function updateStops(Request $request, Manifest $manifest): JsonResponse
     {

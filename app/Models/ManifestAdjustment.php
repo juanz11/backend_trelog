@@ -18,6 +18,7 @@ class ManifestAdjustment extends Model
 
     protected $fillable = [
         'manifest_id', 'tracking_code', 'type', 'reason', 'status',
+        'expected_value', 'actual_value',
         'evidence_path', 'registered_by', 'resolved_by',
         'resolution_reason', 'resolved_at',
     ];

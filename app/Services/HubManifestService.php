@@ -150,6 +150,8 @@ class HubManifestService
                 'codigoSeguimiento' => $a->tracking_code,
                 'tipo' => $a->type,
                 'motivo' => $a->reason,
+                'esperado' => $a->expected_value,
+                'real' => $a->actual_value,
                 'estado' => $a->status,
                 'registradoPor' => $a->registered_by,
                 'registradoPorNombre' => $a->registrar?->name,
@@ -228,6 +230,8 @@ class HubManifestService
             'type' => $type,
             'reason' => $reason,
             'status' => ManifestAdjustment::STATUS_PENDIENTE,
+            'expected_value' => $meta['expected_value'] ?? null,
+            'actual_value' => $meta['actual_value'] ?? null,
             'evidence_path' => $meta['evidence_path'] ?? null,
             'registered_by' => $user?->id,
         ]);

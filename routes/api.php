@@ -177,6 +177,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{manifest}/stops', [ManifestController::class, 'updateStops'])->middleware('permission:manifests.manage');
     });
 
+    // Ajustes/diferencias de manifiesto (operations + finanzas)
+    Route::middleware('permission:manifests.view')->group(function () {
+        Route::get('/manifest-adjustments', [ManifestController::class, 'adjustments']);
+    });
+
     // Transfer requests (traspasos) — mesa de tráfico
     Route::prefix('transfer-requests')->group(function () {
         Route::get('/', [TransferRequestController::class, 'index'])->middleware('permission:manifests.view');
