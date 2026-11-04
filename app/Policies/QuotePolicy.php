@@ -14,7 +14,8 @@ class QuotePolicy
 
     public function view(User $user, Quote $quote): bool
     {
-        return $user->hasPermissionTo('quotes.view');
+        return $user->hasPermissionTo('quotes.view')
+            || $quote->client_email === $user->email;
     }
 
     public function create(User $user): bool

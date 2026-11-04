@@ -149,6 +149,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Quote Management Routes
     Route::prefix('quotes')->group(function () {
         Route::get('/', [QuoteController::class, 'index']);
+        Route::get('/mine', [ApiQuoteController::class, 'index']);
         Route::post('/', [QuoteController::class, 'store']);
         Route::get('/pending-count', [QuoteController::class, 'pendingCount']);
         Route::patch('/{quote}/status', [QuoteController::class, 'updateStatus']);

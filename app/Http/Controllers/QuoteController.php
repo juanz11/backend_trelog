@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\TrackingGenerator;
+use App\Mail\QuoteCreatedMail;
 use App\Models\Quote;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class QuoteController extends Controller
 {
@@ -23,10 +26,21 @@ class QuoteController extends Controller
         ]);
 
         $data['status'] = 'pending';
+        $data['tracking_code'] = TrackingGenerator::generateFromRoute(
+            $data['origin'],
+            $data['destination'],
+            $data['service_type'] ?? ''
+        );
 
-        Quote::create($data);
+        $quote = Quote::create($data);
 
-        return response()->json(['message' => 'Cotización recibida.'], 201);
+        try {
+            Mail::to($quote->client_email)->send(new QuoteCreatedMail($quote));
+        } catch (\Throwable $e) {
+            // Si el SMTP no está configurado, no fallamos la respuesta.
+        }
+
+        return response()->json($quote, 201);
     }
 
     public function index(): JsonResponse

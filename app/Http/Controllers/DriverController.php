@@ -42,6 +42,7 @@ class DriverController extends Controller
                         'label' => $vehicle->label,
                         'plate' => $vehicle->plate,
                         'cargo_capacity' => $vehicle->cargo_capacity,
+                        'ownership' => $vehicle->ownership,
                         'documents' => $this->mapDocuments($vehicle->documents),
                     ];
                 })->values()->all(),
@@ -69,6 +70,7 @@ class DriverController extends Controller
             'vehicles.*.label' => ['nullable', 'string', 'max:255'],
             'vehicles.*.plate' => ['required', 'string', 'max:50'],
             'vehicles.*.cargo_capacity' => ['nullable', 'string', 'max:100'],
+            'vehicles.*.ownership' => ['nullable', 'string', 'in:personal,company'],
             'vehicles.*.registration_number' => ['nullable', 'string', 'max:100'],
             'vehicles.*.insurance_number' => ['nullable', 'string', 'max:100'],
             'vehicles.*.insurance_expires_at' => ['nullable', 'date'],
@@ -176,6 +178,7 @@ class DriverController extends Controller
                 'label' => $v['label'] ?? null,
                 'plate' => $v['plate'] ?? null,
                 'cargo_capacity' => $v['cargo_capacity'] ?? null,
+                'ownership' => $v['ownership'] ?? null,
             ]);
             $vehicleDocs = [
                 'registration' => ['number' => $v['registration_number'] ?? null, 'expires_at' => null],
@@ -224,6 +227,7 @@ class DriverController extends Controller
                     'label' => $vehicle->label,
                     'plate' => $vehicle->plate,
                     'cargo_capacity' => $vehicle->cargo_capacity,
+                        'ownership' => $vehicle->ownership,
                     'documents' => $this->mapDocuments($vehicle->documents),
                 ];
             })->values()->all(),
@@ -273,6 +277,7 @@ class DriverController extends Controller
                     'label' => $vehicle->label,
                     'plate' => $vehicle->plate,
                     'cargo_capacity' => $vehicle->cargo_capacity,
+                        'ownership' => $vehicle->ownership,
                     'documents' => $this->mapDocuments($vehicle->documents),
                 ];
             })->values()->all(),
