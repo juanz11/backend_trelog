@@ -84,7 +84,7 @@ class ManifestController extends Controller
     public function updateStops(Request $request, Manifest $manifest): JsonResponse
     {
         $data = $request->validate([
-            'stops' => ['required', 'array', 'min:1'],
+            'stops' => ['required', 'array', 'min:0'],
             'stops.*.tracking_code' => ['required', 'string', 'max:100'],
             'stops.*.shipment_id' => ['nullable', 'integer', 'exists:shipments,id'],
         ]);
