@@ -80,6 +80,18 @@ class ManifestService
                 $code = $prefix.str_pad($last + 1, 4, '0', STR_PAD_LEFT);
             }
 
+            $done = Shipment::whereIn('tracking_number', $trackings)
+                ->whereIn('status', ['delivered', 'entregado', 'entregada', 'cancelled', 'cancelado', 'returned', 'devuelto'])
+                ->pluck('tracking_number')
+                ->all();
+
+            if ($done) {
+                abort(422, json_encode([
+                    'message' => 'Una o más guías ya fueron entregadas o canceladas y no pueden re-manifestarse.',
+                    'finalizadas' => array_values($done),
+                ]));
+            }
+
             $manifest = Manifest::create([
                 'code' => $code,
                 'status' => Manifest::STATUS_CREADO,
@@ -119,6 +131,18 @@ class ManifestService
                 abort(422, json_encode([
                     'message' => 'Una o más guías ya están asignadas a otro manifiesto abierto.',
                     'duplicadas' => array_values($busy),
+                ]));
+            }
+
+            $done = Shipment::whereIn('tracking_number', $trackings)
+                ->whereIn('status', ['delivered', 'entregado', 'entregada', 'cancelled', 'cancelado', 'returned', 'devuelto'])
+                ->pluck('tracking_number')
+                ->all();
+
+            if ($done) {
+                abort(422, json_encode([
+                    'message' => 'Una o más guías ya fueron entregadas o canceladas y no pueden re-manifestarse.',
+                    'finalizadas' => array_values($done),
                 ]));
             }
 
