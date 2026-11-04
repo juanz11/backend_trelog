@@ -35,7 +35,7 @@ class DashboardController extends Controller
             ->whereIn('status', $openStatuses)
             ->with('stops')
             ->orderByRaw("CASE status WHEN 'In progress' THEN 0 WHEN 'Pending' THEN 1 ELSE 2 END")
-            ->latest()
+            ->oldest()
             ->first();
 
         $stops = $activeRoute?->stops ?? collect();
