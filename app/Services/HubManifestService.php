@@ -224,6 +224,14 @@ class HubManifestService
         if (! $reason) {
             throw new ManifestException('SIN_MOTIVO', 'El ajuste requiere el motivo');
         }
+        $dup = $manifest->adjustments()
+            ->where('tracking_code', trim($code))
+            ->where('type', $type)
+            ->where('status', ManifestAdjustment::STATUS_PENDIENTE)
+            ->exists();
+        if ($dup) {
+            throw new ManifestException('AJUSTE_DUPLICADO', 'Ya existe un ajuste pendiente para este bulto y tipo');
+        }
 
         return $manifest->adjustments()->create([
             'tracking_code' => trim($code),
@@ -243,8 +251,17 @@ class HubManifestService
         if ($adjustment->status !== ManifestAdjustment::STATUS_PENDIENTE) {
             throw new ManifestException('AJUSTE_RESUELTO', 'El ajuste ya fue resuelto');
         }
-        if ($adjustment->registered_by && $adjustment->registered_by === $reviewer->id) {
-            throw new ManifestException('AJUSTE_PROPIO', 'No puedes resolver un ajuste que registraste tú');
+        $self = $adjustment->registered_by && $adjustment->registered_by === $reviewer->id;
+        $canApprove = $reviewer->hasPermissionTo('hub.adjustments.approve');
+        if ($approve) {
+            if (! $canApprove) {
+                throw new ManifestException('SIN_PERMISO', 'Solo un supervisor puede aprobar ajustes');
+            }
+            if ($self) {
+                throw new ManifestException('AJUSTE_PROPIO', 'No puedes aprobar un ajuste que registraste tú');
+            }
+        } elseif (! $canApprove && ! $self) {
+            throw new ManifestException('SIN_PERMISO', 'No puedes rechazar ajustes de otros usuarios');
         }
 
         $adjustment->update([

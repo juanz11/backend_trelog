@@ -197,7 +197,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/manifests/{manifest}/receive', [HubManifestController::class, 'receive'])->middleware('permission:hub.manage');
         Route::post('/manifests/{manifest}/dispatch', [HubManifestController::class, 'dispatchManifest'])->middleware('permission:hub.manage');
         Route::post('/manifests/{manifest}/adjustments', [HubManifestController::class, 'storeAdjustment'])->middleware('permission:hub.manage');
-        Route::post('/adjustments/{adjustment}/resolve', [HubManifestController::class, 'resolveAdjustment'])->middleware('permission:hub.adjustments.approve');
+        Route::post('/adjustments/{adjustment}/resolve', [HubManifestController::class, 'resolveAdjustment'])->middleware('permission:hub.manage');
+        Route::get('/my-scans', [HubManifestController::class, 'myScans'])->middleware('permission:hub.view');
     });
 });
 

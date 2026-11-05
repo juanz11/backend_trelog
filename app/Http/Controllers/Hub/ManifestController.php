@@ -6,6 +6,7 @@ use App\Exceptions\ManifestException;
 use App\Http\Controllers\Controller;
 use App\Models\Manifest;
 use App\Models\ManifestAdjustment;
+use App\Models\ManifestHubScan;
 use App\Services\HubManifestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -138,5 +139,28 @@ class ManifestController extends Controller
         );
 
         return response()->json($adjustment);
+    }
+
+    /** Bitácora propia del operario: escaneos registrados por el usuario actual. */
+    public function myScans(Request $request): JsonResponse
+    {
+        $scans = ManifestHubScan::where('scanned_by', $request->user()->id)
+            ->with('manifest:id,code,status')
+            ->orderByDesc('scanned_at')
+            ->limit(300)
+            ->get()
+            ->map(fn (ManifestHubScan $s) => [
+                'id' => $s->id,
+                'codigo' => $s->tracking_code,
+                'fase' => $s->phase,
+                'notas' => $s->notes,
+                'ubicacion' => $s->location,
+                'condicion' => $s->condition,
+                'fecha' => $s->scanned_at?->toISOString(),
+                'manifiestoId' => $s->manifest_id,
+                'manifiesto' => $s->manifest?->code,
+            ])->values();
+
+        return response()->json($scans);
     }
 }
