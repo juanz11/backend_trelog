@@ -5,11 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['dim_divisor', 'service_limits', 'service_rates', 'surcharges'])]
+#[Fillable(['dim_divisor', 'per_km', 'service_limits', 'service_rates', 'surcharges'])]
 class PricingConfig extends Model
 {
     public const DEFAULTS = [
         'dim_divisor' => 166,
+        'per_km' => 1,
         'service_limits' => [
             'Terrestre' => 130,
             'Consolidado' => 130,
@@ -35,6 +36,7 @@ class PricingConfig extends Model
     {
         return [
             'dim_divisor' => 'float',
+            'per_km' => 'float',
             'service_limits' => 'array',
             'service_rates' => 'array',
             'surcharges' => 'array',

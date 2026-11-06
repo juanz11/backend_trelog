@@ -17,6 +17,8 @@ class PricingConfigController extends Controller
     {
         $data = $request->validate([
             'dim_divisor' => 'required|numeric|min:1',
+            'per_km' => 'nullable|numeric|min:0',
+            'service_rates.*.per_km' => 'nullable|numeric|min:0',
             'service_limits' => 'nullable|array',
             'service_limits.*' => 'nullable|numeric|min:0',
             'service_rates' => 'nullable|array',

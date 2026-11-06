@@ -47,6 +47,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'charge_to_account',
     'invoice_number',
     'amount',
+    'distance_km',
     'invoiced_at',
 ])]
 class Shipment extends Model
@@ -58,6 +59,7 @@ class Shipment extends Model
             'assigned_at' => 'datetime',
             'invoiced_at' => 'datetime',
             'amount' => 'decimal:2',
+            'distance_km' => 'decimal:2',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];

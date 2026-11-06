@@ -95,6 +95,8 @@ class ShipmentController extends Controller
             'payment_bank' => 'nullable|string|max:255',
             'payment_reference' => 'nullable|string|max:255',
             'charge_to_account' => 'nullable|string|max:255',
+            'amount' => 'nullable|numeric|min:0',
+            'distance_km' => 'nullable|numeric|min:0',
         ]);
 
         $data['status'] = $data['status'] ?? 'pending';
@@ -120,7 +122,7 @@ class ShipmentController extends Controller
 
         // Factura provisional: monto aleatorio hasta definir la tabla de tarifas.
         $shipment->forceFill([
-            'amount' => mt_rand(2500, 30000) / 100,
+            'amount' => $data['amount'] ?? (mt_rand(2500, 30000) / 100),
             'invoice_number' => sprintf('REC-%s-%06d', now()->format('y'), $shipment->id),
             'invoiced_at' => now(),
         ])->save();
