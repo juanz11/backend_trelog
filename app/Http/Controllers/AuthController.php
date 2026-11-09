@@ -36,6 +36,8 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'email_verified_at' => now(),
+            'phone_verified_at' => now(),
         ]);
 
         // El rol nunca viene del request: todo registro público es `customer`.
@@ -90,6 +92,16 @@ class AuthController extends Controller
                 'success' => false,
                 'message' => 'account_suspended',
                 'error' => 'Account suspended',
+            ], 403);
+        }
+
+        // Clientes deben tener correo y teléfono verificados.
+        if ($user->hasAnyRole(['customer', 'executive_client']) && (is_null($user->email_verified_at) || is_null($user->phone_verified_at))) {
+            Auth::logout();
+            return response()->json([
+                'success' => false,
+                'message' => 'unverified_account',
+                'error' => 'Debes verificar tu correo y teléfono antes de iniciar sesión.',
             ], 403);
         }
 

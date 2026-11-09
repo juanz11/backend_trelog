@@ -99,6 +99,11 @@ class ShipmentController extends Controller
             'distance_km' => 'nullable|numeric|min:0',
         ]);
 
+        $user = $request->user();
+        if ($user->hasAnyRole(['customer', 'executive_client']) && (is_null($user->email_verified_at) || is_null($user->phone_verified_at))) {
+            return response()->json(['message' => 'Debes verificar tu correo y teléfono antes de crear envíos.'], 403);
+        }
+
         $data['status'] = $data['status'] ?? 'pending';
         $data['user_id'] = $request->user()->id;
 
