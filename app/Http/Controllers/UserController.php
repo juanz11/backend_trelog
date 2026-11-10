@@ -176,14 +176,25 @@ class UserController extends Controller
         if ($request->has('name')) {
             $user->name = $request->name;
         }
+        $vcode = null;
         if ($request->has('email')) {
-            $user->email = $request->email;
+            if ($request->email !== $user->email) {
+                $user->pending_email = $request->email;
+                $vcode = (string) random_int(100000, 999999);
+                $user->verification_code = $vcode;
+            } else {
+                $user->email = $request->email;
+            }
         }
         if ($request->has('company')) {
             $user->company = $request->company;
         }
         if ($request->has('phone')) {
-            $user->phone = $request->phone;
+            if ($request->phone !== $user->phone) {
+                $user->pending_phone = $request->phone;
+            } else {
+                $user->phone = $request->phone;
+            }
         }
         if ($request->has('password')) {
             $user->password = Hash::make($request->password);
@@ -197,9 +208,18 @@ class UserController extends Controller
 
         $user->save();
 
+        $requiresVerification = $user->pending_email || $user->pending_phone;
+        if ($user->pending_email && $vcode) {
+            \Illuminate\Support\Facades\Mail::to($user->pending_email)->send(new \App\Mail\VerificationCodeMail($vcode));
+        }
+
         return response()->json([
             'success' => true,
             'user' => $user->load('roles'),
+            'requires_verification' => $requiresVerification,
+            'verify_email' => $user->pending_email,
+            'verify_phone' => (bool) $user->pending_phone,
+            'code' => $vcode,
         ]);
     }
 

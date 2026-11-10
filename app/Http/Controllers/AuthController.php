@@ -22,6 +22,7 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
+            'phone' => 'nullable|string|max:25',
             'password' => 'required|string|regex:/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/',
         ]);
 
@@ -35,9 +36,8 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
+            'phone' => $request->phone,
             'password' => Hash::make($request->password),
-            'email_verified_at' => now(),
-            'phone_verified_at' => now(),
         ]);
 
         // El rol nunca viene del request: todo registro público es `customer`.
@@ -47,13 +47,116 @@ class AuthController extends Controller
             $user->assignRole($role);
         }
 
+        $code = (string) random_int(100000, 999999);
+        $user->update(['verification_code' => $code]);
+        \Illuminate\Support\Facades\Log::info("Código de verificación para {$user->email}: {$code}");
+        \Illuminate\Support\Facades\Mail::to($user)->send(new \App\Mail\VerificationCodeMail($code));
+
+        return response()->json([
+            'success' => true,
+            'requires_verification' => true,
+            'email' => $user->email,
+            'verification_code' => $code,
+        ], 201);
+    }
+
+    /**
+     * Verify account code
+     */
+    public function verifyCode(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'code' => 'required|string|size:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = User::where('verification_code', $request->code)
+            ->where(function ($q) use ($request) {
+                $q->where('email', $request->email)->orWhere('pending_email', $request->email);
+            })
+            ->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'invalid_code',
+                'error' => 'Código de verificación inválido.',
+            ], 403);
+        }
+
+        $updates = [
+            'email_verified_at' => now(),
+            'verification_code' => null,
+        ];
+        if ($user->pending_email && $user->pending_email === $request->email) {
+            $updates['email'] = $user->pending_email;
+            $updates['pending_email'] = null;
+        }
+        $user->update($updates);
+
+        return response()->json([
+            'success' => true,
+            'email_verified' => true,
+        ]);
+    }
+
+    /**
+     * Verify phone code (placeholder: acepta '1234')
+     */
+    public function verifyPhone(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'code' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if ($request->code !== '1234') {
+            return response()->json([
+                'success' => false,
+                'message' => 'invalid_code',
+                'error' => 'Código de verificación inválido.',
+            ], 403);
+        }
+
+        $user = User::where('email', $request->email)
+            ->orWhere('pending_email', $request->email)
+            ->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'account_not_found',
+            ], 404);
+        }
+
+        $pupdates = ['phone_verified_at' => now()];
+        if ($user->pending_phone) {
+            $pupdates['phone'] = $user->pending_phone;
+            $pupdates['pending_phone'] = null;
+        }
+        $user->update($pupdates);
+
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([
             'success' => true,
-            'user' => $user,
+            'user' => $user->load('roles'),
             'token' => $token,
-        ], 201);
+        ]);
     }
 
     /**
@@ -98,9 +201,15 @@ class AuthController extends Controller
         // Clientes deben tener correo y teléfono verificados.
         if ($user->hasAnyRole(['customer', 'executive_client']) && (is_null($user->email_verified_at) || is_null($user->phone_verified_at))) {
             Auth::logout();
+            $vcode = $user->verification_code ?: (string) random_int(100000, 999999);
+            if (!$user->verification_code) {
+                $user->update(['verification_code' => $vcode]);
+            }
+            \Illuminate\Support\Facades\Mail::to($user)->send(new \App\Mail\VerificationCodeMail($vcode));
             return response()->json([
                 'success' => false,
                 'message' => 'unverified_account',
+                'code' => $vcode,
                 'error' => 'Debes verificar tu correo y teléfono antes de iniciar sesión.',
             ], 403);
         }
