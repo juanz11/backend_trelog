@@ -48,6 +48,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'invoice_number',
     'amount',
     'distance_km',
+    'prohibited_declared_at',
+    'prohibited_list_version',
+    'prohibited_ip',
     'invoiced_at',
 ])]
 class Shipment extends Model
@@ -60,6 +63,7 @@ class Shipment extends Model
             'invoiced_at' => 'datetime',
             'amount' => 'decimal:2',
             'distance_km' => 'decimal:2',
+            'prohibited_declared_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
@@ -93,6 +97,11 @@ class Shipment extends Model
     public function packageItems(): HasMany
     {
         return $this->hasMany(ShipmentPackage::class);
+    }
+
+    public function legalAcceptances(): HasMany
+    {
+        return $this->hasMany(LegalAcceptance::class);
     }
 
     /**

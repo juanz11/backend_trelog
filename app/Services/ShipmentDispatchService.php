@@ -18,7 +18,7 @@ class ShipmentDispatchService
     /**
      * Statuses that take a shipment out of the driver's active workload.
      */
-    public const CLOSED_STATUSES = ['delivered', 'cancelled'];
+    public const CLOSED_STATUSES = ['delivered', 'cancelled', 'returned'];
 
     /**
      * Assign (or unassign) a driver and keep the driver route in sync.

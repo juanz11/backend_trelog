@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\Driver\ManifestController as DriverManifestControll
 use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\TransferRequestController;
 use App\Http\Controllers\Hub\ManifestController as HubManifestController;
+use App\Http\Controllers\LegalDocumentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -67,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/alerts', [AlertController::class, 'index'])->middleware('permission:reports.view_ops');
     Route::get('/notifications', [AlertController::class, 'mine']);
     Route::post('/notifications/{id}/read', [AlertController::class, 'markRead']);
+    Route::get('/legal-documents/{type}/active', [LegalDocumentController::class, 'active']);
     Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.manage');
     Route::post('/drivers', [DriverController::class, 'store'])->middleware('permission:drivers.manage');
     Route::patch('/drivers/{user}', [DriverController::class, 'update'])->middleware('permission:drivers.manage');

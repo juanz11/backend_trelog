@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Incident;
+use App\Models\LegalAcceptance;
+use App\Models\LegalDocument;
 use App\Models\Shipment;
 use App\Models\ShipmentPackage;
 use App\Models\ShipmentRequest;
@@ -10,6 +12,8 @@ use App\Models\User;
 use App\Services\ShipmentDispatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ShipmentController extends Controller
 {
@@ -81,6 +85,7 @@ class ShipmentController extends Controller
             'packages.*.length_cm' => 'nullable|numeric|min:0',
             'packages.*.width_cm' => 'nullable|numeric|min:0',
             'packages.*.height_cm' => 'nullable|numeric|min:0',
+            'packages.*.fragile' => 'nullable|boolean',
             'packages.*.dimensions' => 'nullable|string|max:255',
             'packages.*.declared_value' => 'nullable|string|max:255',
             'packages.*.content' => 'nullable|string',
@@ -97,6 +102,8 @@ class ShipmentController extends Controller
             'charge_to_account' => 'nullable|string|max:255',
             'amount' => 'nullable|numeric|min:0',
             'distance_km' => 'nullable|numeric|min:0',
+            'prohibited_accepted' => 'required|accepted',
+            'prohibited_document_id' => 'required|integer|exists:legal_documents,id',
         ]);
 
         $user = $request->user();
@@ -104,14 +111,41 @@ class ShipmentController extends Controller
             return response()->json(['message' => 'Debes verificar tu correo y teléfono antes de crear envíos.'], 403);
         }
 
+        $prohibitedDoc = LegalDocument::find($data['prohibited_document_id']);
+        if (!$prohibitedDoc || $prohibitedDoc->type !== 'prohibited_items' || !$prohibitedDoc->is_active) {
+            return response()->json([
+                'message' => 'La lista de artículos prohibidos fue actualizada. Vuelve a revisarla y aceptarla.',
+                'errors' => [
+                    'prohibited_document_id' => ['La lista de artículos prohibidos fue actualizada. Vuelve a revisarla y aceptarla.'],
+                ],
+            ], 422);
+        }
+
         $data['status'] = $data['status'] ?? 'pending';
         $data['user_id'] = $request->user()->id;
+        $data['prohibited_declared_at'] = now();
+        $data['prohibited_list_version'] = $prohibitedDoc->version;
+        $data['prohibited_ip'] = $request->ip();
 
         $packages = $data['packages'] ?? [];
-        unset($data['packages']);
+        unset($data['packages'], $data['prohibited_accepted'], $data['prohibited_document_id']);
 
-        $shipment = Shipment::create($data);
-        $this->syncPackages($shipment, is_array($packages) ? $packages : []);
+        $shipment = DB::transaction(function () use ($data, $packages, $prohibitedDoc, $request) {
+            $shipment = Shipment::create($data);
+            $this->syncPackages($shipment, is_array($packages) ? $packages : []);
+
+            LegalAcceptance::create([
+                'user_id' => $request->user()->id,
+                'legal_document_id' => $prohibitedDoc->id,
+                'shipment_id' => $shipment->id,
+                'accepted_at' => $data['prohibited_declared_at'],
+                'ip' => $request->ip(),
+                'user_agent' => Str::limit((string) $request->userAgent(), 509, '...'),
+                'content_hash' => $prohibitedDoc->content_hash,
+            ]);
+
+            return $shipment;
+        });
 
         // Same-day shipments open a priority request for the client so it
         // lands in operations → Solicitudes (handled like the old driver flow).
@@ -188,6 +222,7 @@ class ShipmentController extends Controller
             'packages.*.length_cm' => 'nullable|numeric|min:0',
             'packages.*.width_cm' => 'nullable|numeric|min:0',
             'packages.*.height_cm' => 'nullable|numeric|min:0',
+            'packages.*.fragile' => 'nullable|boolean',
             'packages.*.dimensions' => 'nullable|string|max:255',
             'packages.*.declared_value' => 'nullable|string|max:255',
             'packages.*.content' => 'nullable|string',
