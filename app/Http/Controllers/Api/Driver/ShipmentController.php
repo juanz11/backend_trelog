@@ -159,6 +159,8 @@ class ShipmentController extends Controller
             'weight' => $shipment->weight,
             'status' => $shipment->status,
             'notes' => $shipment->notes,
+            'fragile' => collect($shipment->packages ?: [])->contains(fn ($p) => ! empty($p['fragile'])),
+            'packages' => $shipment->packages ?: [],
             'client_name' => $shipment->client?->name,
             'driver_id' => $shipment->driver_id,
             'assigned_at' => $shipment->assigned_at?->toIso8601String(),

@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'volume_m3',
     'declared_value',
     'content',
+    'fragile',
 ])]
 class ShipmentPackage extends Model
 {
@@ -36,6 +37,7 @@ class ShipmentPackage extends Model
             'height_cm' => 'float',
             'volume_m3' => 'float',
             'declared_value' => 'float',
+            'fragile' => 'boolean',
         ];
     }
 

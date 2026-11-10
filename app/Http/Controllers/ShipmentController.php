@@ -341,6 +341,7 @@ class ShipmentController extends Controller
                 'volume_m3' => ShipmentPackage::volumeM3($length, $width, $height),
                 'declared_value' => isset($pkg['declared_value']) && is_numeric($pkg['declared_value']) ? (float) $pkg['declared_value'] : null,
                 'content' => $pkg['content'] ?? null,
+                'fragile' => filter_var($pkg['fragile'] ?? false, FILTER_VALIDATE_BOOLEAN),
             ];
 
             $shipment->packageItems()->create($row);
