@@ -34,7 +34,7 @@ class ShipmentController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        $shipments = $query->with(['driver.driverProfile', 'manifestDetail.manifest'])->orderByDesc('created_at')->get();
+        $shipments = $query->with(['driver.driverProfile', 'manifestDetail.manifest', 'stop'])->orderByDesc('created_at')->get();
 
         // Add parsed tracking data to each shipment and reflect open incidents
         $shipments->transform(function ($shipment) {
@@ -175,7 +175,7 @@ class ShipmentController extends Controller
 
         $this->authorize('view', $shipment);
 
-        $shipment->load('driver.driverProfile', 'client', 'manifestDetail.manifest');
+        $shipment->load('driver.driverProfile', 'client', 'manifestDetail.manifest', 'stop');
         $shipment->parsed_tracking = $shipment->getParsedTracking();
         $shipment->tracking_url = $shipment->getTrackingUrl();
 

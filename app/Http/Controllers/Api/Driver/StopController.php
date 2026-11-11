@@ -37,6 +37,11 @@ class StopController extends Controller
         unset($data['photo'], $data['signature']);
 
         $stop->update(array_merge($data, ['state' => 'Done']));
+
+        if ($stop->type === 'Pickup' && $stop->shipment) {
+            app(\App\Services\ShipmentNotificationService::class)->notify($stop->shipment, 'picked_up');
+        }
+
         $this->syncShipmentStatus($stop, $stop->type === 'Pickup' ? 'in_transit' : 'delivered');
         $this->dispatch->refreshRouteProgress($stop->route_id);
 

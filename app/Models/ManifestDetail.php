@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class ManifestDetail extends Model
 {
@@ -21,6 +22,8 @@ class ManifestDetail extends Model
         'evidence_path', 'evidence_url', 'capture_via', 'lat', 'lng', 'gps_accuracy',
     ];
 
+    protected $appends = ['pod_url'];
+
     protected function casts(): array
     {
         return [
@@ -29,6 +32,15 @@ class ManifestDetail extends Model
             'lng' => 'float',
             'gps_accuracy' => 'float',
         ];
+    }
+
+    public function getPodUrlAttribute(): ?string
+    {
+        if ($this->evidence_url) {
+            return $this->evidence_url;
+        }
+
+        return $this->evidence_path ? Storage::url($this->evidence_path) : null;
     }
 
     public function manifest(): BelongsTo
