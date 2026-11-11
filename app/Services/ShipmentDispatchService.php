@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\DeliveryRoute;
+use App\Models\PricingConfig;
 use App\Models\RouteAuditLog;
 use App\Models\RouteStop;
 use App\Models\Shipment;
@@ -19,6 +20,11 @@ class ShipmentDispatchService
      * Statuses that take a shipment out of the driver's active workload.
      */
     public const CLOSED_STATUSES = ['delivered', 'cancelled', 'returned'];
+
+    /**
+     * Statuses that count as a shipment cancellation (ES + EN variants).
+     */
+    public const CANCELLED_STATUSES = ['cancelled', 'cancelado'];
 
     /**
      * Assign (or unassign) a driver and keep the driver route in sync.
@@ -48,8 +54,11 @@ class ShipmentDispatchService
      */
     public function applyStatus(Shipment $shipment, string $status, ?string $notes = null): Shipment
     {
-        DB::transaction(function () use ($shipment, $status, $notes) {
+        $previous = (string) $shipment->status;
+
+        DB::transaction(function () use ($shipment, $status, $notes, $previous) {
             $shipment->update(['status' => $status]);
+            $this->syncCancellationFee($shipment, $previous, $status);
 
             $driver = $shipment->driver;
             if (! $driver) {
@@ -155,6 +164,49 @@ class ShipmentDispatchService
             'status' => 'Pending',
             'vehicle' => $driver->driverProfile?->vehicle,
         ]);
+    }
+
+    /**
+     * Charge the cancellation / late-cancellation (recobro) fee when a
+     * shipment enters a cancelled status, and clear it if it leaves one.
+     * Percentages, window and tolerance always come from the admin
+     * pricing configuration — never hardcoded.
+     */
+    private function syncCancellationFee(Shipment $shipment, string $previous, string $status): void
+    {
+        $wasCancelled = in_array($previous, self::CANCELLED_STATUSES, true);
+        $isCancelled = in_array($status, self::CANCELLED_STATUSES, true);
+
+        if ($isCancelled && ! $wasCancelled && $shipment->cancelled_at === null) {
+            $policy = PricingConfig::current()->cancellationPolicy();
+
+            $windowMinutes = $policy['window_hours'] * 60 + $policy['tolerance_minutes'];
+            $elapsedMinutes = $shipment->created_at
+                ? (float) $shipment->created_at->diffInMinutes(now())
+                : INF;
+
+            $percent = $elapsedMinutes <= $windowMinutes
+                ? $policy['percent']
+                : $policy['recobro_percent'];
+
+            $shipment->forceFill([
+                'cancelled_at' => now(),
+                'cancel_fee_percent' => $percent,
+                'cancel_fee' => is_numeric($shipment->amount)
+                    ? round(((float) $shipment->amount) * $percent / 100, 2)
+                    : null,
+            ])->save();
+
+            return;
+        }
+
+        if ($wasCancelled && ! $isCancelled) {
+            $shipment->forceFill([
+                'cancelled_at' => null,
+                'cancel_fee' => null,
+                'cancel_fee_percent' => null,
+            ])->save();
+        }
     }
 
     /**

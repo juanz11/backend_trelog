@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['dim_divisor', 'per_km', 'service_limits', 'service_rates', 'surcharges'])]
+#[Fillable(['dim_divisor', 'per_km', 'service_limits', 'service_rates', 'surcharges', 'policies'])]
 class PricingConfig extends Model
 {
     public const DEFAULTS = [
@@ -30,6 +30,14 @@ class PricingConfig extends Model
             'express' => ['type' => 'percent', 'value' => 15],
             'same_day' => ['type' => 'percent', 'value' => 30],
         ],
+        'policies' => [
+            'cancellation' => [
+                'percent' => 5,
+                'recobro_percent' => 30,
+                'window_hours' => 72,
+                'tolerance_minutes' => 0,
+            ],
+        ],
     ];
 
     protected function casts(): array
@@ -40,6 +48,7 @@ class PricingConfig extends Model
             'service_limits' => 'array',
             'service_rates' => 'array',
             'surcharges' => 'array',
+            'policies' => 'array',
         ];
     }
 
@@ -57,5 +66,22 @@ class PricingConfig extends Model
         }
 
         return $config;
+    }
+
+    /**
+     * Cancellation / late-cancellation (recobro) policy, always resolved
+     * against DEFAULTS so missing keys never break the fee calculation.
+     */
+    public function cancellationPolicy(): array
+    {
+        $defaults = self::DEFAULTS['policies']['cancellation'];
+        $policy = $this->policies['cancellation'] ?? [];
+
+        return [
+            'percent' => (float) ($policy['percent'] ?? $defaults['percent']),
+            'recobro_percent' => (float) ($policy['recobro_percent'] ?? $defaults['recobro_percent']),
+            'window_hours' => (float) ($policy['window_hours'] ?? $defaults['window_hours']),
+            'tolerance_minutes' => (float) ($policy['tolerance_minutes'] ?? $defaults['tolerance_minutes']),
+        ];
     }
 }

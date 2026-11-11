@@ -52,6 +52,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'prohibited_list_version',
     'prohibited_ip',
     'invoiced_at',
+    'cancelled_at',
+    'cancel_fee',
+    'cancel_fee_percent',
 ])]
 class Shipment extends Model
 {
@@ -61,6 +64,9 @@ class Shipment extends Model
             'packages' => 'array',
             'assigned_at' => 'datetime',
             'invoiced_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'cancel_fee' => 'decimal:2',
+            'cancel_fee_percent' => 'decimal:2',
             'amount' => 'decimal:2',
             'distance_km' => 'decimal:2',
             'prohibited_declared_at' => 'datetime',

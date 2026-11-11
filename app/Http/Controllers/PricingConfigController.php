@@ -27,6 +27,11 @@ class PricingConfigController extends Controller
             'surcharges' => 'nullable|array',
             'surcharges.*.type' => 'nullable|string|in:percent,fixed',
             'surcharges.*.value' => 'nullable|numeric|min:0',
+            'policies' => 'nullable|array',
+            'policies.cancellation.percent' => 'nullable|numeric|min:0|max:100',
+            'policies.cancellation.recobro_percent' => 'nullable|numeric|min:0|max:100',
+            'policies.cancellation.window_hours' => 'nullable|numeric|min:0',
+            'policies.cancellation.tolerance_minutes' => 'nullable|numeric|min:0',
         ]);
 
         $config = PricingConfig::current();
