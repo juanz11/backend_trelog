@@ -15,6 +15,7 @@ use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\CompanyVehicleController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\IncidentAdminController;
 use App\Http\Controllers\AuditFileController;
@@ -72,6 +73,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.manage');
     Route::post('/drivers', [DriverController::class, 'store'])->middleware('permission:drivers.manage');
     Route::patch('/drivers/{user}', [DriverController::class, 'update'])->middleware('permission:drivers.manage');
+    Route::prefix('company-vehicles')->middleware('permission:drivers.manage')->group(function () {
+        Route::get('/', [CompanyVehicleController::class, 'index']);
+        Route::post('/', [CompanyVehicleController::class, 'store']);
+        Route::put('/{companyVehicle}', [CompanyVehicleController::class, 'update']);
+        Route::delete('/{companyVehicle}', [CompanyVehicleController::class, 'destroy']);
+    });
     Route::get('/documents/pending', [DocumentController::class, 'pending'])->middleware('permission:drivers.manage');
     Route::post('/documents/{document}/review', [DocumentController::class, 'review'])->middleware('permission:drivers.manage');
     Route::get('/incidents', [IncidentAdminController::class, 'index'])->middleware('permission:incidents.view');

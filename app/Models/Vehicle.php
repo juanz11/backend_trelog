@@ -7,12 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
-#[Fillable(['driver_profile_id', 'label', 'plate', 'cargo_capacity', 'ownership'])]
+#[Fillable(['driver_profile_id', 'label', 'plate', 'cargo_capacity', 'ownership', 'company_vehicle_id'])]
 class Vehicle extends Model
 {
     public function driverProfile(): BelongsTo
     {
         return $this->belongsTo(DriverProfile::class);
+    }
+
+    public function companyVehicle(): BelongsTo
+    {
+        return $this->belongsTo(CompanyVehicle::class);
     }
 
     public function documents(): MorphMany
