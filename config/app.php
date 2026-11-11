@@ -65,6 +65,7 @@ return [
     */
 
     'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://localhost') . ':3000'),
+    'tracking_url' => env('TRACKING_URL', 'https://track.tr3slog.com'),
 
     /*
     |--------------------------------------------------------------------------

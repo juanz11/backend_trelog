@@ -232,6 +232,25 @@ Route::prefix('app')->group(function () {
 
     Route::post('/quotes', [ApiQuoteController::class, 'store'])->middleware('throttle:20,1');
     Route::get('/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track'])->middleware('throttle:60,1');
+    Route::get('/shipments/track/{tracking_number}', function ($tracking) {
+        $s = \App\Models\Shipment::where('tracking_number', $tracking)->first();
+        if (!$s) {
+            return response()->json(['success' => false, 'message' => 'not_found'], 404);
+        }
+        return response()->json([
+            'success' => true,
+            'shipment' => [
+                'tracking_number' => $s->tracking_number,
+                'status' => $s->status,
+                'origin' => $s->origin,
+                'destination' => $s->destination,
+                'service_type' => $s->service_type,
+                'recipient_name' => $s->recipient_name,
+                'created_at' => $s->created_at,
+                'updated_at' => $s->updated_at,
+            ],
+        ]);
+    })->middleware('throttle:60,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/user', [ApiAuthController::class, 'user']);
