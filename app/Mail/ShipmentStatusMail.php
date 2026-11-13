@@ -52,7 +52,7 @@ class ShipmentStatusMail extends Mailable
                 'eventLabel' => $label,
                 'clientName' => $shipment->client?->name ?: $shipment->sender_name ?: 'cliente',
                 'body' => $this->body($shipment),
-                'trackingUrl' => $shipment->getTrackingUrl(),
+                'trackingUrl' => $this->trackingUrl($shipment),
             ],
         );
     }
@@ -60,6 +60,18 @@ class ShipmentStatusMail extends Mailable
     public function attachments(): array
     {
         return [];
+    }
+
+    /**
+     * Cancelled shipments are not traceable — the tracking CTA is hidden.
+     */
+    private function trackingUrl(Shipment $shipment): ?string
+    {
+        if (in_array($shipment->status, ['cancelled', 'cancelado'], true)) {
+            return null;
+        }
+
+        return $shipment->getTrackingUrl();
     }
 
     private function body(Shipment $shipment): string

@@ -118,6 +118,25 @@ class ShipmentStatusMailTest extends TestCase
         $this->assertEventSent('in_transit');
     }
 
+    public function test_cancelled_shipment_email_has_no_tracking_link(): void
+    {
+        $shipment = $this->makeShipment(['status' => 'cancelled']);
+
+        $html = (new ShipmentStatusMail($shipment->fresh(), 'recobro_requested'))->render();
+
+        $this->assertStringNotContainsString('Rastrear envío', $html);
+        $this->assertStringNotContainsString($shipment->getTrackingUrl(), $html);
+    }
+
+    public function test_active_shipment_email_keeps_tracking_link(): void
+    {
+        $shipment = $this->makeShipment(['status' => 'in_transit']);
+
+        $html = (new ShipmentStatusMail($shipment->fresh(), 'in_transit'))->render();
+
+        $this->assertStringContainsString('Rastrear envío', $html);
+    }
+
     public function test_delivery_stop_does_not_send_picked_up(): void
     {
         Mail::fake();

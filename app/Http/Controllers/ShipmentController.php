@@ -355,6 +355,53 @@ class ShipmentController extends Controller
         $shipment->update(['packages' => $normalized]);
     }
 
+    /**
+     * Cancel shipment (owner requests cancellation).
+     */
+    public function cancel(Request $request, $id)
+    {
+        $shipment = Shipment::find($id);
+
+        if (!$shipment) {
+            return response()->json(['success' => false, 'message' => 'not_found'], 404);
+        }
+
+        $user = $request->user();
+        if ($shipment->user_id !== $user->id && !$user->hasAnyRole(['admin', 'operations', 'ops_supervisor'])) {
+            return response()->json(['success' => false, 'message' => 'forbidden'], 403);
+        }
+
+        if (in_array($shipment->status, ['delivered', 'entregado', 'entregada'], true)) {
+            return response()->json(['success' => false, 'message' => 'delivered_shipment_cannot_be_cancelled'], 422);
+        }
+        if (in_array($shipment->status, ['cancelled', 'cancelado', 'cancel_requested'], true)) {
+            return response()->json(['success' => false, 'message' => 'already_cancelled'], 409);
+        }
+
+        $transit = in_array($shipment->status, ['in_transit', 'transit', 'out_for_delivery'], true);
+
+        if ($transit) {
+            // En tránsito: queda como solicitud para Operations
+            $shipment->update(['status' => 'cancel_requested']);
+            $inc = new Incident();
+            $inc->ship = $shipment->tracking_number;
+            $inc->type = 'Solicitud de cancelación';
+            $inc->severity = 'alta';
+            $inc->status = 'open';
+            $inc->driver = $shipment->driver?->name;
+            $inc->save();
+        } else {
+            // Pendiente/asignado: cancelación directa
+            $shipment->update(['status' => 'cancelled']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => $shipment->status,
+            'message' => $transit ? 'cancel_requested' : 'cancelled',
+        ]);
+    }
+
     private function hasOpenIncident(Shipment $shipment): bool
     {
         return Incident::where(function ($query) use ($shipment) {
