@@ -114,7 +114,7 @@ class Manifest extends Model
     /** Serialización alineada con el contrato del frontend/mock API. */
     public function toApi(): array
     {
-        $this->loadMissing(['details.shipment', 'transferRequests', 'driver', 'vehicle']);
+        $this->loadMissing(['details.shipment', 'transferRequests', 'driver.driverProfile', 'vehicle']);
 
         return [
             'id' => $this->id,
@@ -126,6 +126,7 @@ class Manifest extends Model
                 'nombre' => $this->driver->name,
                 'telefono' => $this->driver->phone,
                 'email' => $this->driver->email,
+                'documento' => $this->driver->driverProfile?->driver_id,
             ] : null,
             'vehiculo' => $this->vehicle ? [
                 'id' => $this->vehicle->id,

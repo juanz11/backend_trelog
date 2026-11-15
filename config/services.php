@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'firebase' => [
+        'project_id' => env('FIREBASE_PROJECT_ID', 'tr3slog'),
+        'credentials' => env('FIREBASE_CREDENTIALS'),
+    ],
+
 ];

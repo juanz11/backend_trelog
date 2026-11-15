@@ -39,6 +39,25 @@
               @if($trackingUrl)
                 <a href="{{ $trackingUrl }}" style="display:inline-block;padding:14px 28px;background:#087CF0;border-radius:11px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;">Rastrear envío</a>
               @endif
+
+              @if($packageDetails ?? null)
+                <div style="margin-top:22px;padding:16px 18px;background:#F4F8FD;border:1px solid #DCE6F5;border-radius:12px;text-align:left;font-size:13px;color:#33475B;line-height:1.7;">
+                  <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6C82A6;margin-bottom:8px;font-weight:700;">Detalles del paquete</div>
+                  @if($packageDetails['pieces'])<div><b>Piezas:</b> {{ $packageDetails['pieces'] }}</div>@endif
+                  @if($packageDetails['weight'])<div><b>Peso:</b> {{ $packageDetails['weight'] }} kg</div>@endif
+                  @if($packageDetails['dimensions'])<div><b>Dimensiones:</b> {{ $packageDetails['dimensions'] }}</div>@endif
+                  @if($packageDetails['content'])<div><b>Contenido:</b> {{ $packageDetails['content'] }}</div>@endif
+                  @if($packageDetails['declared_value'])<div><b>Valor declarado:</b> ${{ number_format((float) $packageDetails['declared_value'], 2) }}</div>@endif
+                  @if(is_numeric($packageDetails['cancel_fee'] ?? null) && (float) $packageDetails['cancel_fee'] > 0)<div style="margin-top:8px;color:#A93226;font-weight:700;"><b>Monto a cobrar:</b> ${{ number_format((float) $packageDetails['cancel_fee'], 2) }}</div>@endif
+                  <div style="margin-top:10px;color:#6C82A6;font-size:12px;">
+                    @if($packageDetails['is_return'] ?? false)
+                      El paquete fue devuelto a nuestro centro de operaciones. Si deseas reprogramar la entrega o retirarlo, contáctanos indicando tu número de guía.
+                    @else
+                      Para completar la devolución del paquete, nuestro equipo se pondrá en contacto contigo con las instrucciones de pago y entrega.
+                    @endif
+                  </div>
+                </div>
+              @endif
             </td>
           </tr>
           <tr>

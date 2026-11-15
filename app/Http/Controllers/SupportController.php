@@ -56,6 +56,13 @@ class SupportController extends Controller
     {
         $this->authorize('view', $ticket);
 
+        if ($request->user()->hasAnyRole(['admin', 'operations', 'ops_supervisor', 'customer_support', 'hub_operation', 'hub_supervisor'])) {
+            $changes = [];
+            if (! $ticket->viewed_at) $changes['viewed_at'] = now();
+            if (! $ticket->reviewed_at && in_array($ticket->status, ['pending', 'resolved', 'closed'], true)) $changes['reviewed_at'] = now();
+            if ($changes) $ticket->update($changes);
+        }
+
         return response()->json($ticket->load('user'));
     }
 
@@ -66,6 +73,10 @@ class SupportController extends Controller
         $data = $request->validate([
             'status' => 'sometimes|in:open,pending,resolved,closed',
         ]);
+
+        if (($data['status'] ?? null) && $data['status'] !== 'open' && ! $ticket->reviewed_at) {
+            $data['reviewed_at'] = now();
+        }
 
         $ticket->update($data);
 

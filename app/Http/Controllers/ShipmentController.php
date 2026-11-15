@@ -34,12 +34,14 @@ class ShipmentController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        $shipments = $query->with(['driver.driverProfile', 'manifestDetail.manifest', 'stop'])->orderByDesc('created_at')->get();
+        $shipments = $query->with(['driver.driverProfile', 'manifestDetail.manifest', 'stop', 'client'])->orderByDesc('created_at')->get();
 
         // Add parsed tracking data to each shipment and reflect open incidents
         $shipments->transform(function ($shipment) {
             $shipment->parsed_tracking = $shipment->getParsedTracking();
             $shipment->tracking_url = $shipment->getTrackingUrl();
+            $shipment->cancel_preview = $this->dispatch->cancellationStage($shipment);
+            $this->withClientMeta($shipment);
 
             if ($this->hasOpenIncident($shipment)) {
                 $shipment->status = 'incident';
@@ -166,6 +168,8 @@ class ShipmentController extends Controller
             'invoiced_at' => now(),
         ])->save();
 
+        $this->withClientMeta($shipment);
+
         return response()->json($shipment, 201);
     }
 
@@ -178,6 +182,8 @@ class ShipmentController extends Controller
         $shipment->load('driver.driverProfile', 'client', 'manifestDetail.manifest', 'stop');
         $shipment->parsed_tracking = $shipment->getParsedTracking();
         $shipment->tracking_url = $shipment->getTrackingUrl();
+        $shipment->cancel_preview = $this->dispatch->cancellationStage($shipment);
+        $this->withClientMeta($shipment);
 
         if ($this->hasOpenIncident($shipment)) {
             $shipment->status = 'incident';
@@ -367,7 +373,8 @@ class ShipmentController extends Controller
         }
 
         $user = $request->user();
-        if ($shipment->user_id !== $user->id && !$user->hasAnyRole(['admin', 'operations', 'ops_supervisor'])) {
+        $isStaff = $user->hasAnyRole(['admin', 'administrative', 'finance', 'operations', 'ops_supervisor']);
+        if ($shipment->user_id !== $user->id && ! $isStaff) {
             return response()->json(['success' => false, 'message' => 'forbidden'], 403);
         }
 
@@ -378,21 +385,38 @@ class ShipmentController extends Controller
             return response()->json(['success' => false, 'message' => 'already_cancelled'], 409);
         }
 
-        $transit = in_array($shipment->status, ['in_transit', 'transit', 'out_for_delivery'], true);
+        $preview = $this->dispatch->cancellationStage($shipment->loadMissing('manifestDetail.manifest'));
+        if (! $preview['cancellable']) {
+            return response()->json(['success' => false, 'message' => 'shipment_left_hub'], 422);
+        }
+
+        // Staff cancels directly with the stage fee; a client's request while
+        // the shipment is moving still goes to Operations for review.
+        $transit = ! $isStaff && in_array($shipment->status, ['picked_up', 'in_transit', 'transit', 'out_for_delivery'], true);
 
         if ($transit) {
             // En tránsito: queda como solicitud para Operations
             $shipment->update(['status' => 'cancel_requested']);
             $inc = new Incident();
             $inc->ship = $shipment->tracking_number;
-            $inc->type = 'Solicitud de cancelación';
-            $inc->severity = 'alta';
+            $inc->title = 'Solicitud de cancelación';
+            $inc->category = 'cancel';
+            $inc->severity = 'high';
             $inc->status = 'open';
-            $inc->driver = $shipment->driver?->name;
+            $inc->driver_id = $shipment->driver_id ?? $request->user()->id;
+            $inc->code = 'INC-' . strtoupper(Str::random(6));
             $inc->save();
+
+            if ($shipment->driver_id) {
+                app(\App\Services\DriverNotificationService::class)->send(
+                    $shipment->driver_id,
+                    'Cancelación solicitada',
+                    "El cliente solicitó cancelar el envío {$shipment->tracking_number}. Espera indicaciones de operaciones."
+                );
+            }
         } else {
             // Pendiente/asignado: cancelación directa
-            $shipment->update(['status' => 'cancelled']);
+            $this->dispatch->applyStatus($shipment, 'cancelled');
         }
 
         return response()->json([
@@ -408,5 +432,14 @@ class ShipmentController extends Controller
             $query->where('ship', $shipment->tracking_number)
                 ->orWhere('ship', (string) $shipment->id);
         })->whereIn('status', ['open', 'investigating'])->exists();
+    }
+
+    private function withClientMeta(Shipment $shipment): void
+    {
+        $shipment->loadMissing('client');
+        $shipment->client_type = $shipment->client?->hasAnyRole(['company', 'executive_client'])
+            ? 'empresa'
+            : 'persona';
+        $shipment->client_name = $shipment->client?->name;
     }
 }

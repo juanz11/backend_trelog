@@ -29,4 +29,22 @@ class ShipmentNotificationService
             Log::warning("No se pudo enviar el correo '{$event}' del envío {$shipment->tracking_number}: {$e->getMessage()}");
         }
     }
+
+    /**
+     * Notify the driver that a shipment was assigned to them.
+     */
+    public function notifyDriver(Shipment $shipment): void
+    {
+        $email = $shipment->driver?->email;
+
+        if (! $email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->send(new \App\Mail\DriverAssignedMail($shipment));
+        } catch (\Throwable $e) {
+            Log::warning("No se pudo enviar el correo de asignación al chofer del envío {$shipment->tracking_number}: {$e->getMessage()}");
+        }
+    }
 }

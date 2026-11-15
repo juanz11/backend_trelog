@@ -14,7 +14,7 @@ class ShipmentController extends Controller
     /**
      * Statuses a driver is allowed to set from the app.
      */
-    private const DRIVER_STATUSES = ['in_transit', 'out_for_delivery', 'delivered', 'incident'];
+    private const DRIVER_STATUSES = ['picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'incident'];
 
     /**
      * Statuses that take a shipment out of the driver's active workload.

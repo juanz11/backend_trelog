@@ -25,6 +25,7 @@ use App\Http\Controllers\ShipmentRequestController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\QuoteController as ApiQuoteController;
 use App\Http\Controllers\Api\Driver\DashboardController;
+use App\Http\Controllers\Api\Driver\DeviceTokenController;
 use App\Http\Controllers\Api\Driver\DriverAuthController;
 use App\Http\Controllers\Api\Driver\IdentityController;
 use App\Http\Controllers\Api\Driver\IncidentController;
@@ -240,8 +241,9 @@ Route::prefix('app')->group(function () {
 
     Route::post('/quotes', [ApiQuoteController::class, 'store'])->middleware('throttle:20,1');
     Route::get('/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track'])->middleware('throttle:60,1');
+    // Public tracking: status and dates only — no personal data or locations.
     Route::get('/shipments/track/{tracking_number}', function ($tracking) {
-        $s = \App\Models\Shipment::where('tracking_number', $tracking)->first();
+        $s = \App\Models\Shipment::with('manifestDetail')->where('tracking_number', $tracking)->first();
         if (!$s) {
             return response()->json(['success' => false, 'message' => 'not_found'], 404);
         }
@@ -250,12 +252,9 @@ Route::prefix('app')->group(function () {
             'shipment' => [
                 'tracking_number' => $s->tracking_number,
                 'status' => $s->status,
-                'origin' => $s->origin,
-                'destination' => $s->destination,
-                'service_type' => $s->service_type,
-                'recipient_name' => $s->recipient_name,
                 'created_at' => $s->created_at,
                 'updated_at' => $s->updated_at,
+                'delivered_at' => $s->delivered_at ?? $s->manifestDetail?->visited_at,
             ],
         ]);
     })->middleware('throttle:60,1');
@@ -282,6 +281,8 @@ Route::prefix('driver')->group(function () {
     Route::middleware(['auth:sanctum', 'driver'])->group(function () {
         Route::get('/me', [DriverAuthController::class, 'me']);
         Route::post('/logout', [DriverAuthController::class, 'logout']);
+        Route::post('/device-token', [DeviceTokenController::class, 'store']);
+        Route::delete('/device-token', [DeviceTokenController::class, 'destroy']);
 
         Route::get('/identity', [IdentityController::class, 'show']);
         Route::post('/identity', [IdentityController::class, 'store']);

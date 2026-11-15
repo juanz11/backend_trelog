@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Incident;
+use App\Models\Shipment;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,6 +40,18 @@ class IncidentAdminController extends Controller
         $data['code'] = 'INC-' . strtoupper(Str::random(6));
 
         $incident = Incident::create($data);
+
+        // Notify the driver that owns the referenced shipment.
+        $shipment = ! empty($data['ship'])
+            ? Shipment::where('tracking_number', $data['ship'])->first()
+            : null;
+        if ($shipment?->driver_id && $shipment->driver_id !== $request->user()->id) {
+            app(\App\Services\DriverNotificationService::class)->send(
+                $shipment->driver_id,
+                'Incidencia reportada',
+                "Se reportó una incidencia en tu envío {$shipment->tracking_number}: {$incident->title}"
+            );
+        }
 
         return response()->json($this->mapIncident($incident), 201);
     }

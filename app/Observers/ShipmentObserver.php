@@ -12,7 +12,11 @@ class ShipmentObserver
      */
     private const STATUS_EVENTS = [
         'assigned' => 'driver_assigned',
+        'picked_up' => 'picked_up',
+        'recogido' => 'picked_up',
         'in_transit' => 'in_transit',
+        'incident' => 'failed_attempt',
+        'incidencia' => 'failed_attempt',
         'failed_attempt' => 'failed_attempt',
         'delivered' => 'delivered',
         'entregado' => 'delivered',
@@ -42,6 +46,10 @@ class ShipmentObserver
 
         if (isset(self::STATUS_EVENTS[$status])) {
             $notifications->notify($shipment, self::STATUS_EVENTS[$status]);
+        }
+
+        if ($status === 'assigned' && $shipment->driver_id) {
+            $notifications->notifyDriver($shipment);
         }
 
         if (in_array($status, self::RECOBRO_STATUSES, true)) {

@@ -55,7 +55,7 @@ class DashboardController extends Controller
                 'delayed_stops' => $delayed,
             ],
             'next_stop' => $nextStop,
-            'alerts' => $driver->alerts()->latest()->get(),
+            'alerts' => $driver->alerts()->latest()->limit(10)->get(),
         ]);
     }
 }

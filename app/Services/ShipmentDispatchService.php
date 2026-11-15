@@ -41,6 +41,12 @@ class ShipmentDispatchService
             if ($driver) {
                 $this->syncStop($shipment, $driver);
                 $this->log($shipment, "asignado a {$driver->name}");
+                $this->notify(
+                    $driver->id,
+                    'Nuevo envío asignado',
+                    "Se te asignó el envío {$shipment->tracking_number}".
+                        ($shipment->destination ? " hacia {$shipment->destination}." : '.')
+                );
             } else {
                 $this->detachStop($shipment);
             }
@@ -74,6 +80,14 @@ class ShipmentDispatchService
 
             $this->log($shipment, $notes ?? $shipment->destination, $stop->route_id);
             $this->refreshRouteProgress($stop->route_id);
+
+            if (in_array($status, self::CANCELLED_STATUSES, true)) {
+                $this->notify(
+                    $driver->id,
+                    'Envío cancelado',
+                    "El envío {$shipment->tracking_number} fue cancelado y salió de tu ruta."
+                );
+            }
         });
 
         return $shipment->fresh(['driver.driverProfile', 'stop']);
@@ -143,7 +157,7 @@ class ShipmentDispatchService
     {
         return match ($shipmentStatus) {
             'delivered' => 'Done',
-            'incident' => 'Failed',
+            'incident', 'cancelled', 'cancelado' => 'Failed',
             'in_transit', 'out_for_delivery' => 'Next',
             default => 'Pending',
         };
@@ -171,9 +185,42 @@ class ShipmentDispatchService
     }
 
     /**
+     * Stage-based cancellation fee preview (admin/finance views). 5% while
+     * nobody picked it up, 30% once picked up or received at the hub, and
+     * not cancellable once it left the hub or reached a terminal state.
+     * Percentages come from the pricing configuration — never hardcoded.
+     */
+    public function cancellationStage(Shipment $shipment): array
+    {
+        $policy = PricingConfig::current()->cancellationPolicy();
+        $status = (string) $shipment->status;
+        $manifest = $shipment->manifestDetail?->manifest;
+
+        if (in_array($status, ['cancelled', 'cancelado', 'cancel_requested', 'delivered', 'entregado', 'entregada', 'returned', 'devuelto'], true)) {
+            return ['cancellable' => false, 'percent' => null, 'fee' => null, 'stage' => 'closed'];
+        }
+
+        if ($status === 'out_for_delivery' || ($manifest && $manifest->hub_dispatched_at)) {
+            return ['cancellable' => false, 'percent' => null, 'fee' => null, 'stage' => 'left_hub'];
+        }
+
+        $pickedUp = in_array($status, ['picked_up', 'in_transit', 'transit', 'incident', 'incidencia'], true)
+            || ($manifest && $manifest->hub_received_at);
+
+        $percent = $pickedUp ? $policy['recobro_percent'] : $policy['percent'];
+
+        return [
+            'cancellable' => true,
+            'percent' => $percent,
+            'fee' => is_numeric($shipment->amount) ? round(((float) $shipment->amount) * $percent / 100, 2) : null,
+            'stage' => $pickedUp ? 'picked_up_or_hub' : 'not_picked_up',
+        ];
+    }
+
+    /**
      * Cancellation / late-cancellation (recobro) fee attributes for a status
-     * transition. Percentages, window and tolerance always come from the
-     * admin pricing configuration — never hardcoded.
+     * transition. Percentages always come from the admin pricing
+     * configuration — never hardcoded.
      */
     private function cancellationFeeAttributes(Shipment $shipment, string $previous, string $status): array
     {
@@ -181,16 +228,8 @@ class ShipmentDispatchService
         $isCancelled = in_array($status, self::CANCELLED_STATUSES, true);
 
         if ($isCancelled && ! $wasCancelled && $shipment->cancelled_at === null) {
-            $policy = PricingConfig::current()->cancellationPolicy();
-
-            $windowMinutes = $policy['window_hours'] * 60 + $policy['tolerance_minutes'];
-            $elapsedMinutes = $shipment->created_at
-                ? (float) $shipment->created_at->diffInMinutes(now())
-                : INF;
-
-            $percent = $elapsedMinutes <= $windowMinutes
-                ? $policy['percent']
-                : $policy['recobro_percent'];
+            $percent = $this->cancellationStage($shipment)['percent']
+                ?? PricingConfig::current()->cancellationPolicy()['recobro_percent'];
 
             return [
                 'cancelled_at' => now(),
@@ -255,5 +294,11 @@ class ShipmentDispatchService
             'title' => "Envío {$shipment->tracking_number} · {$shipment->status}",
             'meta' => $meta,
         ]);
+    }
+
+    /** In-app notification + FCM push for the driver. */
+    private function notify(int $driverId, string $title, string $body): void
+    {
+        app(DriverNotificationService::class)->send($driverId, $title, $body);
     }
 }

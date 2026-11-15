@@ -52,7 +52,8 @@ class ShipmentStatusMail extends Mailable
                 'eventLabel' => $label,
                 'clientName' => $shipment->client?->name ?: $shipment->sender_name ?: 'cliente',
                 'body' => $this->body($shipment),
-                'trackingUrl' => $this->trackingUrl($shipment),
+                'trackingUrl' => in_array($this->event, ['recobro_requested', 'returned'], true) ? null : $this->trackingUrl($shipment),
+                'packageDetails' => in_array($this->event, ['recobro_requested', 'returned'], true) ? $this->packageDetails($shipment) : null,
             ],
         );
     }
@@ -96,5 +97,20 @@ class ShipmentStatusMail extends Mailable
         }
 
         return $text;
+    }
+
+    private function packageDetails(Shipment $shipment): array
+    {
+        $items = collect($shipment->packages ?: []);
+
+        return [
+            'pieces' => $items->sum(fn ($p) => (int) ($p['pieces'] ?? 1)) ?: $shipment->pieces,
+            'weight' => $items->sum(fn ($p) => (float) ($p['weight'] ?? 0)) ?: $shipment->weight,
+            'dimensions' => $items->pluck('dimensions')->filter()->implode(' · ') ?: $shipment->dimensions,
+            'declared_value' => $items->sum(fn ($p) => (float) ($p['declared_value'] ?? 0)) ?: null,
+            'content' => $items->pluck('content')->filter()->implode(' · ') ?: null,
+            'cancel_fee' => $shipment->cancel_fee,
+            'is_return' => $this->event === 'returned',
+        ];
     }
 }

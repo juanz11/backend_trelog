@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'message',
     'status',
     'support_email',
+    'viewed_at',
+    'reviewed_at',
 ])]
 class SupportTicket extends Model
 {
