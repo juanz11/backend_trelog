@@ -10,6 +10,8 @@ use App\Models\ManifestTransferRequest;
 use App\Models\Shipment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use App\Services\DriverNotificationService;
+use App\Services\ShipmentDispatchService;
 
 /**
  * Reglas de negocio del ciclo de vida del manifiesto (espejo de
@@ -176,6 +178,24 @@ class ManifestService
             'assignment_rejection_reason' => null,
         ]);
 
+        // Sincronía: los envíos del manifiesto quedan asignados al chofer —
+        // operaciones los ve ocupados y no puede reasignarlos por otro lado.
+        $manifest->details()->whereNotNull('shipment_id')->get()
+            ->each(function (ManifestDetail $detail) use ($driverId) {
+                $detail->shipment?->update([
+                    'driver_id' => $driverId,
+                    'assigned_at' => now(),
+                    'status' => $detail->shipment->status === 'pending'
+                        ? 'assigned' : $detail->shipment->status,
+                ]);
+            });
+
+        app(DriverNotificationService::class)->send(
+            $driverId,
+            'Nuevo manifiesto asignado',
+            "Se te asignó el manifiesto {$manifest->code} con {$manifest->details()->count()} paradas."
+        );
+
         return $manifest->fresh();
     }
 
@@ -189,6 +209,16 @@ class ManifestService
             'vehicle_id' => null,
             'assignment_rejection_reason' => $reason,
         ]);
+
+        // Sincronía: los envíos vuelven al pool de operaciones (por dispatch
+        // para limpiar también cualquier parada de ruta que tuvieran).
+        $manifest->details()->whereNotNull('shipment_id')->get()
+            ->each(function (ManifestDetail $detail) {
+                if ($detail->shipment) {
+                    app(ShipmentDispatchService::class)
+                        ->assignDriver($detail->shipment, null, internal: true);
+                }
+            });
 
         return $manifest->fresh();
     }
@@ -271,7 +301,16 @@ class ManifestService
             'gps_accuracy' => $meta['gps_accuracy'] ?? null,
             'visited_at' => $meta['visited_at'] ?? now(),
         ]);
-        $detail->shipment?->update(['status' => 'delivered']);
+        // Sincronía: el estado del envío pasa por el dispatch service para
+        // que la parada de ruta y el progreso también se actualicen.
+        if ($detail->shipment) {
+            app(ShipmentDispatchService::class)
+                ->applyStatus($detail->shipment, 'delivered');
+        }
+
+        // La entrega es por envío: al resolverse la última parada pendiente
+        // el manifiesto se cierra solo, cada cliente queda con su POD.
+        $this->autoCloseIfResolved($manifest->fresh());
 
         return $manifest->fresh('details');
     }
@@ -305,7 +344,12 @@ class ManifestService
             'lng' => $meta['lng'] ?? null,
             'visited_at' => now(),
         ]);
-        $detail->shipment?->update(['status' => 'incident']);
+        if ($detail->shipment) {
+            app(ShipmentDispatchService::class)
+                ->applyStatus($detail->shipment, 'incident', $reason);
+        }
+
+        $this->autoCloseIfResolved($manifest->fresh());
 
         return $manifest->fresh('details');
     }
@@ -320,9 +364,65 @@ class ManifestService
         if ($manifest->roadside_assistance_pending) {
             throw new ManifestException('ASISTENCIA_PENDIENTE', 'Hay una asistencia vial pendiente de resolver');
         }
-        $pending = $manifest->details()->where('status', ManifestDetail::STATUS_PENDIENTE)->count();
-        if ($pending > 0) {
-            throw new ManifestException('PEDIDOS_PENDIENTES', "Quedan {$pending} paradas sin resolver");
+        return DB::transaction(function () use ($manifest) {
+            // Las paradas sin resolver regresan a operaciones: quedan como
+            // NO_ENTREGADO en este manifiesto y su envío se desasigna del
+            // chofer para que pueda re-manifestarse.
+            $pendingDetails = $manifest->details()
+                ->where('status', ManifestDetail::STATUS_PENDIENTE)
+                ->get();
+
+            foreach ($pendingDetails as $detail) {
+                $detail->update([
+                    'status' => ManifestDetail::STATUS_NO_ENTREGADO,
+                    'failure_reason' => 'Devuelta a operaciones al finalizar la ruta.',
+                ]);
+
+                // Sincronía: desasignar por dispatch elimina la parada
+                // fantasma de la ruta del chofer y refresca su progreso.
+                if ($detail->shipment_id && ($shipment = $detail->shipment)) {
+                    app(ShipmentDispatchService::class)
+                        ->assignDriver($shipment, null, internal: true);
+                }
+            }
+
+            $conIncidencias = $manifest->details()
+                ->whereIn('status', [
+                    ManifestDetail::STATUS_NO_ENTREGADO,
+                ])
+                ->exists();
+
+            $manifest->update([
+                'status' => $conIncidencias
+                    ? Manifest::STATUS_COMPLETADO_CON_INCIDENCIAS
+                    : Manifest::STATUS_COMPLETADO,
+                'closed_at' => now(),
+            ]);
+
+            return $manifest->fresh();
+        });
+    }
+
+    /**
+     * Cierre automático: las entregas/fallos son por envío. Cuando no queda
+     * ninguna parada pendiente, el manifiesto se finaliza solo — no hace
+     * falta un cierre manual. Solo aplica a manifiestos en curso/asignados;
+     * en solicitud de traspaso manda el flujo de traspaso.
+     */
+    public function autoCloseIfResolved(Manifest $manifest): void
+    {
+        if (! in_array($manifest->status, [
+            Manifest::STATUS_ASIGNADO,
+            Manifest::STATUS_EN_RUTA,
+        ], true)) {
+            return;
+        }
+
+        $pendiente = $manifest->details()
+            ->where('status', ManifestDetail::STATUS_PENDIENTE)
+            ->exists();
+        if ($pendiente) {
+            return;
         }
 
         $conIncidencias = $manifest->details()
@@ -336,7 +436,13 @@ class ManifestService
             'closed_at' => now(),
         ]);
 
-        return $manifest->fresh();
+        if ($manifest->driver_id) {
+            app(DriverNotificationService::class)->send(
+                $manifest->driver_id,
+                'Manifiesto completado',
+                "El manifiesto {$manifest->code} se cerró: todas las paradas están resueltas."
+            );
+        }
     }
 
     /* ---------------------------------------------------------------- */
@@ -440,6 +546,24 @@ class ManifestService
                 'driver_id' => $replacementDriverId,
                 'vehicle_id' => $replacementVehicleId,
             ]);
+
+            // Sincronía: los envíos transferidos pasan al chofer de reemplazo
+            // para que operaciones no los vea aún con el chofer anterior.
+            $derivado->details()->whereNotNull('shipment_id')->get()
+                ->each(function (ManifestDetail $detail) use ($replacementDriverId) {
+                    $detail->shipment?->update([
+                        'driver_id' => $replacementDriverId,
+                        'assigned_at' => now(),
+                        'status' => $detail->shipment->status === 'pending'
+                            ? 'assigned' : $detail->shipment->status,
+                    ]);
+                });
+
+            app(DriverNotificationService::class)->send(
+                $replacementDriverId,
+                'Nuevo manifiesto asignado',
+                "Se te asignó el manifiesto {$derivado->code} (traspaso de {$manifest->code})."
+            );
 
             $manifest->update([
                 'status' => Manifest::STATUS_TRANSFERIDO,

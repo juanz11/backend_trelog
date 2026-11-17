@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Exceptions\ManifestException;
 use App\Models\DeliveryRoute;
+use App\Models\Manifest;
+use App\Models\ManifestDetail;
 use App\Models\PricingConfig;
 use App\Models\RouteAuditLog;
 use App\Models\RouteStop;
@@ -29,8 +32,38 @@ class ShipmentDispatchService
     /**
      * Assign (or unassign) a driver and keep the driver route in sync.
      */
-    public function assignDriver(Shipment $shipment, ?User $driver): Shipment
+    /**
+     * Manifest statuses where the shipment is locked to its manifest driver.
+     */
+    private const OPEN_MANIFEST_STATUSES = [
+        Manifest::STATUS_CREADO,
+        Manifest::STATUS_ASIGNADO,
+        Manifest::STATUS_EN_RUTA,
+        Manifest::STATUS_EN_SOLICITUD_TRASPASO,
+    ];
+
+    /**
+     * @param bool $internal  true cuando el cambio viene del propio ciclo de
+     *                        vida del manifiesto (finalize, traspaso, rechazo)
+     *                        — esos flujos sí pueden tocar sus envíos.
+     */
+    public function assignDriver(Shipment $shipment, ?User $driver, bool $internal = false): Shipment
     {
+        // Sincronía: un envío dentro de un manifiesto abierto pertenece al
+        // chofer del manifiesto — no se puede reasignar por el otro canal.
+        $manifest = $shipment->manifestDetail?->manifest;
+        if (
+            ! $internal
+            && $manifest
+            && in_array($manifest->status, self::OPEN_MANIFEST_STATUSES, true)
+            && $manifest->driver_id !== $driver?->id
+        ) {
+            throw new ManifestException(
+                'EN_MANIFIESTO',
+                "El envío pertenece al manifiesto {$manifest->code}. Reasígnelo desde el manifiesto."
+            );
+        }
+
         DB::transaction(function () use ($shipment, $driver) {
             $shipment->update([
                 'driver_id' => $driver?->id,
@@ -87,6 +120,34 @@ class ShipmentDispatchService
                     'Envío cancelado',
                     "El envío {$shipment->tracking_number} fue cancelado y salió de tu ruta."
                 );
+            }
+
+            // Sincronía: si el envío está en un manifiesto, su parada del
+            // manifiesto refleja el cambio hecho desde operaciones.
+            $detail = $shipment->manifestDetail;
+            if ($detail && $detail->status === ManifestDetail::STATUS_PENDIENTE) {
+                $detailStatus = match (true) {
+                    in_array($status, ['delivered', 'entregado', 'entregada'], true)
+                        => ManifestDetail::STATUS_ENTREGADO,
+                    in_array(
+                        $status,
+                        [...self::CANCELLED_STATUSES, 'incident', 'incidencia'],
+                        true
+                    ) => ManifestDetail::STATUS_NO_ENTREGADO,
+                    default => null,
+                };
+                if ($detailStatus) {
+                    $detail->update([
+                        'status' => $detailStatus,
+                        'failure_reason' => $detailStatus === ManifestDetail::STATUS_NO_ENTREGADO
+                            ? ($notes ?? 'Marcado por operaciones')
+                            : null,
+                        'visited_at' => now(),
+                    ]);
+                    // Si era la última pendiente, el manifiesto se cierra solo.
+                    app(ManifestService::class)
+                        ->autoCloseIfResolved($detail->manifest->fresh());
+                }
             }
         });
 

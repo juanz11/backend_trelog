@@ -16,6 +16,7 @@ use App\Http\Controllers\AddressController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\CompanyVehicleController;
+use App\Http\Controllers\LiveTrackingController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\IncidentAdminController;
 use App\Http\Controllers\AuditFileController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\Api\Driver\DeviceTokenController;
 use App\Http\Controllers\Api\Driver\DriverAuthController;
 use App\Http\Controllers\Api\Driver\IdentityController;
 use App\Http\Controllers\Api\Driver\IncidentController;
+use App\Http\Controllers\Api\Driver\LocationController;
 use App\Http\Controllers\Api\Driver\PayrollController;
 use App\Http\Controllers\Api\Driver\RouteController;
 use App\Http\Controllers\Api\Driver\ShipmentController as DriverShipmentController;
@@ -74,6 +76,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/drivers', [DriverController::class, 'index'])->middleware('permission:drivers.manage');
     Route::post('/drivers', [DriverController::class, 'store'])->middleware('permission:drivers.manage');
     Route::patch('/drivers/{user}', [DriverController::class, 'update'])->middleware('permission:drivers.manage');
+    Route::get('/driver-locations/live', [LiveTrackingController::class, 'index'])->middleware('permission:drivers.manage');
     Route::prefix('company-vehicles')->middleware('permission:drivers.manage')->group(function () {
         Route::get('/', [CompanyVehicleController::class, 'index']);
         Route::post('/', [CompanyVehicleController::class, 'store']);
@@ -241,9 +244,10 @@ Route::prefix('app')->group(function () {
 
     Route::post('/quotes', [ApiQuoteController::class, 'store'])->middleware('throttle:20,1');
     Route::get('/quotes/track/{tracking_code}', [ApiQuoteController::class, 'track'])->middleware('throttle:60,1');
-    // Public tracking: status and dates only — no personal data or locations.
+    // Public tracking: status, receiver name and dates — no photos,
+    // signatures or locations.
     Route::get('/shipments/track/{tracking_number}', function ($tracking) {
-        $s = \App\Models\Shipment::with('manifestDetail')->where('tracking_number', $tracking)->first();
+        $s = \App\Models\Shipment::with('manifestDetail', 'stop')->where('tracking_number', $tracking)->first();
         if (!$s) {
             return response()->json(['success' => false, 'message' => 'not_found'], 404);
         }
@@ -255,6 +259,7 @@ Route::prefix('app')->group(function () {
                 'created_at' => $s->created_at,
                 'updated_at' => $s->updated_at,
                 'delivered_at' => $s->delivered_at ?? $s->manifestDetail?->visited_at,
+                'received_by' => $s->stop?->received_by,
             ],
         ]);
     })->middleware('throttle:60,1');
@@ -283,6 +288,9 @@ Route::prefix('driver')->group(function () {
         Route::post('/logout', [DriverAuthController::class, 'logout']);
         Route::post('/device-token', [DeviceTokenController::class, 'store']);
         Route::delete('/device-token', [DeviceTokenController::class, 'destroy']);
+        Route::post('/location', [LocationController::class, 'store']);
+        Route::get('/directions', [LocationController::class, 'directions']);
+        Route::get('/geocode', [LocationController::class, 'geocode']);
 
         Route::get('/identity', [IdentityController::class, 'show']);
         Route::post('/identity', [IdentityController::class, 'store']);

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Driver;
 
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryRoute;
+use App\Models\Manifest;
+use App\Models\ManifestDetail;
 use App\Models\RouteAuditLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,6 +74,26 @@ class RouteController extends Controller
 
         if ($route->status === 'Completed') {
             return response()->json(['message' => 'Esta ruta ya está completada.'], 409);
+        }
+
+        // Sincronía: no se puede cerrar la jornada quedando paquetes
+        // pendientes en un manifiesto abierto del mismo chofer.
+        $manifestsAbiertos = Manifest::where('driver_id', $request->user()->id)
+            ->whereIn('status', [Manifest::STATUS_ASIGNADO, Manifest::STATUS_EN_RUTA])
+            ->withCount([
+                'details as pendientes' => fn ($q) =>
+                    $q->where('status', ManifestDetail::STATUS_PENDIENTE),
+            ])
+            ->get()
+            ->filter(fn ($m) => $m->pendientes > 0);
+
+        if ($manifestsAbiertos->isNotEmpty()) {
+            $total = $manifestsAbiertos->sum('pendientes');
+            $codes = $manifestsAbiertos->pluck('code')->implode(', ');
+            return response()->json([
+                'message' => "Aún tienes {$total} paquete(s) pendiente(s) en el manifiesto {$codes}. Resuélvelos o finaliza el manifiesto primero.",
+                'code' => 'MANIFIESTO_PENDIENTE',
+            ], 422);
         }
 
         $unresolvedStops = $route->stops()

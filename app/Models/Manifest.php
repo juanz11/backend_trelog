@@ -171,6 +171,8 @@ class Manifest extends Model
                     'piezas' => $d->shipment->pieces ?: collect($d->shipment->packages ?: [])->sum('pieces') ?: null,
                     'monto' => $d->shipment->amount,
                     'estado' => $d->shipment->status,
+                    'fechaRecogida' => $d->shipment->pickup_date?->toDateString(),
+                    'ventanaRecogida' => $d->shipment->pickup_window,
                     'paquetes' => $d->shipment->packages,
                 ] : null,
             ])->values(),

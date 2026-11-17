@@ -34,6 +34,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'sender_email',
     'service_type',
     'delivery_mode',
+    'pickup_date',
+    'pickup_window',
     'weight',
     'dimensions',
     'pieces',
@@ -63,6 +65,7 @@ class Shipment extends Model
         return [
             'packages' => 'array',
             'assigned_at' => 'datetime',
+            'pickup_date' => 'date',
             'invoiced_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'cancel_fee' => 'decimal:2',
