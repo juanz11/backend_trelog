@@ -179,6 +179,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [ShipmentController::class, 'index']);
         Route::post('/', [ShipmentController::class, 'store']);
         Route::post('/{shipment}/cancel', [ShipmentController::class, 'cancel']);
+        Route::post('/{shipment}/return-review', [ShipmentController::class, 'returnReview']);
         Route::get('/{id}', [ShipmentController::class, 'show']);
         Route::put('/{id}', [ShipmentController::class, 'update']);
         Route::patch('/{shipment}/driver', [ShipmentController::class, 'assignDriver']);

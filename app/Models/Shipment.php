@@ -41,6 +41,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'pieces',
     'packages',
     'status',
+    'status_history',
     'notes',
     'payment_method',
     'payment_method_id',
@@ -57,6 +58,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'cancelled_at',
     'cancel_fee',
     'cancel_fee_percent',
+    'return_reviewed_at',
+    'return_reviewed_by',
 ])]
 class Shipment extends Model
 {
@@ -64,10 +67,12 @@ class Shipment extends Model
     {
         return [
             'packages' => 'array',
+            'status_history' => 'array',
             'assigned_at' => 'datetime',
             'pickup_date' => 'date',
             'invoiced_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'return_reviewed_at' => 'datetime',
             'cancel_fee' => 'decimal:2',
             'cancel_fee_percent' => 'decimal:2',
             'amount' => 'decimal:2',
@@ -86,6 +91,11 @@ class Shipment extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function returnReviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'return_reviewed_by');
     }
 
     public function stop(): HasOne

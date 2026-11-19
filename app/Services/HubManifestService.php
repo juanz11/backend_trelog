@@ -98,6 +98,7 @@ class HubManifestService
         // escanear paquetes ES recibir — no exige un clic separado.
         if ($phase === ManifestHubScan::PHASE_IN && ! $manifest->hub_received_at) {
             $manifest->update(['hub_received_at' => $scan->scanned_at]);
+            $this->advanceShipments($manifest, 'in_hub');
         }
 
         return $scan;
@@ -172,6 +173,7 @@ class HubManifestService
     {
         $this->assertNotFinal($manifest);
         $manifest->update(['hub_received_at' => now()]);
+        $this->advanceShipments($manifest, 'in_hub');
 
         return $manifest->fresh();
     }
@@ -199,8 +201,29 @@ class HubManifestService
         }
 
         $manifest->update(['hub_dispatched_at' => now()]);
+        $this->advanceShipments($manifest, 'out_for_delivery');
 
         return $manifest->fresh();
+    }
+
+    /**
+     * Move the manifest's shipments to the given status when the hub event
+     * happens. Only advances shipments that are still moving — delivered,
+     * cancelled, returned and failed shipments are left untouched. Each
+     * update goes through the shipment observer so the status history and
+     * the client timeline stay in sync.
+     */
+    private const MOVING_STATUSES = ['pending', 'assigned', 'picked_up', 'in_transit', 'transit', 'in_hub'];
+
+    private function advanceShipments(Manifest $manifest, string $status): void
+    {
+        $manifest->loadMissing('details.shipment');
+        foreach ($manifest->details as $detail) {
+            $shipment = $detail->shipment;
+            if ($shipment && in_array((string) $shipment->status, self::MOVING_STATUSES, true)) {
+                $shipment->update(['status' => $status]);
+            }
+        }
     }
 
     /* ---------------------------------------------------------------- */

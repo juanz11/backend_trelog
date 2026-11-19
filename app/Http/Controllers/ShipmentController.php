@@ -34,7 +34,7 @@ class ShipmentController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        $shipments = $query->with(['driver.driverProfile', 'manifestDetail.manifest', 'stop', 'client'])->orderByDesc('created_at')->get();
+        $shipments = $query->with(['driver.driverProfile', 'manifestDetail.manifest', 'stop', 'client', 'returnReviewer'])->orderByDesc('created_at')->get();
 
         // Add parsed tracking data to each shipment and reflect open incidents
         $shipments->transform(function ($shipment) {
@@ -181,7 +181,7 @@ class ShipmentController extends Controller
 
         $this->authorize('view', $shipment);
 
-        $shipment->load('driver.driverProfile', 'client', 'manifestDetail.manifest', 'stop');
+        $shipment->load('driver.driverProfile', 'client', 'manifestDetail.manifest', 'stop', 'returnReviewer');
         $shipment->parsed_tracking = $shipment->getParsedTracking();
         $shipment->tracking_url = $shipment->getTrackingUrl();
         $shipment->cancel_preview = $this->dispatch->cancellationStage($shipment);
@@ -427,6 +427,40 @@ class ShipmentController extends Controller
             'success' => true,
             'status' => $shipment->status,
             'message' => $transit ? 'cancel_requested' : 'cancelled',
+        ]);
+    }
+
+    /**
+     * Mark a returned / failed / cancelled shipment as reviewed by staff
+     * (Operations marks it; finance and admin can read the status).
+     */
+    public function returnReview(Request $request, $id)
+    {
+        $shipment = Shipment::find($id);
+
+        if (! $shipment) {
+            return response()->json(['success' => false, 'message' => 'not_found'], 404);
+        }
+
+        $user = $request->user();
+        if (! $user->hasAnyRole(['admin', 'operations', 'ops_supervisor'])) {
+            return response()->json(['success' => false, 'message' => 'forbidden'], 403);
+        }
+
+        if (! in_array($shipment->status, ['returned', 'devuelto', 'failed_attempt', 'incident', 'incidencia', 'cancelled', 'cancelado', 'cancel_requested'], true)) {
+            return response()->json(['success' => false, 'message' => 'shipment_not_returnable'], 422);
+        }
+
+        $shipment->update([
+            'return_reviewed_at' => now(),
+            'return_reviewed_by' => $user->id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'return_reviewed_at' => $shipment->return_reviewed_at,
+            'return_reviewed_by' => $shipment->return_reviewed_by,
+            'return_reviewer' => ['id' => $user->id, 'name' => $user->name],
         ]);
     }
 

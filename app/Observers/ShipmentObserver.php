@@ -32,6 +32,7 @@ class ShipmentObserver
 
     public function created(Shipment $shipment): void
     {
+        $this->logStatus($shipment);
         app(ShipmentNotificationService::class)->notify($shipment, 'confirmed');
     }
 
@@ -40,6 +41,8 @@ class ShipmentObserver
         if (! $shipment->wasChanged('status')) {
             return;
         }
+
+        $this->logStatus($shipment);
 
         $status = (string) $shipment->status;
         $notifications = app(ShipmentNotificationService::class);
@@ -55,5 +58,21 @@ class ShipmentObserver
         if (in_array($status, self::RECOBRO_STATUSES, true)) {
             $notifications->notify($shipment, 'recobro_requested');
         }
+    }
+
+    /**
+     * Append the current status to the shipment's status history so every
+     * step of the client timeline has a real timestamp.
+     */
+    private function logStatus(Shipment $shipment): void
+    {
+        $history = $shipment->status_history ?? [];
+        $history[] = [
+            'status' => (string) ($shipment->status ?? 'pending'),
+            'at' => now()->toISOString(),
+        ];
+
+        $shipment->status_history = $history;
+        $shipment->saveQuietly();
     }
 }
