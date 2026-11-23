@@ -33,6 +33,7 @@ class PricingConfig extends Model
         'policies' => [
             'cancellation' => [
                 'percent' => 5,
+                'picked_up_percent' => 30,
                 'recobro_percent' => 30,
                 'window_hours' => 72,
                 'tolerance_minutes' => 0,
@@ -79,6 +80,7 @@ class PricingConfig extends Model
 
         return [
             'percent' => (float) ($policy['percent'] ?? $defaults['percent']),
+            'picked_up_percent' => (float) ($policy['picked_up_percent'] ?? $policy['recobro_percent'] ?? $defaults['picked_up_percent']),
             'recobro_percent' => (float) ($policy['recobro_percent'] ?? $defaults['recobro_percent']),
             'window_hours' => (float) ($policy['window_hours'] ?? $defaults['window_hours']),
             'tolerance_minutes' => (float) ($policy['tolerance_minutes'] ?? $defaults['tolerance_minutes']),

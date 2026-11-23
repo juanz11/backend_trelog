@@ -34,7 +34,7 @@ class ShipmentController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        $shipments = $query->with(['driver.driverProfile', 'manifestDetail.manifest', 'stop', 'client', 'returnReviewer'])->orderByDesc('created_at')->get();
+        $shipments = $query->with(['driver.driverProfile', 'manifestDetail.manifest', 'stop', 'client', 'returnReviewer', 'returnProcessor'])->orderByDesc('created_at')->get();
 
         // Add parsed tracking data to each shipment and reflect open incidents
         $shipments->transform(function ($shipment) {
@@ -46,6 +46,8 @@ class ShipmentController extends Controller
             if ($this->hasOpenIncident($shipment)) {
                 $shipment->status = 'incident';
             }
+
+            $shipment->return_recobro = $this->dispatch->returnRecobro($shipment);
 
             return $shipment;
         });
@@ -181,7 +183,7 @@ class ShipmentController extends Controller
 
         $this->authorize('view', $shipment);
 
-        $shipment->load('driver.driverProfile', 'client', 'manifestDetail.manifest', 'stop', 'returnReviewer');
+        $shipment->load('driver.driverProfile', 'client', 'manifestDetail.manifest', 'stop', 'returnReviewer', 'returnProcessor');
         $shipment->parsed_tracking = $shipment->getParsedTracking();
         $shipment->tracking_url = $shipment->getTrackingUrl();
         $shipment->cancel_preview = $this->dispatch->cancellationStage($shipment);
@@ -190,6 +192,8 @@ class ShipmentController extends Controller
         if ($this->hasOpenIncident($shipment)) {
             $shipment->status = 'incident';
         }
+
+        $shipment->return_recobro = $this->dispatch->returnRecobro($shipment);
 
         return response()->json($shipment);
     }
@@ -431,6 +435,44 @@ class ShipmentController extends Controller
     }
 
     /**
+     * Unreviewed returns count — badge for Operations / Finance nav.
+     * Covers return statuses plus shipments carrying an open incident,
+     * mirroring what the returns view lists.
+     */
+    public function returnsPendingCount(Request $request)
+    {
+        $user = $request->user();
+        if (! $user->hasAnyRole(['admin', 'administrative', 'finance', 'operations', 'ops_supervisor'])) {
+            return response()->json(['success' => false, 'message' => 'forbidden'], 403);
+        }
+
+        $returnStatuses = ['failed_attempt', 'returned', 'devuelto', 'incident', 'incidencia', 'cancelled', 'cancelado', 'cancel_requested'];
+        $inReturns = function ($query) use ($returnStatuses) {
+            $query->whereIn('status', $returnStatuses)
+                ->orWhereExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('incidents')
+                        ->whereIn('incidents.status', ['open', 'investigating'])
+                        ->where(function ($w) {
+                            $w->whereColumn('incidents.ship', 'shipments.tracking_number')
+                                ->orWhereColumn('incidents.ship', 'shipments.id');
+                        });
+                });
+        };
+
+        // Operations queue: return cases not yet reviewed.
+        $count = Shipment::whereNull('return_reviewed_at')->where($inReturns)->count();
+
+        // Finance queue: reviewed by operations, payment/process not finished.
+        $pendingProcess = Shipment::whereNotNull('return_reviewed_at')
+            ->whereNull('return_processed_at')
+            ->where($inReturns)
+            ->count();
+
+        return response()->json(['count' => $count, 'pending_process' => $pendingProcess]);
+    }
+
+    /**
      * Mark a returned / failed / cancelled shipment as reviewed by staff
      * (Operations marks it; finance and admin can read the status).
      */
@@ -461,6 +503,40 @@ class ShipmentController extends Controller
             'return_reviewed_at' => $shipment->return_reviewed_at,
             'return_reviewed_by' => $shipment->return_reviewed_by,
             'return_reviewer' => ['id' => $user->id, 'name' => $user->name],
+        ]);
+    }
+
+    /**
+     * Finance marks a reviewed return as processed once the charge /
+     * payment method has been handled.
+     */
+    public function returnProcess(Request $request, $id)
+    {
+        $shipment = Shipment::find($id);
+
+        if (! $shipment) {
+            return response()->json(['success' => false, 'message' => 'not_found'], 404);
+        }
+
+        $user = $request->user();
+        if (! $user->hasAnyRole(['admin', 'finance', 'administrative'])) {
+            return response()->json(['success' => false, 'message' => 'forbidden'], 403);
+        }
+
+        if (! $shipment->return_reviewed_at) {
+            return response()->json(['success' => false, 'message' => 'not_reviewed'], 422);
+        }
+
+        $shipment->update([
+            'return_processed_at' => now(),
+            'return_processed_by' => $user->id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'return_processed_at' => $shipment->return_processed_at,
+            'return_processed_by' => $shipment->return_processed_by,
+            'return_processor' => ['id' => $user->id, 'name' => $user->name],
         ]);
     }
 

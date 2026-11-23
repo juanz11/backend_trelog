@@ -9,6 +9,17 @@ use Illuminate\Validation\Rule;
 
 class CompanyVehicleController extends Controller
 {
+    /** Vehicle type catalog for the fleet form selector. */
+    private const TYPES = [
+        'moto', 'car', 'pickup', 'van', 'truck35', 'truck10',
+        'refrigerated', 'trailer', 'other',
+    ];
+
+    public function types(): JsonResponse
+    {
+        return response()->json(['types' => self::TYPES]);
+    }
+
     public function index(): JsonResponse
     {
         return response()->json(

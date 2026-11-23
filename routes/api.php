@@ -78,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/drivers/{user}', [DriverController::class, 'update'])->middleware('permission:drivers.manage');
     Route::get('/driver-locations/live', [LiveTrackingController::class, 'index'])->middleware('permission:drivers.manage');
     Route::prefix('company-vehicles')->middleware('permission:drivers.manage')->group(function () {
+        Route::get('/types', [CompanyVehicleController::class, 'types']);
         Route::get('/', [CompanyVehicleController::class, 'index']);
         Route::post('/', [CompanyVehicleController::class, 'store']);
         Route::put('/{companyVehicle}', [CompanyVehicleController::class, 'update']);
@@ -174,12 +175,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('shipments')->group(function () {
         Route::get('/requests/list', [ShipmentRequestController::class, 'index'])->middleware('permission:dispatch.manage');
         Route::get('/requests/pending-count', [ShipmentRequestController::class, 'pendingCount'])->middleware('permission:dispatch.manage');
+        Route::get('/returns/pending-count', [ShipmentController::class, 'returnsPendingCount']);
         Route::patch('/requests/{shipmentRequest}', [ShipmentRequestController::class, 'updateStatus'])->middleware('permission:dispatch.manage');
 
         Route::get('/', [ShipmentController::class, 'index']);
         Route::post('/', [ShipmentController::class, 'store']);
         Route::post('/{shipment}/cancel', [ShipmentController::class, 'cancel']);
         Route::post('/{shipment}/return-review', [ShipmentController::class, 'returnReview']);
+        Route::post('/{shipment}/return-process', [ShipmentController::class, 'returnProcess']);
         Route::get('/{id}', [ShipmentController::class, 'show']);
         Route::put('/{id}', [ShipmentController::class, 'update']);
         Route::patch('/{shipment}/driver', [ShipmentController::class, 'assignDriver']);

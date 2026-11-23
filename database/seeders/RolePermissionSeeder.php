@@ -158,6 +158,7 @@ class RolePermissionSeeder extends Seeder
                 'finance.edit',
                 'pricing.view',
                 'users.view',
+                'shipments.view',
             ],
             'admin' => [
                 'users.view',

@@ -29,6 +29,7 @@ class PricingConfigController extends Controller
             'surcharges.*.value' => 'nullable|numeric|min:0',
             'policies' => 'nullable|array',
             'policies.cancellation.percent' => 'nullable|numeric|min:0|max:100',
+            'policies.cancellation.picked_up_percent' => 'nullable|numeric|min:0|max:100',
             'policies.cancellation.recobro_percent' => 'nullable|numeric|min:0|max:100',
             'policies.cancellation.window_hours' => 'nullable|numeric|min:0',
             'policies.cancellation.tolerance_minutes' => 'nullable|numeric|min:0',

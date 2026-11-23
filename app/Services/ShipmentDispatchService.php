@@ -265,17 +265,66 @@ class ShipmentDispatchService
             return ['cancellable' => false, 'percent' => null, 'fee' => null, 'stage' => 'left_hub'];
         }
 
-        $pickedUp = in_array($status, ['picked_up', 'in_transit', 'transit', 'incident', 'incidencia'], true)
-            || ($manifest && $manifest->hub_received_at);
+        $inHub = $status === 'in_hub' || ($manifest && $manifest->hub_received_at);
+        $pickedUp = $inHub
+            || in_array($status, ['picked_up', 'in_transit', 'transit', 'incident', 'incidencia'], true);
 
-        $percent = $pickedUp ? $policy['recobro_percent'] : $policy['percent'];
+        $percent = ! $pickedUp
+            ? $policy['percent']
+            : ($inHub ? $policy['recobro_percent'] : $policy['picked_up_percent']);
 
         return [
             'cancellable' => true,
             'percent' => $percent,
             'fee' => is_numeric($shipment->amount) ? round(((float) $shipment->amount) * $percent / 100, 2) : null,
-            'stage' => $pickedUp ? 'picked_up_or_hub' : 'not_picked_up',
+            'stage' => ! $pickedUp ? 'not_picked_up' : ($inHub ? 'in_hub' : 'picked_up'),
         ];
+    }
+
+    /**
+     * Recovery (recobro) charge shown in the returns module. For cancelled
+     * shipments the charged fee is reused; for rejected/returned/failed
+     * shipments the recobro percent applies — the package was already picked
+     * up when the client rejected it.
+     */
+    public function returnRecobro(Shipment $shipment): ?array
+    {
+        $status = (string) $shipment->status;
+
+        if (! in_array($status, ['returned', 'devuelto', 'failed_attempt', 'incident', 'incidencia', 'cancelled', 'cancelado', 'cancel_requested'], true)) {
+            return null;
+        }
+
+        $percent = $shipment->cancel_fee_percent !== null
+            ? (float) $shipment->cancel_fee_percent
+            : null;
+        $fee = $shipment->cancel_fee !== null ? (float) $shipment->cancel_fee : null;
+
+        if ($percent === null) {
+            $policy = PricingConfig::current()->cancellationPolicy();
+
+            // Pickup statuses imply the driver already collected the package.
+            // For cancelled shipments the status is gone, so the status
+            // history and the manifest hub reception tell how far it got.
+            $movingStatuses = ['picked_up', 'in_transit', 'transit', 'in_hub', 'out_for_delivery', 'failed_attempt', 'incident', 'incidencia', 'returned', 'devuelto'];
+            $manifest = $shipment->manifestDetail?->manifest;
+            $history = collect($shipment->status_history ?? []);
+            $inHub = $status === 'in_hub'
+                || ($manifest && $manifest->hub_received_at)
+                || $history->contains(fn ($event) => ($event['status'] ?? null) === 'in_hub');
+            $pickedUp = $inHub
+                || in_array($status, $movingStatuses, true)
+                || $history->contains(fn ($event) => in_array($event['status'] ?? null, $movingStatuses, true));
+
+            $percent = ! $pickedUp
+                ? $policy['percent']
+                : ($inHub ? $policy['recobro_percent'] : $policy['picked_up_percent']);
+            $fee = is_numeric($shipment->amount)
+                ? round(((float) $shipment->amount) * $percent / 100, 2)
+                : null;
+        }
+
+        return ['percent' => $percent, 'fee' => $fee];
     }
 
     /**

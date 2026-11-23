@@ -60,6 +60,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'cancel_fee_percent',
     'return_reviewed_at',
     'return_reviewed_by',
+    'return_processed_at',
+    'return_processed_by',
 ])]
 class Shipment extends Model
 {
@@ -73,6 +75,7 @@ class Shipment extends Model
             'invoiced_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'return_reviewed_at' => 'datetime',
+            'return_processed_at' => 'datetime',
             'cancel_fee' => 'decimal:2',
             'cancel_fee_percent' => 'decimal:2',
             'amount' => 'decimal:2',
@@ -96,6 +99,11 @@ class Shipment extends Model
     public function returnReviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'return_reviewed_by');
+    }
+
+    public function returnProcessor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'return_processed_by');
     }
 
     public function stop(): HasOne
