@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CompanyMember;
+use App\Models\Contract;
 use App\Models\Incident;
 use App\Models\LegalAcceptance;
 use App\Models\LegalDocument;
@@ -9,6 +11,7 @@ use App\Models\Shipment;
 use App\Models\ShipmentPackage;
 use App\Models\ShipmentRequest;
 use App\Models\User;
+use App\Services\CompanyContractService;
 use App\Services\ShipmentDispatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,6 +33,10 @@ class ShipmentController extends Controller
 
         if ($user->can('shipments.view')) {
             // admin/operations: see all shipments
+        } elseif ($user->company()?->id) {
+            // Empresa por contrato: el propietario y sus agentes ven los envíos de la empresa.
+            $companyId = $user->company()->id;
+            $query->where(fn ($q) => $q->where('user_id', $user->id)->orWhere('company_id', $companyId));
         } else {
             $query->where('user_id', $user->id);
         }
@@ -101,7 +108,7 @@ class ShipmentController extends Controller
             'pieces' => 'nullable|string|max:255',
             'status' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
-            'payment_method' => 'nullable|string|in:card,transfer,paypal,affirm,klarna,apple_pay,google_pay',
+            'payment_method' => 'nullable|string|in:card,transfer,paypal,affirm,klarna,apple_pay,google_pay,contract',
             'payment_method_id' => 'nullable|string|max:255',
             'payment_bank' => 'nullable|string|max:255',
             'payment_reference' => 'nullable|string|max:255',
@@ -117,6 +124,44 @@ class ShipmentController extends Controller
             return response()->json(['message' => 'Debes verificar tu correo y teléfono antes de crear envíos.'], 403);
         }
 
+        // Contrato empresarial: miembros de empresa (propietario ejecutivo o
+        // agente) consumen cupo del contrato en lugar de pagar por envío.
+        $member = $user->companyMember;
+        $isCompanyMember = $member && $member->isActive();
+        $contract = null;
+        $company = null;
+
+        if ($isCompanyMember) {
+            $company = $member->company;
+            $contract = $company?->activeContract();
+            $contractState = app(CompanyContractService::class)->stateFor($user)['mode'];
+
+            $hardBlock = in_array($contractState, ['exhausted', 'expired', 'suspended'], true);
+            if ($hardBlock || ! $contract) {
+                $isAgent = $member->role === CompanyMember::ROLE_AGENT;
+                if ($hardBlock || $isAgent) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 'contract_' . $contractState,
+                        'message' => match ($contractState) {
+                            'exhausted' => 'El cupo del contrato está agotado. Solicita una ampliación al administrador.',
+                            'expired' => 'El contrato está vencido. Solicita una renovación al administrador.',
+                            'suspended' => 'El contrato está suspendido. Contacta al administrador.',
+                            default => 'Tu empresa aún no tiene un contrato activo. Pide al propietario que lo gestione.',
+                        },
+                    ], 422);
+                }
+                // Propietario sin contrato vigente: puede crear pagando como cliente normal.
+                $company = null;
+            }
+        } elseif ($user->hasRole('shipment_agent')) {
+            return response()->json([
+                'success' => false,
+                'code' => 'contract_none',
+                'message' => 'Tu acceso de agente está suspendido o la empresa no tiene contrato activo.',
+            ], 403);
+        }
+
         $prohibitedDoc = LegalDocument::find($data['prohibited_document_id']);
         if (!$prohibitedDoc || $prohibitedDoc->type !== 'prohibited_items' || !$prohibitedDoc->is_active) {
             return response()->json([
@@ -129,6 +174,11 @@ class ShipmentController extends Controller
 
         $data['status'] = $data['status'] ?? 'pending';
         $data['user_id'] = $request->user()->id;
+        if ($contract) {
+            $data['company_id'] = $company->id;
+            $data['contract_id'] = $contract->id;
+            $data['payment_method'] = 'contract'; // cobro diferido: va contra el cupo del contrato
+        }
         $data['prohibited_declared_at'] = now();
         $data['prohibited_list_version'] = $prohibitedDoc->version;
         $data['prohibited_ip'] = $request->ip();
@@ -136,7 +186,16 @@ class ShipmentController extends Controller
         $packages = $data['packages'] ?? [];
         unset($data['packages'], $data['prohibited_accepted'], $data['prohibited_document_id']);
 
-        $shipment = DB::transaction(function () use ($data, $packages, $prohibitedDoc, $request) {
+        $shipment = DB::transaction(function () use ($data, $packages, $prohibitedDoc, $request, $contract) {
+            if ($contract) {
+                // Revalida el cupo bajo lock para evitar sobrepasar la cuota en concurrencia.
+                $locked = Contract::whereKey($contract->id)->lockForUpdate()->first();
+                if (! $locked || $locked->effectiveRemaining() <= 0) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'contract' => ['El cupo del contrato se agotó mientras se creaba el envío. Inténtalo de nuevo más tarde.'],
+                    ]);
+                }
+            }
             $shipment = Shipment::create($data);
             $this->syncPackages($shipment, is_array($packages) ? $packages : []);
 
@@ -382,7 +441,8 @@ class ShipmentController extends Controller
 
         $user = $request->user();
         $isStaff = $user->hasAnyRole(['admin', 'administrative', 'finance', 'operations', 'ops_supervisor']);
-        if ($shipment->user_id !== $user->id && ! $isStaff) {
+        $sameCompany = $user->company() && $shipment->company_id === $user->company()->id;
+        if ($shipment->user_id !== $user->id && ! $isStaff && ! $sameCompany) {
             return response()->json(['success' => false, 'message' => 'forbidden'], 403);
         }
 

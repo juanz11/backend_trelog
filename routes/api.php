@@ -16,6 +16,7 @@ use App\Http\Controllers\AddressController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\CompanyVehicleController;
+use App\Http\Controllers\BulkImportController;
 use App\Http\Controllers\LiveTrackingController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\IncidentAdminController;
@@ -40,6 +41,8 @@ use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\TransferRequestController;
 use App\Http\Controllers\Hub\ManifestController as HubManifestController;
 use App\Http\Controllers\LegalDocumentController;
+use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\ContractController;
 
 /*
 |--------------------------------------------------------------------------
@@ -169,6 +172,29 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [QuoteController::class, 'store']);
         Route::get('/pending-count', [QuoteController::class, 'pendingCount']);
         Route::patch('/{quote}/status', [QuoteController::class, 'updateStatus']);
+    });
+
+    // Contract companies: admin/finance management
+    Route::prefix('contracts')->group(function () {
+        Route::get('/', [ContractController::class, 'index'])->middleware('permission:users.view');
+        Route::post('/', [ContractController::class, 'store'])->middleware('permission:users.create');
+        Route::patch('/{contract}', [ContractController::class, 'update'])->middleware('permission:users.edit');
+        Route::post('/{contract}/approve', [ContractController::class, 'approve'])->middleware('permission:users.edit');
+        Route::post('/{contract}/reject', [ContractController::class, 'reject'])->middleware('permission:users.edit');
+        Route::post('/{contract}/add-quota', [ContractController::class, 'addQuota'])->middleware('permission:users.edit');
+    });
+
+    // Carga masiva de envíos (normalización con IA)
+    Route::post('/bulk-import/parse', [BulkImportController::class, 'parse']);
+
+    // Company self-service: executive contract state/request + team agents
+    Route::prefix('company')->group(function () {
+        Route::get('/', [CompanyController::class, 'show']);
+        Route::post('/contract-request', [CompanyController::class, 'requestContract']);
+        Route::post('/team/invite', [CompanyController::class, 'invite']);
+        Route::patch('/team/{member}/status', [CompanyController::class, 'setMemberStatus']);
+        Route::delete('/team/{member}', [CompanyController::class, 'removeMember']);
+        Route::delete('/invitations/{invitation}', [CompanyController::class, 'cancelInvitation']);
     });
 
     // Shipment Management Routes

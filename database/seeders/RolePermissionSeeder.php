@@ -158,7 +158,13 @@ class RolePermissionSeeder extends Seeder
                 'finance.edit',
                 'pricing.view',
                 'users.view',
+                'contracts.view',
                 'shipments.view',
+            ],
+            'shipment_agent' => [
+                'shipments.create',
+                'shipments.view_own',
+                'quotes.view',
             ],
             'admin' => [
                 'users.view',
@@ -198,6 +204,8 @@ class RolePermissionSeeder extends Seeder
                 'hub.adjustments.approve',
                 'manifests.view',
                 'manifests.manage',
+                'contracts.view',
+                'contracts.manage',
             ],
         ];
 

@@ -86,6 +86,10 @@ class PermissionSeeder extends Seeder
             // Manifests
             ['name' => 'manifests.view', 'display_name' => 'Ver Manifiestos', 'description' => 'Puede ver manifiestos y solicitudes de traspaso', 'module' => 'manifests'],
             ['name' => 'manifests.manage', 'display_name' => 'Gestionar Manifiestos', 'description' => 'Puede crear, asignar y resolver traspasos de manifiestos', 'module' => 'manifests'],
+
+            // Contract companies
+            ['name' => 'contracts.view', 'display_name' => 'Ver Contratos', 'description' => 'Puede ver empresas y contratos de envíos', 'module' => 'contracts'],
+            ['name' => 'contracts.manage', 'display_name' => 'Gestionar Contratos', 'description' => 'Puede crear, aprobar y ampliar contratos empresariales', 'module' => 'contracts'],
         ];
 
         foreach ($permissions as $permission) {

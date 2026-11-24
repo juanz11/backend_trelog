@@ -14,7 +14,15 @@ class ShipmentPolicy
 
     public function view(User $user, Shipment $shipment): bool
     {
-        return $user->can('shipments.view') || $shipment->user_id === $user->id;
+        if ($user->can('shipments.view')) {
+            return true;
+        }
+        if ($shipment->user_id === $user->id) {
+            return true;
+        }
+        // Miembros de la misma empresa por contrato ven los envíos de la empresa.
+        $company = $user->company();
+        return $company && $shipment->company_id === $company->id;
     }
 
     public function create(User $user): bool

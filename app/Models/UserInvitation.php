@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['email', 'name', 'company_name', 'inviter_name', 'token', 'status', 'expires_at'])]
+#[Fillable(['email', 'name', 'company_name', 'inviter_name', 'token', 'status', 'expires_at', 'company_id', 'member_role'])]
 class UserInvitation extends Model
 {
     use HasFactory;

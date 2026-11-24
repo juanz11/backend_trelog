@@ -74,6 +74,11 @@ class RoleSeeder extends Seeder
                 'display_name' => 'Finanzas / Facturación',
                 'description' => 'Gestiona facturación, pagos y reportes financieros',
             ],
+            [
+                'name' => 'shipment_agent',
+                'display_name' => 'Agente de Envíos (Contrato)',
+                'description' => 'Empleado de una empresa por contrato: crea envíos sin pago contra el cupo del contrato',
+            ],
         ];
 
         foreach ($roles as $role) {

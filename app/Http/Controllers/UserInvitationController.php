@@ -202,11 +202,15 @@ class UserInvitationController extends Controller
             ], 400);
         }
 
+        $company = $invitation->company_id ? \App\Models\Company::find($invitation->company_id) : null;
+
         return response()->json([
             'success' => true,
             'invitation' => [
                 'email' => $invitation->email,
                 'name' => $invitation->name,
+                'company_name' => $company?->name ?? $invitation->company_name,
+                'is_company' => (bool) $invitation->company_id,
             ],
         ]);
     }
@@ -250,11 +254,26 @@ class UserInvitationController extends Controller
             'email' => $invitation->email,
             'password' => Hash::make($request->password),
             'status' => 'active',
+            'email_verified_at' => now(), // el enlace del correo ya prueba la posesión del email
         ]);
 
-        $customerRole = Role::where('name', 'customer')->first();
-        if ($customerRole) {
-            $user->assignRole($customerRole);
+        if ($invitation->company_id) {
+            // Invitación de empresa: agente de envíos ligado al contrato.
+            $agentRole = Role::where('name', 'shipment_agent')->first();
+            if ($agentRole) {
+                $user->assignRole($agentRole);
+            }
+            \App\Models\CompanyMember::create([
+                'company_id' => $invitation->company_id,
+                'user_id' => $user->id,
+                'role' => $invitation->member_role ?: \App\Models\CompanyMember::ROLE_AGENT,
+                'status' => 'active',
+            ]);
+        } else {
+            $customerRole = Role::where('name', 'customer')->first();
+            if ($customerRole) {
+                $user->assignRole($customerRole);
+            }
         }
 
         // Mark invitation as accepted

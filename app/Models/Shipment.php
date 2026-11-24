@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'user_id',
+    'company_id',
+    'contract_id',
     'driver_id',
     'assigned_at',
     'tracking_number',
@@ -89,6 +91,16 @@ class Shipment extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function contract(): BelongsTo
+    {
+        return $this->belongsTo(Contract::class);
     }
 
     public function driver(): BelongsTo

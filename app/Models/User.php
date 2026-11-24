@@ -58,4 +58,29 @@ class User extends Authenticatable
     {
         return $this->hasMany(Address::class);
     }
+
+    /**
+     * Membership in a contract company (executive portal / agents).
+     */
+    public function companyMember(): HasOne
+    {
+        return $this->hasOne(CompanyMember::class);
+    }
+
+    /**
+     * Company this user belongs to via company_members.
+     */
+    public function company(): ?Company
+    {
+        $member = $this->companyMember;
+        return $member && $member->isActive() ? $member->company : null;
+    }
+
+    /**
+     * Active contract with remaining quota for the user's company, if any.
+     */
+    public function activeContract(): ?Contract
+    {
+        return $this->company()?->activeContract();
+    }
 }
