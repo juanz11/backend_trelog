@@ -7,6 +7,7 @@ use App\Models\DeliveryRoute;
 use App\Models\Manifest;
 use App\Models\ManifestDetail;
 use App\Models\RouteAuditLog;
+use App\Services\ManifestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -76,25 +77,27 @@ class RouteController extends Controller
             return response()->json(['message' => 'Esta ruta ya está completada.'], 409);
         }
 
-        // Sincronía: no se puede cerrar la jornada quedando paquetes
-        // pendientes en un manifiesto abierto del mismo chofer.
-        $manifestsAbiertos = Manifest::where('driver_id', $request->user()->id)
+        // Secuencia: al cerrar la jornada, todo manifiesto aún abierto del
+        // chofer se culmina automáticamente — sus paquetes pendientes quedan
+        // NO_ENTREGADO y su envío regresa a operaciones (devolución al
+        // almacén). Los que ya resolvieron todas sus paradas se cerraron
+        // solos al entregar la última, así que aquí solo caen los abiertos.
+        $manifestService = app(ManifestService::class);
+        $manifiestosCerrados = [];
+        Manifest::where('driver_id', $request->user()->id)
             ->whereIn('status', [Manifest::STATUS_ASIGNADO, Manifest::STATUS_EN_RUTA])
-            ->withCount([
-                'details as pendientes' => fn ($q) =>
-                    $q->where('status', ManifestDetail::STATUS_PENDIENTE),
-            ])
+            ->whereHas('details', fn ($q) =>
+                $q->where('status', ManifestDetail::STATUS_PENDIENTE))
             ->get()
-            ->filter(fn ($m) => $m->pendientes > 0);
-
-        if ($manifestsAbiertos->isNotEmpty()) {
-            $total = $manifestsAbiertos->sum('pendientes');
-            $codes = $manifestsAbiertos->pluck('code')->implode(', ');
-            return response()->json([
-                'message' => "Aún tienes {$total} paquete(s) pendiente(s) en el manifiesto {$codes}. Resuélvelos o finaliza el manifiesto primero.",
-                'code' => 'MANIFIESTO_PENDIENTE',
-            ], 422);
-        }
+            ->each(function (Manifest $manifest) use ($manifestService, &$manifiestosCerrados) {
+                // Una asistencia vial abierta sigue su propio flujo de
+                // resolución con operaciones — no se cierra aquí.
+                if ($manifest->roadside_assistance_pending) {
+                    return;
+                }
+                $manifestService->finalize($manifest);
+                $manifiestosCerrados[] = $manifest->code;
+            });
 
         $unresolvedStops = $route->stops()
             ->whereNotIn('state', ['Done', 'Failed'])
@@ -144,6 +147,8 @@ class RouteController extends Controller
             'title' => 'Ruta completada por el conductor',
             'meta' => ($data['notes'] ?? '') . ($unresolvedStops->isNotEmpty()
                 ? " · {$unresolvedStops->count()} parada(s) sin resolver"
+                : '') . ($manifiestosCerrados
+                ? ' · manifiesto(s) cerrados: ' . implode(', ', $manifiestosCerrados)
                 : ''),
         ]);
 

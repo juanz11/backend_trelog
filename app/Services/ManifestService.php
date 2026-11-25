@@ -27,7 +27,7 @@ class ManifestService
         'solicitarTraspaso' => [Manifest::STATUS_EN_RUTA],
         'rechazarTraspaso' => [Manifest::STATUS_EN_SOLICITUD_TRASPASO],
         'aprobarTraspaso' => [Manifest::STATUS_EN_SOLICITUD_TRASPASO],
-        'finalizar' => [Manifest::STATUS_EN_RUTA],
+        'finalizar' => [Manifest::STATUS_ASIGNADO, Manifest::STATUS_EN_RUTA],
     ];
 
     private function assertTransition(Manifest $manifest, string $evento): void
