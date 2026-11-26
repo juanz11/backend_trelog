@@ -209,10 +209,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{shipment}/cancel', [ShipmentController::class, 'cancel']);
         Route::post('/{shipment}/return-review', [ShipmentController::class, 'returnReview']);
         Route::post('/{shipment}/return-process', [ShipmentController::class, 'returnProcess']);
+        Route::get('/{shipment}/driver-location', [ShipmentController::class, 'driverLocation']);
         Route::get('/{id}', [ShipmentController::class, 'show']);
         Route::put('/{id}', [ShipmentController::class, 'update']);
         Route::patch('/{shipment}/driver', [ShipmentController::class, 'assignDriver']);
         Route::delete('/{id}', [ShipmentController::class, 'destroy']);
+    });
+
+    // Proxy de mapas para el panel (mismo fallback Google→OSRM/Nominatim
+    // que usa la app del chofer; no requiere key de Maps en el navegador).
+    Route::prefix('geo')->group(function () {
+        Route::get('/directions', [LocationController::class, 'directions']);
+        Route::get('/geocode', [LocationController::class, 'geocode']);
     });
 
     // Manifest Management Routes (Gestión de Manifiestos)

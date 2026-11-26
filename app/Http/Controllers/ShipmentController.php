@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CompanyMember;
 use App\Models\Contract;
+use App\Models\DriverLocation;
 use App\Models\Incident;
 use App\Models\LegalAcceptance;
 use App\Models\LegalDocument;
@@ -255,6 +256,52 @@ class ShipmentController extends Controller
         $shipment->return_recobro = $this->dispatch->returnRecobro($shipment);
 
         return response()->json($shipment);
+    }
+
+    /**
+     * Última posición GPS del chofer que lleva este envío (detalle del envío
+     * en camino: dónde va el chofer, sin exponer las demás paradas).
+     */
+    public function driverLocation(Shipment $shipment): JsonResponse
+    {
+        $this->authorize('view', $shipment);
+
+        $detail = $shipment->manifestDetail()
+            ->whereHas('manifest', fn ($q) => $q->whereIn('status', ['ASIGNADO', 'EN_RUTA']))
+            ->with('manifest')
+            ->first();
+
+        $driverId = $detail?->manifest?->driver_id ?? $shipment->driver_id;
+        if (! $driverId) {
+            return response()->json(['en_camino' => false, 'conductor' => null, 'ubicacion' => null]);
+        }
+
+        $driver = User::with('driverProfile')->find($driverId);
+        $loc = DriverLocation::where('driver_id', $driverId)
+            ->where('recorded_at', '>=', now()->subHours(12))
+            ->latest('recorded_at')
+            ->first();
+
+        return response()->json([
+            'en_camino' => $loc !== null,
+            'conductor' => $driver ? [
+                'id' => $driver->id,
+                'nombre' => $driver->name,
+                'vehiculo' => $driver->driverProfile?->vehicle,
+            ] : null,
+            'ubicacion' => $loc ? [
+                'lat' => $loc->lat,
+                'lng' => $loc->lng,
+                'rumbo' => $loc->heading,
+                'velocidad' => $loc->speed,
+                'fecha' => $loc->recorded_at?->toISOString(),
+            ] : null,
+            'manifiesto' => $detail?->manifest ? [
+                'codigo' => $detail->manifest->code,
+                'estado' => $detail->manifest->status,
+                'secuencia' => $detail->sequence,
+            ] : null,
+        ]);
     }
 
     public function update(Request $request, string $id): JsonResponse
