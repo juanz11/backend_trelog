@@ -267,12 +267,14 @@ class ShipmentController extends Controller
         $this->authorize('view', $shipment);
 
         $detail = $shipment->manifestDetail()
+            ->where('status', 'PENDIENTE')
             ->whereHas('manifest', fn ($q) => $q->whereIn('status', ['ASIGNADO', 'EN_RUTA']))
             ->with('manifest')
             ->first();
 
+        $terminal = in_array($shipment->status, ['delivered', 'entregado', 'cancelled', 'cancelado', 'cancel_requested']);
         $driverId = $detail?->manifest?->driver_id ?? $shipment->driver_id;
-        if (! $driverId) {
+        if (! $driverId || $terminal) {
             return response()->json(['en_camino' => false, 'conductor' => null, 'ubicacion' => null]);
         }
 
